@@ -6,6 +6,7 @@ import prismaPlugin from "./plugins/prisma.plugin.js";
 import { dbHealthRoutes } from "./routes/db-health.routes.js";
 import { BootstrapAdmin } from "./modules/auth/bootstrap-admin.js";
 import { jwtPlugin } from "./plugins/jwt.plugin.js";
+import { authenticatePlugin } from "./plugins/authenticate.plugin.js";
 import { authRoutes } from "./routes/auth.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -21,6 +22,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Register plugins
   await app.register(jwtPlugin);
+  await app.register(authenticatePlugin);
   await app.register(prismaPlugin);
 
   // Bootstrap admin after Prisma is connected

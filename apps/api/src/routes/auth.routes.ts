@@ -4,6 +4,18 @@ import { PasswordService } from "../modules/auth/password.service.js";
 import { loginSchema } from "@fiscora/validators";
 
 export async function authRoutes(fastify: FastifyInstance) {
+  fastify.get("/api/auth/me", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      return reply.send({
+        userId: request.user.userId,
+        email: request.user.email,
+        role: request.user.role,
+        organizationId: request.user.organizationId,
+      });
+    },
+  });
+
   fastify.post("/api/auth/login", {
     handler: async (request, reply) => {
       // Validate request body using loginSchema
