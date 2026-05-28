@@ -15,7 +15,8 @@
     "lint": "eslint \"**/*.{ts,tsx,js,jsx}\" --quiet",
     "typecheck": "pnpm --recursive typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\" && prisma format --schema prisma/schema.prisma",
-    "prisma:generate": "cross-env PRISMA_GENERATE_SKIP_AUTOINSTALL=true prisma generate --schema prisma/schema.prisma"
+    "prisma:generate": "cross-env PRISMA_GENERATE_SKIP_AUTOINSTALL=true prisma generate --schema prisma/schema.prisma",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.41",
@@ -25,6 +26,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^8.56.0",
     "prettier": "^3.2.4",
+    "tsx": "^4.22.3",
     "prisma": "5.22.0",
     "typescript": "^5.3.3"
   },
