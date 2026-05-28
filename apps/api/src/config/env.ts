@@ -16,10 +16,10 @@ const envSchema = z.object({
     .string()
     .default("postgresql://postgres:postgres@localhost:5432/fiscora?schema=public"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
-  API_PORT: z.coerce.number().default(4000),
+  API_PORT: z.coerce.number().default(4016),
   API_URL: z.string().default("http://localhost:4000"),
   WEB_URL: z.string().default("http://localhost:5173"),
-  JWT_ACCESS_SECRET: z.string().default("dev-jwt-access-secret-change-me"),
+  JWT_ACCESS_SECRET: z.string().min(32).default("dev-jwt-access-secret-change-me"),
   JWT_REFRESH_SECRET: z.string().default("dev-jwt-refresh-secret-change-me"),
   STRIPE_SECRET_KEY: z.string().default("sk_test_placeholder"),
   STRIPE_WEBHOOK_SECRET: z.string().default("whsec_placeholder"),

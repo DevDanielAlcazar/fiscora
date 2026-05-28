@@ -5,6 +5,8 @@ import { versionRoutes } from "./routes/version.routes.js";
 import prismaPlugin from "./plugins/prisma.plugin.js";
 import { dbHealthRoutes } from "./routes/db-health.routes.js";
 import { BootstrapAdmin } from "./modules/auth/bootstrap-admin.js";
+import { jwtPlugin } from "./plugins/jwt.plugin.js";
+import { authRoutes } from "./routes/auth.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -18,15 +20,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // Register plugins
+  await app.register(jwtPlugin);
   await app.register(prismaPlugin);
 
   // Bootstrap admin after Prisma is connected
-  await BootstrapAdmin.createAdminIfNotExists();
+  await BootstrapAdmin.createAdminIfNotExists(app);
 
   // Register routes
   await app.register(healthRoutes);
   await app.register(versionRoutes);
   await app.register(dbHealthRoutes);
+  await app.register(authRoutes);
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {

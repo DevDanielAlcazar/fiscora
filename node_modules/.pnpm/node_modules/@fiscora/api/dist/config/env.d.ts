@@ -19,12 +19,12 @@ declare const envSchema: z.ZodObject<{
     CLOUDFLARE_PUBLIC_DOMAIN: z.ZodDefault<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
+    JWT_ACCESS_SECRET: string;
     DATABASE_URL: string;
     REDIS_URL: string;
     API_PORT: number;
     API_URL: string;
     WEB_URL: string;
-    JWT_ACCESS_SECRET: string;
     JWT_REFRESH_SECRET: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
@@ -39,12 +39,12 @@ declare const envSchema: z.ZodObject<{
     NODE_ENV?: "development" | "production" | "test" | undefined;
     BOOTSTRAP_ADMIN_EMAIL?: string | undefined;
     BOOTSTRAP_ADMIN_PASSWORD?: string | undefined;
+    JWT_ACCESS_SECRET?: string | undefined;
     DATABASE_URL?: string | undefined;
     REDIS_URL?: string | undefined;
     API_PORT?: number | undefined;
     API_URL?: string | undefined;
     WEB_URL?: string | undefined;
-    JWT_ACCESS_SECRET?: string | undefined;
     JWT_REFRESH_SECRET?: string | undefined;
     STRIPE_SECRET_KEY?: string | undefined;
     STRIPE_WEBHOOK_SECRET?: string | undefined;
@@ -56,12 +56,12 @@ declare const envSchema: z.ZodObject<{
 }>;
 export declare const env: {
     NODE_ENV: "development" | "production" | "test";
+    JWT_ACCESS_SECRET: string;
     DATABASE_URL: string;
     REDIS_URL: string;
     API_PORT: number;
     API_URL: string;
     WEB_URL: string;
-    JWT_ACCESS_SECRET: string;
     JWT_REFRESH_SECRET: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;

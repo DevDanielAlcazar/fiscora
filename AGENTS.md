@@ -51,6 +51,10 @@ fiscora/
   - Variables de entorno: BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD
   - Evita duplicados y valida contraseñas
   - Rol: SUPER_ADMIN
+- **JWT Plugin**: `apps/api/src/plugins/jwt.plugin.ts`
+  - Integración con @fastify/jwt
+  - Tipo AuthTokenPayload con userId, email, role, organizationId opcional
+  - Tokens con expiración de 15 minutos
 
 ## Development Commands
 ```bash

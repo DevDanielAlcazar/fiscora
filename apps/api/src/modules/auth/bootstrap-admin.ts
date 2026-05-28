@@ -1,10 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import { PasswordService } from "./password.service.js";
 
-const prisma = new PrismaClient();
-
 export class BootstrapAdmin {
-  static async createAdminIfNotExists(): Promise<void> {
+  static async createAdminIfNotExists(fastify: any): Promise<void> {
     const adminEmail = process.env.BOOTSTRAP_ADMIN_EMAIL;
     const adminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
@@ -16,7 +13,7 @@ export class BootstrapAdmin {
 
     try {
       // Check if admin user already exists
-      const existingAdmin = await prisma.user.findUnique({
+      const existingAdmin = await fastify.prisma.user.findUnique({
         where: { email: adminEmail },
       });
 
@@ -29,7 +26,7 @@ export class BootstrapAdmin {
       const passwordHash = await PasswordService.hashPassword(adminPassword);
 
       // Create the admin user
-      const adminUser = await prisma.user.create({
+      const adminUser = await fastify.prisma.user.create({
         data: {
           email: adminEmail,
           passwordHash,
