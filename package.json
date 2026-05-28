@@ -1,0 +1,34 @@
+{
+  "name": "@fiscora/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo base for Fiscora SaaS Fiscal-Contable",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n \"api,web\" -c \"blue,magenta\" \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev:web": "pnpm --filter @fiscora/web dev",
+    "dev:api": "pnpm --filter @fiscora/api dev",
+    "build": "pnpm --recursive build",
+    "lint": "eslint \"**/*.{ts,tsx,js,jsx}\" --quiet",
+    "typecheck": "pnpm --recursive typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\" && prisma format --schema prisma/schema.prisma",
+    "prisma:generate": "cross-env PRISMA_GENERATE_SKIP_AUTOINSTALL=true prisma generate --schema prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.4",
+    "prisma": "5.22.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  }
+}

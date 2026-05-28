@@ -1,0 +1,145 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  name           String
+  role           String          @default("ORG_USER") // SUPER_ADMIN, ORG_ADMIN, ORG_USER, EXTERNAL_AUDITOR
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  auditLogs      AdminAuditLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Organization {
+  id            String                    @id @default(uuid())
+  name          String
+  rfc           String?
+  users         User[]
+  subscription  Subscription?
+  rfcProfiles   RfcProfile[]
+  usageEvents   UsageEvent[]
+  branding      AccountBranding?
+  xmlSessions   XmlAnalysisSession[]
+  laborSessions LaborCalculationSession[]
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+}
+
+model Plan {
+  id             String         @id @default(uuid())
+  key            String         @unique // ESSENTIAL, PROFESSIONAL, CORPORATION, FORENSIC_AUDITOR
+  name           String
+  stripePriceId  String         @unique
+  maxUsers       Int            @default(1)
+  maxRfcProfiles Int            @default(1)
+  subscriptions  Subscription[]
+}
+
+model Subscription {
+  id                   String       @id @default(uuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  planId               String
+  plan                 Plan         @relation(fields: [planId], references: [id])
+  stripeSubscriptionId String?      @unique
+  status               String // active, canceled, past_due, trialing, unpaid, incomplete
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model Module {
+  id              String  @id @default(uuid())
+  key             String  @unique // AUDITORIA_XML, LABORAL
+  name            String
+  description     String?
+  enabledGlobally Boolean @default(true)
+}
+
+model RfcProfile {
+  id             String       @id @default(uuid())
+  rfc            String
+  reason         String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model UsageEvent {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  eventType      String // XML_UPLOAD, LABOR_CALC
+  quantity       Int          @default(1)
+  description    String?
+  timestamp      DateTime     @default(now())
+}
+
+model StripeWebhookEvent {
+  id            String   @id @default(uuid())
+  stripeEventId String   @unique
+  type          String
+  body          String   @db.Text
+  processed     String   @default("PENDING") // PENDING, PROCESSED, FAILED
+  error         String?  @db.Text
+  createdAt     DateTime @default(now())
+}
+
+model AccountBranding {
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  logoUrl        String?
+  primaryColor   String?
+  customDomain   String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model XmlAnalysisSession {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  rfc            String
+  period         String
+  status         String // PENDING, PROCESSING, COMPLETED, FAILED
+  fileCount      Int
+  resultSummary  String?      @db.Text // JSON Summary string
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model LaborCalculationSession {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  employeeId      String
+  calculationType String // aguinaldo, prima_vacacional, finiquito, liquidacion, nomina
+  status          String // PENDING, PROCESSING, COMPLETED, FAILED
+  inputParams     String       @db.Text // JSON string
+  resultSummary   String?      @db.Text // JSON string
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model AdminAuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
