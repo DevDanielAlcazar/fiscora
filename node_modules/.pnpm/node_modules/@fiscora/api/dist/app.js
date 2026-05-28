@@ -4,21 +4,24 @@ import { healthRoutes } from "./routes/health.routes.js";
 import { versionRoutes } from "./routes/version.routes.js";
 import prismaPlugin from "./plugins/prisma.plugin.js";
 import { dbHealthRoutes } from "./routes/db-health.routes.js";
-export function buildApp() {
+import { BootstrapAdmin } from "./modules/auth/bootstrap-admin.js";
+export async function buildApp() {
     const app = fastify({
         logger: true,
     });
     // Enable CORS for frontend integration
-    app.register(cors, {
+    await app.register(cors, {
         origin: true, // Echoes back request origin, ideal for development
         credentials: true,
     });
     // Register plugins
-    app.register(prismaPlugin);
+    await app.register(prismaPlugin);
+    // Bootstrap admin after Prisma is connected
+    await BootstrapAdmin.createAdminIfNotExists();
     // Register routes
-    app.register(healthRoutes);
-    app.register(versionRoutes);
-    app.register(dbHealthRoutes);
+    await app.register(healthRoutes);
+    await app.register(versionRoutes);
+    await app.register(dbHealthRoutes);
     // Global error handler
     app.setErrorHandler((error, request, reply) => {
         app.log.error(error);

@@ -27,8 +27,8 @@ const envSchema = z.object({
   STRIPE_PRICE_PROFESSIONAL_MONTHLY: z.string().default("price_placeholder"),
   STRIPE_PRICE_CORPORATION_MONTHLY: z.string().default("price_placeholder"),
   STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY: z.string().default("price_placeholder"),
-  BOOTSTRAP_ADMIN_EMAIL: z.string().email().default("admin@fiscora.com"),
-  BOOTSTRAP_ADMIN_PASSWORD: z.string().min(8).default("changeme-12345"),
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().min(12).optional(),
   CLOUDFLARE_PUBLIC_DOMAIN: z.string().default("fiscora.com"),
 });
 

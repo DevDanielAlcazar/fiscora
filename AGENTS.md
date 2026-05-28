@@ -35,6 +35,7 @@ fiscora/
 ✅ **Backend**: Servidor Fastify con endpoints /health y /version
 ✅ **Database**: Prisma schema con modelos base
 ✅ **Auth**: Password service con argon2 hashing y validación
+✅ **Bootstrap Admin**: Sistema seguro para crear admin inicial
 ✅ **Validation**: Zod schemas para validación de datos
 ✅ **Code Quality**: ESLint y Prettier configurados
 
@@ -45,6 +46,11 @@ fiscora/
   - Verificación de contraseñas
   - Validación (mínimo 12 caracteres, no vacío)
   - Sin hardcodeo de secretos
+- **Bootstrap Admin**: `apps/api/src/modules/auth/bootstrap-admin.ts`
+  - Crea admin automáticamente en el arranque
+  - Variables de entorno: BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD
+  - Evita duplicados y valida contraseñas
+  - Rol: SUPER_ADMIN
 
 ## Development Commands
 ```bash

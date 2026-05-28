@@ -14,8 +14,8 @@ declare const envSchema: z.ZodObject<{
     STRIPE_PRICE_PROFESSIONAL_MONTHLY: z.ZodDefault<z.ZodString>;
     STRIPE_PRICE_CORPORATION_MONTHLY: z.ZodDefault<z.ZodString>;
     STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY: z.ZodDefault<z.ZodString>;
-    BOOTSTRAP_ADMIN_EMAIL: z.ZodDefault<z.ZodString>;
-    BOOTSTRAP_ADMIN_PASSWORD: z.ZodDefault<z.ZodString>;
+    BOOTSTRAP_ADMIN_EMAIL: z.ZodOptional<z.ZodString>;
+    BOOTSTRAP_ADMIN_PASSWORD: z.ZodOptional<z.ZodString>;
     CLOUDFLARE_PUBLIC_DOMAIN: z.ZodDefault<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
@@ -32,11 +32,13 @@ declare const envSchema: z.ZodObject<{
     STRIPE_PRICE_PROFESSIONAL_MONTHLY: string;
     STRIPE_PRICE_CORPORATION_MONTHLY: string;
     STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY: string;
-    BOOTSTRAP_ADMIN_EMAIL: string;
-    BOOTSTRAP_ADMIN_PASSWORD: string;
     CLOUDFLARE_PUBLIC_DOMAIN: string;
+    BOOTSTRAP_ADMIN_EMAIL?: string | undefined;
+    BOOTSTRAP_ADMIN_PASSWORD?: string | undefined;
 }, {
     NODE_ENV?: "development" | "production" | "test" | undefined;
+    BOOTSTRAP_ADMIN_EMAIL?: string | undefined;
+    BOOTSTRAP_ADMIN_PASSWORD?: string | undefined;
     DATABASE_URL?: string | undefined;
     REDIS_URL?: string | undefined;
     API_PORT?: number | undefined;
@@ -50,8 +52,6 @@ declare const envSchema: z.ZodObject<{
     STRIPE_PRICE_PROFESSIONAL_MONTHLY?: string | undefined;
     STRIPE_PRICE_CORPORATION_MONTHLY?: string | undefined;
     STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY?: string | undefined;
-    BOOTSTRAP_ADMIN_EMAIL?: string | undefined;
-    BOOTSTRAP_ADMIN_PASSWORD?: string | undefined;
     CLOUDFLARE_PUBLIC_DOMAIN?: string | undefined;
 }>;
 export declare const env: {
@@ -69,9 +69,9 @@ export declare const env: {
     STRIPE_PRICE_PROFESSIONAL_MONTHLY: string;
     STRIPE_PRICE_CORPORATION_MONTHLY: string;
     STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY: string;
-    BOOTSTRAP_ADMIN_EMAIL: string;
-    BOOTSTRAP_ADMIN_PASSWORD: string;
     CLOUDFLARE_PUBLIC_DOMAIN: string;
+    BOOTSTRAP_ADMIN_EMAIL?: string | undefined;
+    BOOTSTRAP_ADMIN_PASSWORD?: string | undefined;
 };
 export type Env = z.infer<typeof envSchema>;
 export {};
