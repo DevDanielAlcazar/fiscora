@@ -17,6 +17,7 @@
     "@fiscora/validators": "workspace:*",
     "@fiscora/xml-engine": "workspace:*",
     "@prisma/client": "5.22.0",
+    "argon2": "^0.44.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.26.1",
     "fastify-plugin": "^5.1.0",

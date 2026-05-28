@@ -1,8 +1,76 @@
 # AGENTS.md — fiscora / contable
 
-This repo has no commits yet. Remote: `https://github.com/DevDanielAlcazar/fiscora.git`
+Monorepo for Fiscora SaaS fiscal-contable mexicano propiedad de ConSafeDev.
+Remote: `https://github.com/DevDanielAlcazar/fiscora.git`
 
-- Local folder name: `contable` (Spanish for "accounting")
-- Original fiscora was a hackathon project (Flask + React + Vite + TailwindCSS, Plaid API, Google Gemini, TensorFlow/Keras). This may be a fresh start or partial rewrite, so do not assume the old stack.
-- Until code exists, first look for any `README*`, `package.json`, `composer.json`, `requirements.txt`, or `.gitignore` to determine the intended stack.
-- After initializing, run lint → typecheck → test before committing.
+## Tech Stack
+- **Frontend**: React + Vite + TypeScript + TailwindCSS
+- **Backend**: Node.js + TypeScript + Fastify
+- **Database**: PostgreSQL con Prisma
+- **Package Manager**: pnpm workspaces
+- **Authentication**: argon2 for password hashing
+- **Validation**: Zod schemas
+- **Code Quality**: ESLint + Prettier
+
+## Project Structure
+```
+fiscora/
+├─ apps/
+│  ├─ web/          # Frontend React + Vite
+│  └─ api/          # Backend Fastify + TypeScript
+├─ packages/
+│  ├─ shared/       # Tipos compartidos
+│  ├─ validators/   # Zod schemas
+│  ├─ xml-engine/   # Motor de auditoría XML
+│  ├─ labor-engine/ # Motor laboral mexicano
+│  └─ config/       # Configuración compartida
+├─ prisma/          # Schema PostgreSQL
+├─ docs/            # Documentación
+└─ scripts/         # Scripts utilitarios
+```
+
+## Current Implementation Status
+✅ **Base Structure**: Monorepo con pnpm workspaces configurado
+✅ **Frontend**: App React + Vite + TailwindCSS con layout básico
+✅ **Backend**: Servidor Fastify con endpoints /health y /version
+✅ **Database**: Prisma schema con modelos base
+✅ **Auth**: Password service con argon2 hashing y validación
+✅ **Validation**: Zod schemas para validación de datos
+✅ **Code Quality**: ESLint y Prettier configurados
+
+## Auth Module
+- **Location**: `apps/api/src/modules/auth/password.service.ts`
+- **Features**: 
+  - Hash seguro con argon2
+  - Verificación de contraseñas
+  - Validación (mínimo 12 caracteres, no vacío)
+  - Sin hardcodeo de secretos
+
+## Development Commands
+```bash
+# Instalar dependencias
+pnpm install
+
+# Levantar desarrollo
+pnpm dev          # API + Web concurrently
+pnpm dev:api      # Solo backend
+pnpm dev:web      # Solo frontend
+
+# Validación
+pnpm lint         # ESLint
+pnpm typecheck    # TypeScript
+pnpm format       # Prettier + Prisma format
+pnpm prisma:generate  # Generar Prisma client
+```
+
+## Next Steps
+- Implementar sistema de autenticación completo
+- Crear bootstrap admin seguro
+- Implementar Stripe integration
+- Desarrollar módulos XML y laboral
+
+## Security Notes
+- Nunca hardcodear credenciales o secretos
+- Usar variables de entorno para todos los secrets
+- Contraseñas mínimas 12 caracteres
+- Validar todas las entradas con Zod
