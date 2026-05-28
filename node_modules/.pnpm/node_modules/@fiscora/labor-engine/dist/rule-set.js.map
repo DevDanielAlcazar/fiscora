@@ -1,0 +1,1 @@
+{"version":3,"file":"rule-set.js","sourceRoot":"","sources":["../src/rule-set.ts"],"names":[],"mappings":"AAEA;;GAEG;AACH,MAAM,UAAU,iBAAiB,CAAC,IAAI,GAAG,IAAI;IAC3C,kFAAkF;IAClF,OAAO;QACL,IAAI;QACJ,WAAW,EAAE,MAAM;QACnB,QAAQ,EAAE,KAAK;QACf,gBAAgB,EAAE,EAAE;QACpB,sBAAsB,EAAE,IAAI;KAC7B,CAAC;AACJ,CAAC"}

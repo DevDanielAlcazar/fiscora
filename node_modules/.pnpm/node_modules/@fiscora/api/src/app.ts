@@ -1,0 +1,45 @@
+import fastify, { FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
+import { healthRoutes } from "./routes/health.routes.js";
+import { versionRoutes } from "./routes/version.routes.js";
+import prismaPlugin from "./plugins/prisma.plugin.js";
+import { dbHealthRoutes } from "./routes/db-health.routes.js";
+
+export function buildApp(): FastifyInstance {
+  const app = fastify({
+    logger: true,
+  });
+
+  // Enable CORS for frontend integration
+  app.register(cors, {
+    origin: true, // Echoes back request origin, ideal for development
+    credentials: true,
+  });
+
+  // Register plugins
+  app.register(prismaPlugin);
+
+  // Register routes
+  app.register(healthRoutes);
+  app.register(versionRoutes);
+  app.register(dbHealthRoutes);
+
+  // Global error handler
+  app.setErrorHandler((error, request, reply) => {
+    app.log.error(error);
+
+    const statusCode = error.statusCode || 500;
+    const isClientError = statusCode >= 400 && statusCode < 500;
+
+    reply.status(statusCode).send({
+      success: false,
+      error: {
+        code: error.code || "INTERNAL_SERVER_ERROR",
+        message: isClientError ? error.message : "Ocurrió un error interno en el servidor",
+        statusCode,
+      },
+    });
+  });
+
+  return app;
+}
