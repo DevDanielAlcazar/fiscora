@@ -5,6 +5,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AdminWebhookPage from "./pages/AdminWebhookPage";
 import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
+import PlansPage from "./pages/PlansPage";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
       <Route path="/admin/stripe-webhook" element={<AdminWebhookPage />} />
       <Route path="/billing/success" element={<BillingSuccessPage />} />
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
+      <Route path="/plans" element={<PlansPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

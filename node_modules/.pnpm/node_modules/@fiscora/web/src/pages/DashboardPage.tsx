@@ -74,6 +74,13 @@ export default function DashboardPage() {
         )}
 
         <button
+          onClick={() => navigate("/plans")}
+          className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+        >
+          Ver planes
+        </button>
+
+        <button
           onClick={() => {
             localStorage.removeItem("accessToken");
             navigate("/login");

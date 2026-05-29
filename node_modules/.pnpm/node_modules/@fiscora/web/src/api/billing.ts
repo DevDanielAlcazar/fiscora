@@ -1,0 +1,22 @@
+export async function createCheckoutSession(
+  token: string,
+  planKey: string,
+  billingCycle: string,
+): Promise<string> {
+  const res = await fetch("/api/billing/checkout", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ planKey, billingCycle }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al crear la sesión de pago");
+  }
+
+  const data = await res.json();
+  return data.url as string;
+}
