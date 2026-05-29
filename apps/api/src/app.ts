@@ -9,6 +9,8 @@ import { jwtPlugin } from "./plugins/jwt.plugin.js";
 import { authenticatePlugin } from "./plugins/authenticate.plugin.js";
 import { authRoutes } from "./routes/auth.routes.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhooks.routes.js";
+import { adminRoutes } from "./routes/admin.routes.js";
+import { billingRoutes } from "./routes/billing.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -35,6 +37,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(dbHealthRoutes);
   await app.register(authRoutes);
   await app.register(stripeWebhookRoutes);
+  await app.register(adminRoutes);
+  await app.register(billingRoutes);
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {

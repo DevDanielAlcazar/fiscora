@@ -63,6 +63,25 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {user.role === "SUPER_ADMIN" && (
+          <button
+            onClick={() => navigate("/admin/stripe-webhook")}
+            className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+          >
+            Webhook Stripe
+          </button>
+        )}
+
+        <button
+          onClick={() => {
+            localStorage.removeItem("accessToken");
+            navigate("/login");
+          }}
+          className="w-full py-2.5 px-4 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-muted transition-all"
+        >
+          Cerrar sesión
+        </button>
       </div>
     </div>
   );

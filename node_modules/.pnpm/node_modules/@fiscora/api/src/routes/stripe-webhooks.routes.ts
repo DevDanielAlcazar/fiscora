@@ -29,7 +29,30 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
         const rawBody = request.body as Buffer;
         const event = stripe.webhooks.constructEvent(rawBody, sig, env.STRIPE_WEBHOOK_SECRET);
 
-        fastify.log.info({ eventId: event.id, eventType: event.type }, "Stripe webhook received");
+        const existing = await fastify.prisma.stripeWebhookEvent.findUnique({
+          where: { stripeEventId: event.id },
+          select: { id: true },
+        });
+
+        if (existing) {
+          fastify.log.info(
+            { eventId: event.id, eventType: event.type },
+            "Stripe webhook duplicate, skipping",
+          );
+          return reply.send({ received: true, duplicate: true });
+        }
+
+        await fastify.prisma.stripeWebhookEvent.create({
+          data: {
+            stripeEventId: event.id,
+            type: event.type,
+            livemode: event.livemode,
+            status: "RECEIVED",
+            receivedAt: new Date(),
+          },
+        });
+
+        fastify.log.info({ eventId: event.id, eventType: event.type }, "Stripe webhook saved");
 
         return reply.send({ received: true });
       } catch (err) {

@@ -89,13 +89,16 @@ model UsageEvent {
 }
 
 model StripeWebhookEvent {
-  id            String   @id @default(uuid())
-  stripeEventId String   @unique
+  id            String    @id @default(uuid())
+  stripeEventId String    @unique
   type          String
-  body          String   @db.Text
-  processed     String   @default("PENDING") // PENDING, PROCESSED, FAILED
-  error         String?  @db.Text
-  createdAt     DateTime @default(now())
+  livemode      Boolean   @default(false)
+  status        String    @default("RECEIVED") // RECEIVED, PROCESSED, FAILED
+  receivedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  errorMessage  String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model AccountBranding {
