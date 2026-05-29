@@ -51,18 +51,22 @@ export async function billingRoutes(fastify: FastifyInstance) {
       try {
         const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
+        const metadata = {
+          userId: request.user.userId,
+          organizationId: request.user.organizationId ?? "",
+          planKey,
+          billingCycle,
+        };
+
         const session = await stripe.checkout.sessions.create({
           mode: "subscription",
           line_items: [{ price: priceId, quantity: 1 }],
           success_url: `${env.WEB_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${env.WEB_URL}/billing/cancel`,
           customer_email: request.user.email,
-          metadata: {
-            userId: request.user.userId,
-            organizationId: request.user.organizationId ?? "",
-            planKey,
-            billingCycle,
-          },
+          client_reference_id: request.user.organizationId ?? request.user.userId,
+          metadata,
+          subscription_data: { metadata },
         });
 
         fastify.log.info(

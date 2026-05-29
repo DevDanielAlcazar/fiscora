@@ -21,19 +21,20 @@ model User {
 }
 
 model Organization {
-  id            String                    @id @default(uuid())
-  name          String
-  accountType   String? // INDIVIDUAL, ORGANIZATION
-  rfc           String?
-  users         User[]
-  subscription  Subscription?
-  rfcProfiles   RfcProfile[]
-  usageEvents   UsageEvent[]
-  branding      AccountBranding?
-  xmlSessions   XmlAnalysisSession[]
-  laborSessions LaborCalculationSession[]
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
+  id               String                    @id @default(uuid())
+  name             String
+  stripeCustomerId String?
+  accountType      String? // INDIVIDUAL, ORGANIZATION
+  rfc              String?
+  users            User[]
+  subscription     Subscription?
+  rfcProfiles      RfcProfile[]
+  usageEvents      UsageEvent[]
+  branding         AccountBranding?
+  xmlSessions      XmlAnalysisSession[]
+  laborSessions    LaborCalculationSession[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 }
 
 model Plan {

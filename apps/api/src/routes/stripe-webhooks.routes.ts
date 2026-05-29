@@ -14,6 +14,61 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     },
   );
 
+  async function processCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+    if (session.mode !== "subscription") return;
+
+    const metadata = session.metadata ?? {};
+    const organizationId = metadata.organizationId;
+    const planKey = metadata.planKey;
+
+    if (!organizationId || !planKey) {
+      throw new Error("Faltan datos de metadata: organizationId o planKey");
+    }
+
+    const organization = await fastify.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+
+    if (!organization) {
+      throw new Error(`Organization ${organizationId} no encontrada`);
+    }
+
+    const plan = await fastify.prisma.plan.findUnique({
+      where: { key: planKey },
+    });
+
+    if (!plan) {
+      throw new Error(`Plan ${planKey} no encontrado`);
+    }
+
+    const stripeSubscriptionId = (session.subscription as string) ?? undefined;
+    const stripeCustomerId = (session.customer as string) ?? undefined;
+
+    await fastify.prisma.$transaction(async (tx) => {
+      await tx.subscription.update({
+        where: { organizationId },
+        data: {
+          planId: plan.id,
+          status: "active",
+          stripeSubscriptionId,
+        },
+      });
+
+      if (stripeCustomerId) {
+        await tx.organization.update({
+          where: { id: organizationId },
+          data: { stripeCustomerId },
+        });
+      }
+    });
+
+    fastify.log.info(
+      { organizationId, planKey, stripeSubscriptionId },
+      "Subscription updated from checkout.session.completed",
+    );
+  }
+
   fastify.post("/api/webhooks/stripe", {
     handler: async (request, reply) => {
       const sig = (request.headers["stripe-signature"] as string) ?? "";
@@ -29,21 +84,10 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
         const rawBody = request.body as Buffer;
         const event = stripe.webhooks.constructEvent(rawBody, sig, env.STRIPE_WEBHOOK_SECRET);
 
-        const existing = await fastify.prisma.stripeWebhookEvent.findUnique({
+        const record = await fastify.prisma.stripeWebhookEvent.upsert({
           where: { stripeEventId: event.id },
-          select: { id: true },
-        });
-
-        if (existing) {
-          fastify.log.info(
-            { eventId: event.id, eventType: event.type },
-            "Stripe webhook duplicate, skipping",
-          );
-          return reply.send({ received: true, duplicate: true });
-        }
-
-        await fastify.prisma.stripeWebhookEvent.create({
-          data: {
+          update: {},
+          create: {
             stripeEventId: event.id,
             type: event.type,
             livemode: event.livemode,
@@ -52,7 +96,50 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
           },
         });
 
-        fastify.log.info({ eventId: event.id, eventType: event.type }, "Stripe webhook saved");
+        if (record.status === "PROCESSED") {
+          fastify.log.info(
+            { eventId: event.id, eventType: event.type },
+            "Stripe webhook already processed, skipping",
+          );
+          return reply.send({ received: true, duplicate: true });
+        }
+
+        try {
+          if (event.type === "checkout.session.completed") {
+            await processCheckoutSessionCompleted(
+              event.data.object as Stripe.Checkout.Session,
+            );
+          }
+
+          await fastify.prisma.stripeWebhookEvent.update({
+            where: { id: record.id },
+            data: { status: "PROCESSED", processedAt: new Date() },
+          });
+
+          fastify.log.info(
+            { eventId: event.id, eventType: event.type },
+            "Stripe webhook processed successfully",
+          );
+        } catch (processingError) {
+          const errorMessage =
+            processingError instanceof Error
+              ? processingError.message.slice(0, 500)
+              : "Error desconocido";
+
+          await fastify.prisma.stripeWebhookEvent.update({
+            where: { id: record.id },
+            data: {
+              status: "FAILED",
+              errorMessage,
+              processedAt: new Date(),
+            },
+          });
+
+          fastify.log.error(
+            { eventId: event.id, eventType: event.type, errorMessage },
+            "Failed to process Stripe webhook",
+          );
+        }
 
         return reply.send({ received: true });
       } catch (err) {
