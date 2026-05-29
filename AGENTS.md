@@ -4,6 +4,7 @@ Monorepo for Fiscora SaaS fiscal-contable mexicano propiedad de ConSafeDev.
 Remote: `https://github.com/DevDanielAlcazar/fiscora.git`
 
 ## Tech Stack
+
 - **Frontend**: React + Vite + TypeScript + TailwindCSS
 - **Backend**: Node.js + TypeScript + Fastify
 - **Database**: PostgreSQL con Prisma
@@ -13,6 +14,7 @@ Remote: `https://github.com/DevDanielAlcazar/fiscora.git`
 - **Code Quality**: ESLint + Prettier
 
 ## Project Structure
+
 ```
 fiscora/
 ├─ apps/
@@ -30,6 +32,7 @@ fiscora/
 ```
 
 ## Current Implementation Status
+
 ✅ **Base Structure**: Monorepo con pnpm workspaces configurado
 ✅ **Frontend**: App React + Vite + TailwindCSS con layout básico
 ✅ **Backend**: Servidor Fastify con endpoints /health y /version
@@ -40,8 +43,9 @@ fiscora/
 ✅ **Code Quality**: ESLint y Prettier configurados
 
 ## Auth Module
+
 - **Location**: `apps/api/src/modules/auth/password.service.ts`
-- **Features**: 
+- **Features**:
   - Hash seguro con argon2
   - Verificación de contraseñas
   - Validación (mínimo 12 caracteres, no vacío)
@@ -57,6 +61,7 @@ fiscora/
   - Tokens con expiración de 15 minutos
 
 ## Development Commands
+
 ```bash
 # Instalar dependencias
 pnpm install
@@ -74,12 +79,14 @@ pnpm prisma:generate  # Generar Prisma client
 ```
 
 ## Next Steps
+
 - Implementar sistema de autenticación completo
 - Crear bootstrap admin seguro
 - Implementar Stripe integration
 - Desarrollar módulos XML y laboral
 
 ## Security Notes
+
 - Nunca hardcodear credenciales o secretos
 - Usar variables de entorno para todos los secrets
 - Contraseñas mínimas 12 caracteres

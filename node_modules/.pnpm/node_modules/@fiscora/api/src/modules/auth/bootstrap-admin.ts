@@ -37,7 +37,10 @@ export class BootstrapAdmin {
 
       console.log("✅ Bootstrap admin: Admin user created successfully:", adminUser.email);
     } catch (error) {
-      console.error("❌ Bootstrap admin: Failed to create admin user:", error instanceof Error ? error.message : "Unknown error");
+      console.error(
+        "❌ Bootstrap admin: Failed to create admin user:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
     }
   }
 }

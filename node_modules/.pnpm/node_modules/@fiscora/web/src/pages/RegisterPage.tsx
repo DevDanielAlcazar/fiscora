@@ -21,7 +21,13 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const body: { name: string; email: string; password: string; accountType: "INDIVIDUAL" | "ORGANIZATION"; organizationName?: string } = {
+      const body: {
+        name: string;
+        email: string;
+        password: string;
+        accountType: "INDIVIDUAL" | "ORGANIZATION";
+        organizationName?: string;
+      } = {
         name,
         email,
         password,
@@ -138,7 +144,9 @@ export default function RegisterPage() {
           )}
 
           {success && (
-            <p className="text-sm text-emerald-500 bg-emerald-500/10 rounded-lg px-3 py-2">{success}</p>
+            <p className="text-sm text-emerald-500 bg-emerald-500/10 rounded-lg px-3 py-2">
+              {success}
+            </p>
           )}
 
           <button

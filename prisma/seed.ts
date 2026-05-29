@@ -53,12 +53,32 @@ async function main() {
   console.log("🌱 Seeding modules...");
 
   const modules = [
-    { key: "AUDITORIA_XML", name: "Auditoría XML", description: "Módulo de auditoría y análisis de XML contables" },
+    {
+      key: "AUDITORIA_XML",
+      name: "Auditoría XML",
+      description: "Módulo de auditoría y análisis de XML contables",
+    },
     { key: "LABORAL", name: "Laboral", description: "Módulo de cálculos laborales mexicanos" },
-    { key: "ADMIN_STRIPE_WEBHOOK", name: "Admin Stripe Webhook", description: "Gestión de webhooks de Stripe" },
-    { key: "ADMIN_USERS", name: "Admin Usuarios", description: "Administración de usuarios del sistema" },
-    { key: "ADMIN_MODULES", name: "Admin Módulos", description: "Administración de módulos del sistema" },
-    { key: "ADMIN_ANALYTICS", name: "Admin Analytics", description: "Analíticas y reportes del sistema" },
+    {
+      key: "ADMIN_STRIPE_WEBHOOK",
+      name: "Admin Stripe Webhook",
+      description: "Gestión de webhooks de Stripe",
+    },
+    {
+      key: "ADMIN_USERS",
+      name: "Admin Usuarios",
+      description: "Administración de usuarios del sistema",
+    },
+    {
+      key: "ADMIN_MODULES",
+      name: "Admin Módulos",
+      description: "Administración de módulos del sistema",
+    },
+    {
+      key: "ADMIN_ANALYTICS",
+      name: "Admin Analytics",
+      description: "Analíticas y reportes del sistema",
+    },
   ];
 
   for (const mod of modules) {

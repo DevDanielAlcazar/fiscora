@@ -12,7 +12,7 @@ export async function dbHealthRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error(error, "Fallo al verificar la conexión a la base de datos");
-      
+
       // Respond with a controlled message without exposing credentials or internal Prisma errors
       return reply.status(500).send({
         success: false,

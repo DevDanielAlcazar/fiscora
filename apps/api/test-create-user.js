@@ -3,23 +3,23 @@
 // Test script to create a test user
 // This can be run with: node test-create-user.js
 
-import { PrismaClient } from '@prisma/client';
-import { hash } from 'argon2';
+import { PrismaClient } from "@prisma/client";
+import { hash } from "argon2";
 
 const prisma = new PrismaClient();
 
 async function createTestUser() {
   try {
-    const email = 'test@example.com';
-    const password = 'test-password-123456';
-    
+    const email = "test@example.com";
+    const password = "test-password-123456";
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (existingUser) {
-      console.log('User already exists:', email);
+      console.log("User already exists:", email);
       return;
     }
 
@@ -31,17 +31,16 @@ async function createTestUser() {
       data: {
         email,
         passwordHash,
-        name: 'Test User',
-        role: 'SUPER_ADMIN'
-      }
+        name: "Test User",
+        role: "SUPER_ADMIN",
+      },
     });
 
-    console.log('User created successfully:', user);
-    console.log('Email:', email);
-    console.log('Password:', password);
-    
+    console.log("User created successfully:", user);
+    console.log("Email:", email);
+    console.log("Password:", password);
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error("Error creating user:", error);
   } finally {
     await prisma.$disconnect();
   }

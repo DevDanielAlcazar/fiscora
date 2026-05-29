@@ -8,6 +8,7 @@ import { BootstrapAdmin } from "./modules/auth/bootstrap-admin.js";
 import { jwtPlugin } from "./plugins/jwt.plugin.js";
 import { authenticatePlugin } from "./plugins/authenticate.plugin.js";
 import { authRoutes } from "./routes/auth.routes.js";
+import { stripeWebhookRoutes } from "./routes/stripe-webhooks.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -33,6 +34,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(versionRoutes);
   await app.register(dbHealthRoutes);
   await app.register(authRoutes);
+  await app.register(stripeWebhookRoutes);
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {
