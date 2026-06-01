@@ -37,6 +37,16 @@ export async function billingRoutes(fastify: FastifyInstance) {
       }
 
       const { planKey, billingCycle } = parseResult.data;
+
+      if (!request.user.organizationId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "La cuenta no tiene organización asociada para facturación",
+          },
+        });
+      }
+
       const priceId = PRICE_MAP[planKey][billingCycle];
 
       if (!priceId || priceId === "price_placeholder") {
@@ -53,7 +63,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
 
         const metadata = {
           userId: request.user.userId,
-          organizationId: request.user.organizationId ?? "",
+          organizationId: request.user.organizationId,
           planKey,
           billingCycle,
         };
@@ -84,6 +94,47 @@ export async function billingRoutes(fastify: FastifyInstance) {
           },
         });
       }
+    },
+  });
+
+  fastify.get("/api/billing/current-plan", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (!request.user.organizationId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "La cuenta no tiene organización asociada",
+          },
+        });
+      }
+
+      const subscription = await fastify.prisma.subscription.findUnique({
+        where: { organizationId: request.user.organizationId },
+        select: {
+          status: true,
+          stripeSubscriptionId: true,
+          plan: {
+            select: {
+              key: true,
+              name: true,
+              maxRfcProfiles: true,
+              maxUsers: true,
+            },
+          },
+        },
+      });
+
+      if (!subscription) {
+        return reply.code(404).send({
+          error: {
+            code: "NOT_FOUND",
+            message: "No se encontró una suscripción activa",
+          },
+        });
+      }
+
+      return reply.send({ subscription });
     },
   });
 }
