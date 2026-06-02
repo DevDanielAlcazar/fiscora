@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
-import { getUsers, type UserEntry } from "../api/admin";
+import { getUsers, updateUserPlan, type UserEntry } from "../api/admin";
 
 export default function AdminUsersPage() {
   const navigate = useNavigate();
@@ -10,6 +10,17 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [planChangeError, setPlanChangeError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  function fetchUsers() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    getUsers(token).then(setUsers).catch((err) => setError(err.message));
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -19,11 +30,7 @@ export default function AdminUsersPage() {
     }
 
     getMe(token)
-      .then(() =>
-        getUsers(token)
-          .then(setUsers)
-          .catch((err) => setError(err.message)),
-      )
+      .then(() => fetchUsers())
       .catch(() => {
         localStorage.removeItem("accessToken");
         navigate("/login");
@@ -80,6 +87,29 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handlePlanChange(userId: string, planKey: string) {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!window.confirm("¿Confirmas cambiar el plan de este usuario?")) return;
+
+    setPlanChangeError("");
+    setSuccessMsg("");
+
+    try {
+      const result = await updateUserPlan(token, userId, planKey);
+      setSuccessMsg(result.message);
+      fetchUsers();
+    } catch (err) {
+      setPlanChangeError(err instanceof Error ? err.message : "Error desconocido");
+    }
+  }
+
+  const PLAN_OPTIONS = ["ESSENTIAL", "PROFESSIONAL", "CORPORATION", "FORENSIC_AUDITOR"];
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -118,6 +148,14 @@ export default function AdminUsersPage() {
           <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{exportError}</p>
         )}
 
+        {planChangeError && (
+          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{planChangeError}</p>
+        )}
+
+        {successMsg && (
+          <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-4 py-3">{successMsg}</p>
+        )}
+
         <button
           onClick={handleExport}
           disabled={exporting}
@@ -154,7 +192,21 @@ export default function AdminUsersPage() {
                     {user.organization?.accountType ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    {user.organization?.subscription?.plan.name ?? "Sin suscripción"}
+                    {user.organization ? (
+                      <select
+                        value={user.organization.subscription?.plan.key ?? "ESSENTIAL"}
+                        onChange={(e) => handlePlanChange(user.id, e.target.value)}
+                        className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm cursor-pointer"
+                      >
+                        {PLAN_OPTIONS.map((key) => (
+                          <option key={key} value={key}>
+                            {key}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-muted-foreground">Sin organización</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 capitalize">
                     {user.organization?.subscription?.status ?? "—"}

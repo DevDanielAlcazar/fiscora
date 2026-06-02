@@ -130,3 +130,29 @@ export async function getUsers(token: string): Promise<UserEntry[]> {
 
   return res.json();
 }
+
+export async function updateUserPlan(
+  token: string,
+  userId: string,
+  planKey: string,
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`/api/admin/users/${userId}/plan`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ planKey }),
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al cambiar plan");
+  }
+
+  return res.json();
+}
