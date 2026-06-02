@@ -8,6 +8,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -37,6 +39,45 @@ export default function AdminUsersPage() {
       EXTERNAL_AUDITOR: "Auditor Externo",
     };
     return labels[role] ?? role;
+  }
+
+  async function handleExport() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    setExportError("");
+    setExporting(true);
+
+    try {
+      const res = await fetch("/api/admin/users/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.status === 403) {
+        throw new Error("No tienes permisos de administrador");
+      }
+
+      if (!res.ok) {
+        throw new Error("Error al exportar usuarios");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fiscora-usuarios.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setExporting(false);
+    }
   }
 
   if (loading) {
@@ -72,6 +113,18 @@ export default function AdminUsersPage() {
         {error && (
           <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{error}</p>
         )}
+
+        {exportError && (
+          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{exportError}</p>
+        )}
+
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+        >
+          {exporting ? "Exportando..." : "Exportar Excel"}
+        </button>
 
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
