@@ -69,6 +69,150 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     );
   }
 
+  async function processSubscriptionUpdated(subscription: Stripe.Subscription) {
+    const stripeSubscriptionId = subscription.id;
+    const status = subscription.status;
+    const metadata = subscription.metadata ?? {};
+
+    const updateData: {
+      status: string;
+      stripeSubscriptionId: string;
+      planId?: string;
+    } = {
+      status,
+      stripeSubscriptionId,
+    };
+
+    const organizationId = metadata.organizationId;
+    const planKey = metadata.planKey;
+
+    if (organizationId && planKey) {
+      const plan = await fastify.prisma.plan.findUnique({
+        where: { key: planKey },
+        select: { id: true },
+      });
+
+      if (plan) {
+        updateData.planId = plan.id;
+      }
+    }
+
+    await fastify.prisma.subscription.update({
+      where: { stripeSubscriptionId },
+      data: updateData,
+    });
+
+    fastify.log.info(
+      { stripeSubscriptionId, status },
+      "Subscription updated from customer.subscription.updated",
+    );
+  }
+
+  async function processSubscriptionDeleted(subscription: Stripe.Subscription) {
+    const stripeSubscriptionId = subscription.id;
+
+    const existing = await fastify.prisma.subscription.findUnique({
+      where: { stripeSubscriptionId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      fastify.log.warn(
+        { stripeSubscriptionId },
+        "Subscription not found for customer.subscription.deleted",
+      );
+      return;
+    }
+
+    const essentialPlan = await fastify.prisma.plan.findUnique({
+      where: { key: "ESSENTIAL" },
+      select: { id: true },
+    });
+
+    await fastify.prisma.subscription.update({
+      where: { stripeSubscriptionId },
+      data: {
+        status: "canceled",
+        ...(essentialPlan ? { planId: essentialPlan.id } : {}),
+      },
+    });
+
+    fastify.log.info(
+      { stripeSubscriptionId },
+      "Subscription canceled and reverted to Essential from customer.subscription.deleted",
+    );
+  }
+
+  async function processInvoicePaymentFailed(invoice: Stripe.Invoice) {
+    const stripeSubscriptionId =
+      typeof invoice.parent?.subscription_details?.subscription === "string"
+        ? invoice.parent.subscription_details.subscription
+        : null;
+
+    if (!stripeSubscriptionId) {
+      fastify.log.warn("Invoice has no subscription reference");
+      return;
+    }
+
+    const existing = await fastify.prisma.subscription.findUnique({
+      where: { stripeSubscriptionId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      fastify.log.warn(
+        { stripeSubscriptionId },
+        "Subscription not found for invoice.payment_failed",
+      );
+      return;
+    }
+
+    await fastify.prisma.subscription.update({
+      where: { stripeSubscriptionId },
+      data: { status: "past_due" },
+    });
+
+    fastify.log.info(
+      { stripeSubscriptionId },
+      "Subscription set to past_due from invoice.payment_failed",
+    );
+  }
+
+  async function processInvoicePaid(invoice: Stripe.Invoice) {
+    const stripeSubscriptionId =
+      typeof invoice.parent?.subscription_details?.subscription === "string"
+        ? invoice.parent.subscription_details.subscription
+        : null;
+
+    if (!stripeSubscriptionId) {
+      fastify.log.warn("Invoice has no subscription reference");
+      return;
+    }
+
+    const existing = await fastify.prisma.subscription.findUnique({
+      where: { stripeSubscriptionId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      fastify.log.warn(
+        { stripeSubscriptionId },
+        "Subscription not found for invoice.paid",
+      );
+      return;
+    }
+
+    await fastify.prisma.subscription.update({
+      where: { stripeSubscriptionId },
+      data: { status: "active" },
+    });
+
+    fastify.log.info(
+      { stripeSubscriptionId },
+      "Subscription set to active from invoice.paid",
+    );
+  }
+
   fastify.post("/api/webhooks/stripe", {
     handler: async (request, reply) => {
       const sig = (request.headers["stripe-signature"] as string) ?? "";
@@ -109,6 +253,28 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
             await processCheckoutSessionCompleted(
               event.data.object as Stripe.Checkout.Session,
             );
+          }
+
+          if (event.type === "customer.subscription.updated") {
+            await processSubscriptionUpdated(
+              event.data.object as Stripe.Subscription,
+            );
+          }
+
+          if (event.type === "customer.subscription.deleted") {
+            await processSubscriptionDeleted(
+              event.data.object as Stripe.Subscription,
+            );
+          }
+
+          if (event.type === "invoice.payment_failed") {
+            await processInvoicePaymentFailed(
+              event.data.object as Stripe.Invoice,
+            );
+          }
+
+          if (event.type === "invoice.paid") {
+            await processInvoicePaid(event.data.object as Stripe.Invoice);
           }
 
           await fastify.prisma.stripeWebhookEvent.update({

@@ -1,3 +1,29 @@
+export interface CurrentPlan {
+  subscription: {
+    status: string;
+    stripeSubscriptionId: string | null;
+    plan: {
+      key: string;
+      name: string;
+      maxRfcProfiles: number;
+      maxUsers: number;
+    };
+  };
+}
+
+export async function getCurrentPlan(token: string): Promise<CurrentPlan> {
+  const res = await fetch("/api/billing/current-plan", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al consultar el plan actual");
+  }
+
+  return res.json();
+}
+
 export async function createCheckoutSession(
   token: string,
   planKey: string,
