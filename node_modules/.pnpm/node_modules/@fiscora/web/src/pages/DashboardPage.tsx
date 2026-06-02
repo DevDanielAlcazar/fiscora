@@ -2,12 +2,52 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
 import { getCurrentPlan, type CurrentPlan } from "../api/billing";
+import { getAvailableModules, type AvailableModule } from "../api/modules";
 
 interface UserInfo {
   userId: string;
   email: string;
   role: string;
   organizationId?: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  active: "Activa",
+  past_due: "Pago pendiente",
+  payment_failed: "Pago fallido",
+  canceled: "Cancelada",
+  incomplete: "Incompleta",
+};
+
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
+const STATUS_ALERTS: Record<string, { class: string; message: string }> = {
+  past_due: {
+    class: "text-sm bg-yellow-500/10 text-yellow-600 rounded-lg px-4 py-3",
+    message: "Tu pago está pendiente. Algunas funciones podrían limitarse.",
+  },
+  payment_failed: {
+    class: "text-sm bg-red-500/10 text-red-600 rounded-lg px-4 py-3",
+    message: "No pudimos procesar tu pago. Actualiza tu método de pago.",
+  },
+  canceled: {
+    class: "text-sm bg-red-500/10 text-red-600 rounded-lg px-4 py-3",
+    message: "Tu suscripción fue cancelada. Tu cuenta volvió al plan Essential.",
+  },
+  incomplete: {
+    class: "text-sm bg-yellow-500/10 text-yellow-600 rounded-lg px-4 py-3",
+    message: "Tu suscripción aún no está completa.",
+  },
+};
+
+function statusAlertClass(status: string): string {
+  return STATUS_ALERTS[status]?.class ?? "text-sm bg-muted rounded-lg px-4 py-3";
+}
+
+function statusAlertMessage(status: string): string {
+  return STATUS_ALERTS[status]?.message ?? `Estado: ${status}`;
 }
 
 export default function DashboardPage() {
@@ -17,6 +57,9 @@ export default function DashboardPage() {
   const [plan, setPlan] = useState<CurrentPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState("");
+  const [modules, setModules] = useState<AvailableModule[]>([]);
+  const [modulesLoading, setModulesLoading] = useState(false);
+  const [modulesError, setModulesError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -39,6 +82,14 @@ export default function DashboardPage() {
             })
             .finally(() => setPlanLoading(false));
         }
+
+        setModulesLoading(true);
+        getAvailableModules(token)
+          .then(setModules)
+          .catch((err) => {
+            setModulesError(err instanceof Error ? err.message : "Error desconocido");
+          })
+          .finally(() => setModulesLoading(false));
       })
       .catch(() => {
         localStorage.removeItem("accessToken");
@@ -107,7 +158,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Estado</span>
-                <span className="font-medium capitalize">{plan.subscription.status}</span>
+                <span className="font-medium">{statusLabel(plan.subscription.status)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">RFCs permitidos</span>
@@ -123,6 +174,80 @@ export default function DashboardPage() {
                   <span className="font-mono text-xs">{plan.subscription.stripeSubscriptionId}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {plan && !planLoading && plan.subscription.status !== "active" && (
+            <div className={statusAlertClass(plan.subscription.status)}>
+              {statusAlertMessage(plan.subscription.status)}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <h2 className="font-semibold text-lg">Módulos disponibles</h2>
+
+          {modulesLoading && (
+            <p className="text-sm text-muted-foreground">Cargando módulos...</p>
+          )}
+
+          {modulesError && (
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
+              {modulesError}
+            </p>
+          )}
+
+          {!modulesLoading && !modulesError && modules.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No tienes módulos disponibles para tu plan actual.
+            </p>
+          )}
+
+          {!modulesLoading && modules.length > 0 && (
+            <div className="grid grid-cols-1 gap-3">
+              {modules.map((mod) => (
+                <div
+                  key={mod.key}
+                  onClick={() => {
+                    if (mod.key === "AUDITORIA_XML") navigate("/modules/xml-audit");
+                    else if (mod.key === "LABORAL") navigate("/modules/labor");
+                  }}
+                  className={`p-4 rounded-lg border border-border/50 bg-muted/30 space-y-2 ${
+                    mod.key === "AUDITORIA_XML" || mod.key === "LABORAL"
+                      ? "cursor-pointer hover:bg-muted/50 transition-colors"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{mod.name}</span>
+                    {mod.key.startsWith("ADMIN_") && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600">
+                        Admin
+                      </span>
+                    )}
+                    {mod.beta && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">
+                        Beta
+                      </span>
+                    )}
+                  </div>
+                  {mod.description && (
+                    <p className="text-xs text-muted-foreground">{mod.description}</p>
+                  )}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {mod.allowSingleXml && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600">
+                        XML individual
+                      </span>
+                    )}
+                    {mod.allowZip && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600">
+                        ZIP
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -6,6 +6,8 @@ import AdminWebhookPage from "./pages/AdminWebhookPage";
 import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
+import XmlAuditPage from "./pages/XmlAuditPage";
+import LaborPage from "./pages/LaborPage";
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
       <Route path="/billing/success" element={<BillingSuccessPage />} />
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
       <Route path="/plans" element={<PlansPage />} />
+      <Route path="/modules/xml-audit" element={<XmlAuditPage />} />
+      <Route path="/modules/labor" element={<LaborPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
