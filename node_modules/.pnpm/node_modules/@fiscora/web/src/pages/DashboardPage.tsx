@@ -326,12 +326,26 @@ export default function DashboardPage() {
         </div>
 
         {user.role === "SUPER_ADMIN" && (
-          <button
-            onClick={() => navigate("/admin/stripe-webhook")}
-            className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
-          >
-            Webhook Stripe
-          </button>
+          <>
+            <button
+              onClick={() => navigate("/admin/stripe-webhook")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Webhook Stripe
+            </button>
+            <button
+              onClick={() => navigate("/admin/modules")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Permisos de módulos
+            </button>
+            <button
+              onClick={() => navigate("/admin/users")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Usuarios
+            </button>
+          </>
         )}
 
         <button

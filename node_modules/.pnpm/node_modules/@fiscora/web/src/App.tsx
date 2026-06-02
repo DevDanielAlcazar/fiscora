@@ -3,6 +3,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AdminWebhookPage from "./pages/AdminWebhookPage";
+import AdminModulesPage from "./pages/AdminModulesPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
@@ -16,6 +18,8 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/admin/stripe-webhook" element={<AdminWebhookPage />} />
+      <Route path="/admin/modules" element={<AdminModulesPage />} />
+      <Route path="/admin/users" element={<AdminUsersPage />} />
       <Route path="/billing/success" element={<BillingSuccessPage />} />
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
       <Route path="/plans" element={<PlansPage />} />

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { UsageService } from "../modules/usage/usage.service.js";
+import { ModuleAccessService } from "../modules/modules/module-access.service.js";
 
 const testConsumeBodySchema = z.object({
   moduleKey: z.string().min(1, "moduleKey es requerido"),
@@ -99,6 +100,19 @@ export async function usageRoutes(fastify: FastifyInstance) {
       const { moduleKey, action } = parseResult.data;
 
       try {
+        const permissions = await ModuleAccessService.assertModuleAccess({
+          prisma: fastify.prisma,
+          organizationId: request.user.organizationId,
+          moduleKey,
+        });
+
+        if (!permissions.consumesUsage) {
+          return reply.send({
+            ok: true,
+            message: "Uso registrado correctamente",
+          });
+        }
+
         await UsageService.registerUsage({
           prisma: fastify.prisma,
           organizationId: request.user.organizationId,
@@ -119,6 +133,24 @@ export async function usageRoutes(fastify: FastifyInstance) {
             error: {
               code: "USAGE_LIMIT_EXCEEDED",
               message: "Has alcanzado el límite mensual de usos de tu plan.",
+            },
+          });
+        }
+
+        if (error.code === "MODULE_NOT_ALLOWED") {
+          return reply.code(403).send({
+            error: {
+              code: "MODULE_NOT_ALLOWED",
+              message: "Tu plan no tiene acceso a este módulo.",
+            },
+          });
+        }
+
+        if (error.code === "MODULE_NOT_FOUND") {
+          return reply.code(404).send({
+            error: {
+              code: "MODULE_NOT_FOUND",
+              message: "El módulo solicitado no existe.",
             },
           });
         }
