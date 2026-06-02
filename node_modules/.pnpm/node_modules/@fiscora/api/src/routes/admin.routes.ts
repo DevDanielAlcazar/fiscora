@@ -10,6 +10,10 @@ const updateAccessBodySchema = z.object({
   allowZip: z.boolean().optional(),
 });
 
+const updatePlanBodySchema = z.object({
+  planKey: z.enum(["ESSENTIAL", "PROFESSIONAL", "CORPORATION", "FORENSIC_AUDITOR"]),
+});
+
 export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get("/api/admin/stripe-webhook/status", {
     preHandler: [fastify.authenticate],
@@ -292,6 +296,99 @@ export async function adminRoutes(fastify: FastifyInstance) {
       reply.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       reply.header("Content-Disposition", 'attachment; filename="fiscora-usuarios.xlsx"');
       return reply.send(buffer);
+    },
+  });
+
+  fastify.patch("/api/admin/users/:userId/plan", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: {
+            code: "FORBIDDEN",
+            message: "Acceso denegado. Se requiere rol SUPER_ADMIN.",
+          },
+        });
+      }
+
+      const { userId } = request.params as { userId: string };
+
+      const parseResult = updatePlanBodySchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        const firstMessage = parseResult.error.errors[0]?.message ?? "Datos de entrada inválidos";
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: firstMessage },
+        });
+      }
+
+      const { planKey } = parseResult.data;
+
+      const user = await fastify.prisma.user.findUnique({
+        where: { id: userId },
+        select: { organizationId: true },
+      });
+
+      if (!user) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Usuario no encontrado." },
+        });
+      }
+
+      if (!user.organizationId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "El usuario no tiene una organización asociada.",
+          },
+        });
+      }
+
+      const plan = await fastify.prisma.plan.findUnique({
+        where: { key: planKey },
+        select: { id: true },
+      });
+
+      if (!plan) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: `Plan ${planKey} no encontrado.` },
+        });
+      }
+
+      const isEssential = planKey === "ESSENTIAL";
+
+      const updateData: {
+        planId: string;
+        status: string;
+        stripeSubscriptionId?: string | null;
+      } = {
+        planId: plan.id,
+        status: "active",
+      };
+
+      if (isEssential) {
+        updateData.stripeSubscriptionId = null;
+      }
+
+      await fastify.prisma.subscription.upsert({
+        where: { organizationId: user.organizationId },
+        update: updateData,
+        create: {
+          organizationId: user.organizationId,
+          planId: plan.id,
+          status: "active",
+          stripeSubscriptionId: isEssential ? null : undefined,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        },
+      });
+
+      fastify.log.info(
+        { userId, organizationId: user.organizationId, planKey },
+        "Plan changed by admin",
+      );
+
+      return reply.send({ ok: true, message: `Plan cambiado a ${planKey} correctamente.` });
     },
   });
 }
