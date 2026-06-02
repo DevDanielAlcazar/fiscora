@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
 import { getCurrentPlan, type CurrentPlan } from "../api/billing";
 import { getAvailableModules, type AvailableModule } from "../api/modules";
+import { getCurrentUsage, type CurrentUsage } from "../api/usage";
 
 interface UserInfo {
   userId: string;
@@ -60,6 +61,9 @@ export default function DashboardPage() {
   const [modules, setModules] = useState<AvailableModule[]>([]);
   const [modulesLoading, setModulesLoading] = useState(false);
   const [modulesError, setModulesError] = useState("");
+  const [usage, setUsage] = useState<CurrentUsage | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -81,6 +85,14 @@ export default function DashboardPage() {
               setPlanError(err instanceof Error ? err.message : "Error desconocido");
             })
             .finally(() => setPlanLoading(false));
+
+          setUsageLoading(true);
+          getCurrentUsage(token)
+            .then(setUsage)
+            .catch((err) => {
+              setUsageError(err instanceof Error ? err.message : "Error desconocido");
+            })
+            .finally(() => setUsageLoading(false));
         }
 
         setModulesLoading(true);
@@ -180,6 +192,67 @@ export default function DashboardPage() {
           {plan && !planLoading && plan.subscription.status !== "active" && (
             <div className={statusAlertClass(plan.subscription.status)}>
               {statusAlertMessage(plan.subscription.status)}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <h2 className="font-semibold text-lg">Uso mensual</h2>
+
+          {usageLoading && (
+            <p className="text-sm text-muted-foreground">Cargando uso mensual...</p>
+          )}
+
+          {usageError && (
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
+              {usageError}
+            </p>
+          )}
+
+          {!user.organizationId && !usageLoading && (
+            <p className="text-sm text-muted-foreground">
+              Sin organización asociada. No hay uso disponible.
+            </p>
+          )}
+
+          {usage && !usageLoading && (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground">Usos</span>
+                <span className="font-medium">
+                  {usage.usage.unlimited ? "Ilimitado" : usage.usage.used}
+                </span>
+              </div>
+              {!usage.usage.unlimited && (
+                <>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Límite mensual</span>
+                    <span className="font-medium">{usage.usage.limit}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-muted-foreground">Restantes</span>
+                    <span className="font-medium">{usage.usage.remaining}</span>
+                  </div>
+                </>
+              )}
+              <div className="pt-1 text-xs text-muted-foreground">
+                Período: {new Date(usage.period.from).toLocaleDateString("es-MX")} —{" "}
+                {new Date(usage.period.to).toLocaleDateString("es-MX")}
+              </div>
+            </div>
+          )}
+
+          {usage && !usageLoading && !usage.usage.unlimited && (usage.usage.remaining ?? 0) <= 3 && (
+            <div
+              className={`text-sm rounded-lg px-4 py-3 ${
+                (usage.usage.remaining ?? 0) === 0
+                  ? "bg-red-500/10 text-red-600"
+                  : "bg-yellow-500/10 text-yellow-600"
+              }`}
+            >
+              {(usage.usage.remaining ?? 0) === 0
+                ? "Has alcanzado tu límite mensual."
+                : "Estás cerca de alcanzar tu límite mensual."}
             </div>
           )}
         </div>
