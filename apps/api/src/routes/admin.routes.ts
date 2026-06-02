@@ -14,6 +14,11 @@ const updatePlanBodySchema = z.object({
   planKey: z.enum(["ESSENTIAL", "PROFESSIONAL", "CORPORATION", "FORENSIC_AUDITOR"]),
 });
 
+const updateUserStatusBodySchema = z.object({
+  status: z.enum(["ACTIVE", "BANNED"]),
+  reason: z.string().optional(),
+});
+
 export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get("/api/admin/stripe-webhook/status", {
     preHandler: [fastify.authenticate],
@@ -389,6 +394,80 @@ export async function adminRoutes(fastify: FastifyInstance) {
       );
 
       return reply.send({ ok: true, message: `Plan cambiado a ${planKey} correctamente.` });
+    },
+  });
+
+  fastify.patch("/api/admin/users/:userId/status", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: {
+            code: "FORBIDDEN",
+            message: "Acceso denegado. Se requiere rol SUPER_ADMIN.",
+          },
+        });
+      }
+
+      const { userId } = request.params as { userId: string };
+
+      if (userId === request.user.userId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "No puedes cambiar tu propio estado.",
+          },
+        });
+      }
+
+      const parseResult = updateUserStatusBodySchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        const firstMessage = parseResult.error.errors[0]?.message ?? "Datos de entrada inválidos";
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: firstMessage },
+        });
+      }
+
+      const { status, reason } = parseResult.data;
+
+      const user = await fastify.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
+      if (!user) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Usuario no encontrado." },
+        });
+      }
+
+      if (status === "BANNED") {
+        await fastify.prisma.user.update({
+          where: { id: userId },
+          data: {
+            status: "BANNED",
+            bannedAt: new Date(),
+            bannedReason: reason ?? null,
+          },
+        });
+      } else {
+        await fastify.prisma.user.update({
+          where: { id: userId },
+          data: {
+            status: "ACTIVE",
+            bannedAt: null,
+            bannedReason: null,
+          },
+        });
+      }
+
+      fastify.log.info({ userId, status, reason }, "User status changed by admin");
+
+      return reply.send({
+        ok: true,
+        message: status === "BANNED" ? "Usuario suspendido correctamente." : "Usuario reactivado correctamente.",
+      });
     },
   });
 }

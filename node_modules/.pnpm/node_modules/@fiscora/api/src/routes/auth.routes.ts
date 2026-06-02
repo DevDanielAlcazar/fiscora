@@ -132,7 +132,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       try {
         // Find user by email using the prisma instance from the plugin
-        const user = await fastify.prisma.user.findUnique({
+          const user = await fastify.prisma.user.findUnique({
           where: { email },
           select: {
             id: true,
@@ -141,6 +141,7 @@ export async function authRoutes(fastify: FastifyInstance) {
             name: true,
             role: true,
             organizationId: true,
+            status: true,
           },
         });
 
@@ -150,6 +151,15 @@ export async function authRoutes(fastify: FastifyInstance) {
             error: {
               code: "UNAUTHORIZED",
               message: "Credenciales inválidas",
+            },
+          });
+        }
+
+        if (user.status === "BANNED") {
+          return reply.code(403).send({
+            error: {
+              code: "FORBIDDEN",
+              message: "Tu cuenta ha sido suspendida. Contacta a soporte.",
             },
           });
         }
