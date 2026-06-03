@@ -98,6 +98,11 @@ export interface UserEntry {
   email: string;
   name: string;
   role: string;
+  status: string;
+  bannedAt: string | null;
+  bannedReason: string | null;
+  deletedAt: string | null;
+  deletedReason: string | null;
   organizationId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -152,6 +157,93 @@ export async function updateUserPlan(
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error?.message ?? "Error al cambiar plan");
+  }
+
+  return res.json();
+}
+
+export async function updateUserStatus(
+  token: string,
+  userId: string,
+  data: { status: "ACTIVE" | "BANNED"; reason?: string },
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`/api/admin/users/${userId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al cambiar estado del usuario");
+  }
+
+  return res.json();
+}
+
+export async function updateUser(
+  token: string,
+  userId: string,
+  data: { name?: string; email?: string; organizationName?: string },
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`/api/admin/users/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (res.status === 409) {
+    throw new Error("El email ya está registrado.");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al actualizar usuario");
+  }
+
+  return res.json();
+}
+
+export async function deleteUser(
+  token: string,
+  userId: string,
+  reason?: string,
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`/api/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (res.status === 400) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "No puedes eliminarte a ti mismo.");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al eliminar usuario");
   }
 
   return res.json();

@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { PasswordService } from "../modules/auth/password.service.js";
 
 const updateAccessBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -17,6 +18,23 @@ const updatePlanBodySchema = z.object({
 const updateUserStatusBodySchema = z.object({
   status: z.enum(["ACTIVE", "BANNED"]),
   reason: z.string().optional(),
+});
+
+const createUserBodySchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(12, "La contraseña debe tener al menos 12 caracteres"),
+  accountType: z.enum(["INDIVIDUAL", "ORGANIZATION"]),
+  organizationName: z.string().optional(),
+}).refine(
+  (data) => data.accountType !== "ORGANIZATION" || (data.organizationName && data.organizationName.length > 0),
+  { message: "organizationName es requerido para cuentas ORGANIZATION", path: ["organizationName"] },
+);
+
+const updateUserBodySchema = z.object({
+  name: z.string().min(1, "El nombre no puede estar vacío").optional(),
+  email: z.string().email("Email inválido").optional(),
+  organizationName: z.string().min(1, "El nombre de la organización no puede estar vacío").optional(),
 });
 
 export async function adminRoutes(fastify: FastifyInstance) {
@@ -167,6 +185,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
           status: true,
           bannedAt: true,
           bannedReason: true,
+          deletedAt: true,
+          deletedReason: true,
           createdAt: true,
           updatedAt: true,
           organization: {
@@ -250,6 +270,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
           status: true,
           bannedAt: true,
           bannedReason: true,
+          deletedAt: true,
+          deletedReason: true,
           createdAt: true,
           updatedAt: true,
           organization: {
@@ -280,6 +302,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
         "Estado usuario",
         "Fecha suspensión",
         "Motivo suspensión",
+        "Fecha eliminación",
+        "Motivo eliminación",
         "Organización",
         "Tipo de cuenta",
         "Plan actual",
@@ -300,6 +324,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
           user.status,
           user.bannedAt?.toISOString() ?? "—",
           user.bannedReason ?? "—",
+          user.deletedAt?.toISOString() ?? "—",
+          user.deletedReason ?? "—",
           user.organization?.name ?? "Sin organización",
           user.organization?.accountType ?? "—",
           user.organization?.subscription?.plan.name ?? "Sin suscripción",
@@ -482,6 +508,248 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.send({
         ok: true,
         message: status === "BANNED" ? "Usuario suspendido correctamente." : "Usuario reactivado correctamente.",
+      });
+    },
+  });
+
+  fastify.post("/api/admin/users", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: {
+            code: "FORBIDDEN",
+            message: "Acceso denegado. Se requiere rol SUPER_ADMIN.",
+          },
+        });
+      }
+
+      const parseResult = createUserBodySchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        const firstMessage = parseResult.error.errors[0]?.message ?? "Datos de entrada inválidos";
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: firstMessage },
+        });
+      }
+
+      const { name, email, password, accountType, organizationName } = parseResult.data;
+
+      const existing = await fastify.prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+
+      if (existing) {
+        return reply.code(409).send({
+          error: {
+            code: "CONFLICT",
+            message: "El email ya está registrado",
+          },
+        });
+      }
+
+      const essentialPlan = await fastify.prisma.plan.findUnique({
+        where: { key: "ESSENTIAL" },
+      });
+
+      if (!essentialPlan) {
+        return reply.code(500).send({
+          error: {
+            code: "PLAN_NOT_FOUND",
+            message: "El plan ESSENTIAL no está configurado. Contacte al administrador.",
+          },
+        });
+      }
+
+      const passwordHash = await PasswordService.hashPassword(password);
+      const orgName =
+        accountType === "ORGANIZATION" ? organizationName || name : name;
+
+      const result = await fastify.prisma.$transaction(async (tx) => {
+        const org = await tx.organization.create({
+          data: { name: orgName, accountType },
+        });
+
+        const user = await tx.user.create({
+          data: {
+            email,
+            passwordHash,
+            name,
+            role: "ORG_ADMIN",
+            status: "ACTIVE",
+            organizationId: org.id,
+          },
+        });
+
+        await tx.subscription.create({
+          data: {
+            organizationId: org.id,
+            planId: essentialPlan.id,
+            status: "active",
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+          },
+        });
+
+        return { userId: user.id };
+      });
+
+      const createdUser = await fastify.prisma.user.findUnique({
+        where: { id: result.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          organizationId: true,
+        },
+      });
+
+      fastify.log.info(
+        { userId: createdUser!.id, email, accountType },
+        "User created by admin",
+      );
+
+      return reply.code(201).send({ ok: true, user: createdUser });
+    },
+  });
+
+  fastify.patch("/api/admin/users/:userId", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: {
+            code: "FORBIDDEN",
+            message: "Acceso denegado. Se requiere rol SUPER_ADMIN.",
+          },
+        });
+      }
+
+      const { userId } = request.params as { userId: string };
+
+      const parseResult = updateUserBodySchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        const firstMessage = parseResult.error.errors[0]?.message ?? "Datos de entrada inválidos";
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: firstMessage },
+        });
+      }
+
+      const { name, email, organizationName } = parseResult.data;
+
+      const user = await fastify.prisma.user.findUnique({
+        where: { id: userId },
+        select: { organizationId: true },
+      });
+
+      if (!user) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Usuario no encontrado." },
+        });
+      }
+
+      if (email) {
+        const existingEmail = await fastify.prisma.user.findUnique({
+          where: { email },
+          select: { id: true },
+        });
+
+        if (existingEmail && existingEmail.id !== userId) {
+          return reply.code(409).send({
+            error: {
+              code: "CONFLICT",
+              message: "El email ya está registrado por otro usuario.",
+            },
+          });
+        }
+      }
+
+      const updateUserData: { name?: string; email?: string } = {};
+      if (name) updateUserData.name = name;
+      if (email) updateUserData.email = email;
+
+      if (Object.keys(updateUserData).length > 0) {
+        await fastify.prisma.user.update({
+          where: { id: userId },
+          data: updateUserData,
+        });
+      }
+
+      if (organizationName && user.organizationId) {
+        await fastify.prisma.organization.update({
+          where: { id: user.organizationId },
+          data: { name: organizationName },
+        });
+      }
+
+      fastify.log.info(
+        { userId, updates: { name, email, organizationName } },
+        "User updated by admin",
+      );
+
+      return reply.send({
+        ok: true,
+        message: "Usuario actualizado correctamente",
+      });
+    },
+  });
+
+  fastify.delete("/api/admin/users/:userId", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: {
+            code: "FORBIDDEN",
+            message: "Acceso denegado. Se requiere rol SUPER_ADMIN.",
+          },
+        });
+      }
+
+      const { userId } = request.params as { userId: string };
+
+      if (request.user.userId === userId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "No puedes eliminarte a ti mismo.",
+          },
+        });
+      }
+
+      const { reason } = (request.body as { reason?: string }) ?? {};
+
+      const target = await fastify.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
+      if (!target) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Usuario no encontrado." },
+        });
+      }
+
+      await fastify.prisma.user.update({
+        where: { id: userId },
+        data: {
+          status: "DELETED",
+          deletedAt: new Date(),
+          deletedReason: reason ?? null,
+          bannedAt: null,
+          bannedReason: null,
+        },
+      });
+
+      fastify.log.info({ userId, reason }, "User soft-deleted by admin");
+
+      return reply.send({
+        ok: true,
+        message: "Usuario eliminado correctamente",
       });
     },
   });

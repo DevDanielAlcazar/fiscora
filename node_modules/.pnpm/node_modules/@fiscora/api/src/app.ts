@@ -13,6 +13,7 @@ import { adminRoutes } from "./routes/admin.routes.js";
 import { billingRoutes } from "./routes/billing.routes.js";
 import { moduleRoutes } from "./routes/modules.routes.js";
 import { usageRoutes } from "./routes/usage.routes.js";
+import { planRoutes } from "./routes/plans.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -43,6 +44,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(billingRoutes);
   await app.register(moduleRoutes);
   await app.register(usageRoutes);
+  await app.register(planRoutes);
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {

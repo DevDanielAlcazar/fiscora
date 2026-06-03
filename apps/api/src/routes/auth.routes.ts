@@ -164,6 +164,15 @@ export async function authRoutes(fastify: FastifyInstance) {
           });
         }
 
+        if (user.status === "DELETED") {
+          return reply.code(403).send({
+            error: {
+              code: "FORBIDDEN",
+              message: "La cuenta no está disponible. Contacta a soporte.",
+            },
+          });
+        }
+
         // Create JWT payload
         const payload: AuthTokenPayload = {
           userId: user.id,
