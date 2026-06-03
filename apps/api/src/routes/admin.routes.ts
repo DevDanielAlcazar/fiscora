@@ -37,6 +37,21 @@ const updateUserBodySchema = z.object({
   organizationName: z.string().min(1, "El nombre de la organización no puede estar vacío").optional(),
 });
 
+const adminUpdatePlanSchema = z.object({
+  name: z.string().min(1, "El nombre no puede estar vacío").optional(),
+  description: z.string().optional().nullable(),
+  monthlyPriceCents: z.number().int().min(0).optional(),
+  yearlyPriceCents: z.number().int().min(0).optional(),
+  currency: z.string().min(1).optional(),
+  stripeMonthlyPriceId: z.string().optional().nullable(),
+  stripeYearlyPriceId: z.string().optional().nullable(),
+  features: z.array(z.string()).optional(),
+  maxUsers: z.number().int().min(1).optional(),
+  maxRfcProfiles: z.number().int().min(1).optional(),
+  monthlyUsageLimit: z.number().int().min(0).optional().nullable(),
+  isPublic: z.boolean().optional(),
+});
+
 export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get("/api/admin/stripe-webhook/status", {
     preHandler: [fastify.authenticate],
@@ -750,6 +765,83 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.send({
         ok: true,
         message: "Usuario eliminado correctamente",
+      });
+    },
+  });
+
+  fastify.get("/api/admin/plans", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const plans = await fastify.prisma.plan.findMany({
+        orderBy: { key: "asc" },
+        select: {
+          key: true,
+          name: true,
+          description: true,
+          monthlyPriceCents: true,
+          yearlyPriceCents: true,
+          currency: true,
+          stripeMonthlyPriceId: true,
+          stripeYearlyPriceId: true,
+          features: true,
+          maxUsers: true,
+          maxRfcProfiles: true,
+          monthlyUsageLimit: true,
+          isPublic: true,
+        },
+      });
+
+      return reply.send({ plans });
+    },
+  });
+
+  fastify.patch("/api/admin/plans/:planKey", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const { planKey } = request.params as { planKey: string };
+
+      const parseResult = adminUpdatePlanSchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        const firstMessage = parseResult.error.errors[0]?.message ?? "Datos de entrada inválidos";
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: firstMessage },
+        });
+      }
+
+      const existing = await fastify.prisma.plan.findUnique({
+        where: { key: planKey },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: `Plan ${planKey} no encontrado.` },
+        });
+      }
+
+      await fastify.prisma.plan.update({
+        where: { key: planKey },
+        data: parseResult.data,
+      });
+
+      fastify.log.info({ planKey, updates: parseResult.data }, "Plan updated by admin");
+
+      return reply.send({
+        ok: true,
+        message: `Plan ${planKey} actualizado correctamente`,
       });
     },
   });
