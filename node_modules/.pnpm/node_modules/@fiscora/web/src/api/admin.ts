@@ -248,3 +248,61 @@ export async function deleteUser(
 
   return res.json();
 }
+
+export interface AdminPlanEntry {
+  key: string;
+  name: string;
+  description: string | null;
+  monthlyPriceCents: number | null;
+  yearlyPriceCents: number | null;
+  currency: string;
+  stripeMonthlyPriceId: string | null;
+  stripeYearlyPriceId: string | null;
+  features: string[] | null;
+  maxUsers: number;
+  maxRfcProfiles: number;
+  monthlyUsageLimit: number | null;
+  isPublic: boolean;
+}
+
+export async function getAdminPlans(token: string): Promise<{ plans: AdminPlanEntry[] }> {
+  const res = await fetch("/api/admin/plans", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al cargar planes");
+  }
+
+  return res.json();
+}
+
+export async function updateAdminPlan(
+  token: string,
+  planKey: string,
+  data: Record<string, unknown>,
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`/api/admin/plans/${planKey}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al actualizar plan");
+  }
+
+  return res.json();
+}

@@ -3,21 +3,6 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { env } from "../config/env.js";
 
-const PRICE_MAP: Record<string, Record<string, string>> = {
-  PROFESSIONAL: {
-    MONTHLY: env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
-    YEARLY: env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
-  },
-  CORPORATION: {
-    MONTHLY: env.STRIPE_PRICE_CORPORATION_MONTHLY,
-    YEARLY: env.STRIPE_PRICE_CORPORATION_YEARLY,
-  },
-  FORENSIC_AUDITOR: {
-    MONTHLY: env.STRIPE_PRICE_FORENSIC_AUDITOR_MONTHLY,
-    YEARLY: env.STRIPE_PRICE_FORENSIC_AUDITOR_YEARLY,
-  },
-};
-
 const checkoutBodySchema = z.object({
   planKey: z.enum(["PROFESSIONAL", "CORPORATION", "FORENSIC_AUDITOR"]),
   billingCycle: z.enum(["MONTHLY", "YEARLY"]),
@@ -47,13 +32,41 @@ export async function billingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const priceId = PRICE_MAP[planKey][billingCycle];
+      const plan = await fastify.prisma.plan.findUnique({
+        where: { key: planKey },
+        select: {
+          stripeMonthlyPriceId: true,
+          stripeYearlyPriceId: true,
+        },
+      });
 
-      if (!priceId || priceId === "price_placeholder") {
-        return reply.code(500).send({
+      if (!plan) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: `El plan ${planKey} no existe.` },
+        });
+      }
+
+      const priceId = billingCycle === "MONTHLY" ? plan.stripeMonthlyPriceId : plan.stripeYearlyPriceId;
+
+      if (!priceId) {
+        return reply.code(400).send({
           error: {
-            code: "PRICE_NOT_CONFIGURED",
-            message: `El precio para ${planKey} ${billingCycle} no está configurado.`,
+            code: "BAD_REQUEST",
+            message: "El plan no tiene configurado Stripe Price ID para este ciclo.",
+          },
+        });
+      }
+
+      const organization = await fastify.prisma.organization.findUnique({
+        where: { id: request.user.organizationId },
+        select: { stripeCustomerId: true },
+      });
+
+      if (!organization) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "La organización no existe.",
           },
         });
       }
@@ -68,16 +81,24 @@ export async function billingRoutes(fastify: FastifyInstance) {
           billingCycle,
         };
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionParams: Stripe.Checkout.SessionCreateParams = {
           mode: "subscription",
           line_items: [{ price: priceId, quantity: 1 }],
           success_url: `${env.WEB_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${env.WEB_URL}/billing/cancel`,
-          customer_email: request.user.email,
-          client_reference_id: request.user.organizationId ?? request.user.userId,
+          client_reference_id: request.user.organizationId,
           metadata,
           subscription_data: { metadata },
-        });
+        };
+
+        if (organization.stripeCustomerId) {
+          sessionParams.customer = organization.stripeCustomerId;
+        } else {
+          sessionParams.customer_email = request.user.email;
+          sessionParams.customer_creation = "always";
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionParams);
 
         fastify.log.info(
           { sessionId: session.id, planKey, billingCycle },
@@ -135,6 +156,53 @@ export async function billingRoutes(fastify: FastifyInstance) {
       }
 
       return reply.send({ subscription });
+    },
+  });
+
+  fastify.post("/api/billing/portal", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (!request.user.organizationId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "La cuenta no tiene organización asociada",
+          },
+        });
+      }
+
+      const organization = await fastify.prisma.organization.findUnique({
+        where: { id: request.user.organizationId },
+        select: { stripeCustomerId: true },
+      });
+
+      if (!organization?.stripeCustomerId) {
+        return reply.code(400).send({
+          error: {
+            code: "BAD_REQUEST",
+            message: "No hay cliente Stripe asociado a esta organización.",
+          },
+        });
+      }
+
+      try {
+        const stripe = new Stripe(env.STRIPE_SECRET_KEY);
+
+        const session = await stripe.billingPortal.sessions.create({
+          customer: organization.stripeCustomerId,
+          return_url: `${env.WEB_URL}/dashboard`,
+        });
+
+        return reply.send({ url: session.url });
+      } catch (error) {
+        fastify.log.error(error, "Failed to create portal session");
+        return reply.code(500).send({
+          error: {
+            code: "STRIPE_ERROR",
+            message: "Error al crear la sesión del portal.",
+          },
+        });
+      }
     },
   });
 }

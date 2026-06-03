@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
-import { getCurrentPlan, type CurrentPlan } from "../api/billing";
+import { getCurrentPlan, createPortalSession, type CurrentPlan } from "../api/billing";
 import { getAvailableModules, type AvailableModule } from "../api/modules";
 import { getCurrentUsage, type CurrentUsage } from "../api/usage";
 
@@ -64,6 +64,8 @@ export default function DashboardPage() {
   const [usage, setUsage] = useState<CurrentUsage | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageError, setUsageError] = useState("");
+  const [portalError, setPortalError] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -109,6 +111,25 @@ export default function DashboardPage() {
       })
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  async function handlePortal() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    setPortalError("");
+    setPortalLoading(true);
+    try {
+      const url = await createPortalSession(token);
+      window.location.href = url;
+    } catch (err) {
+      setPortalError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -184,6 +205,21 @@ export default function DashboardPage() {
                 <div className="flex justify-between py-1">
                   <span className="text-muted-foreground">Suscripción Stripe</span>
                   <span className="font-mono text-xs">{plan.subscription.stripeSubscriptionId}</span>
+                </div>
+              )}
+
+              {plan.subscription.stripeSubscriptionId && (
+                <div className="pt-2">
+                  <button
+                    onClick={handlePortal}
+                    disabled={portalLoading}
+                    className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+                  >
+                    {portalLoading ? "Abriendo portal..." : "Administrar suscripción"}
+                  </button>
+                  {portalError && (
+                    <p className="text-xs text-red-500 mt-1">{portalError}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -344,6 +380,12 @@ export default function DashboardPage() {
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >
               Usuarios
+            </button>
+            <button
+              onClick={() => navigate("/admin/plans")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Costos y planes
             </button>
           </>
         )}

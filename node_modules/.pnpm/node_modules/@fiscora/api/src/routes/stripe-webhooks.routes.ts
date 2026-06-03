@@ -73,15 +73,35 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     const stripeSubscriptionId = subscription.id;
     const status = subscription.status;
     const metadata = subscription.metadata ?? {};
+    const sub = subscription as unknown as Record<string, unknown>;
+    const cancelAtPeriodEnd = (sub.cancel_at_period_end as boolean) ?? false;
+    const currentPeriodEnd = sub.current_period_end
+      ? new Date((sub.current_period_end as number) * 1000)
+      : undefined;
+    const canceledAt = sub.canceled_at
+      ? new Date((sub.canceled_at as number) * 1000)
+      : undefined;
+    const currentPeriodStart = sub.current_period_start
+      ? new Date((sub.current_period_start as number) * 1000)
+      : undefined;
 
     const updateData: {
       status: string;
       stripeSubscriptionId: string;
       planId?: string;
+      cancelAtPeriodEnd: boolean;
+      currentPeriodEnd?: Date;
+      canceledAt?: Date | null;
+      currentPeriodStart?: Date;
     } = {
       status,
       stripeSubscriptionId,
+      cancelAtPeriodEnd,
     };
+
+    if (currentPeriodEnd) updateData.currentPeriodEnd = currentPeriodEnd;
+    if (canceledAt) updateData.canceledAt = canceledAt;
+    if (currentPeriodStart) updateData.currentPeriodStart = currentPeriodStart;
 
     const organizationId = metadata.organizationId;
     const planKey = metadata.planKey;
@@ -103,7 +123,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     });
 
     fastify.log.info(
-      { stripeSubscriptionId, status },
+      { stripeSubscriptionId, status, cancelAtPeriodEnd },
       "Subscription updated from customer.subscription.updated",
     );
   }
@@ -129,10 +149,17 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
       select: { id: true },
     });
 
+    const sub = subscription as unknown as Record<string, unknown>;
+    const canceledAt = sub.canceled_at
+      ? new Date((sub.canceled_at as number) * 1000)
+      : new Date();
+
     await fastify.prisma.subscription.update({
       where: { stripeSubscriptionId },
       data: {
         status: "canceled",
+        cancelAtPeriodEnd: false,
+        canceledAt,
         ...(essentialPlan ? { planId: essentialPlan.id } : {}),
       },
     });

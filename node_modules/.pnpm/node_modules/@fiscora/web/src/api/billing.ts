@@ -46,3 +46,22 @@ export async function createCheckoutSession(
   const data = await res.json();
   return data.url as string;
 }
+
+export async function createPortalSession(token: string): Promise<string> {
+  const res = await fetch("/api/billing/portal", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 400) {
+    throw new Error("No hay cliente Stripe asociado a esta organización.");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Error al abrir el portal de pago");
+  }
+
+  const data = await res.json();
+  return data.url as string;
+}
