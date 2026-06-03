@@ -135,6 +135,9 @@ export async function billingRoutes(fastify: FastifyInstance) {
         select: {
           status: true,
           stripeSubscriptionId: true,
+          currentPeriodEnd: true,
+          cancelAtPeriodEnd: true,
+          canceledAt: true,
           plan: {
             select: {
               key: true,

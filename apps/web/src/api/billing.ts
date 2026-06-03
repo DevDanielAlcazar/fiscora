@@ -2,6 +2,9 @@ export interface CurrentPlan {
   subscription: {
     status: string;
     stripeSubscriptionId: string | null;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean | null;
+    canceledAt: string | null;
     plan: {
       key: string;
       name: string;

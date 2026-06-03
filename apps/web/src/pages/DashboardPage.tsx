@@ -14,10 +14,13 @@ interface UserInfo {
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
+  trialing: "En prueba",
   past_due: "Pago pendiente",
-  payment_failed: "Pago fallido",
+  unpaid: "Sin pago",
   canceled: "Cancelada",
   incomplete: "Incompleta",
+  incomplete_expired: "Incompleta expirada",
+  paused: "Pausada",
 };
 
 function statusLabel(status: string): string {
@@ -202,9 +205,17 @@ export default function DashboardPage() {
                 </span>
               </div>
               {plan.subscription.stripeSubscriptionId && (
-                <div className="flex justify-between py-1">
+                <div className="flex justify-between py-1 border-b border-border/50">
                   <span className="text-muted-foreground">Suscripción Stripe</span>
                   <span className="font-mono text-xs">{plan.subscription.stripeSubscriptionId}</span>
+                </div>
+              )}
+              {plan.subscription.currentPeriodEnd && (
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Fin del periodo actual</span>
+                  <span className="font-medium">
+                    {new Date(plan.subscription.currentPeriodEnd).toLocaleDateString("es-MX")}
+                  </span>
                 </div>
               )}
 
@@ -228,6 +239,18 @@ export default function DashboardPage() {
           {plan && !planLoading && plan.subscription.status !== "active" && (
             <div className={statusAlertClass(plan.subscription.status)}>
               {statusAlertMessage(plan.subscription.status)}
+            </div>
+          )}
+
+          {plan && !planLoading && plan.subscription.cancelAtPeriodEnd && (
+            <div className="text-sm bg-yellow-500/10 text-yellow-600 rounded-lg px-4 py-3 space-y-1">
+              <p>Tu suscripción está programada para cancelarse al finalizar el periodo actual.</p>
+              {plan.subscription.currentPeriodEnd && (
+                <p className="text-xs">
+                  Acceso disponible hasta:{" "}
+                  {new Date(plan.subscription.currentPeriodEnd).toLocaleDateString("es-MX")}
+                </p>
+              )}
             </div>
           )}
         </div>

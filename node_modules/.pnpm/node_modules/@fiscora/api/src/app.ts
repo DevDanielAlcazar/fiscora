@@ -1,5 +1,6 @@
 import fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { healthRoutes } from "./routes/health.routes.js";
 import { versionRoutes } from "./routes/version.routes.js";
 import prismaPlugin from "./plugins/prisma.plugin.js";
@@ -14,6 +15,7 @@ import { billingRoutes } from "./routes/billing.routes.js";
 import { moduleRoutes } from "./routes/modules.routes.js";
 import { usageRoutes } from "./routes/usage.routes.js";
 import { planRoutes } from "./routes/plans.routes.js";
+import { xmlAuditRoutes } from "./routes/xml-audit.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -30,6 +32,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jwtPlugin);
   await app.register(authenticatePlugin);
   await app.register(prismaPlugin);
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
 
   // Bootstrap admin after Prisma is connected
   await BootstrapAdmin.createAdminIfNotExists(app);
@@ -45,6 +48,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(moduleRoutes);
   await app.register(usageRoutes);
   await app.register(planRoutes);
+  await app.register(xmlAuditRoutes);
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {
