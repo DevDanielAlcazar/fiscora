@@ -1048,6 +1048,18 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     }
   }
 
+  const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+  const categoryOrder: Record<string, number> = { TOTALS: 0, FISCAL: 1, TAX: 2, TECHNICAL: 3, STRUCTURE: 4, COMPLEMENT: 5 };
+  findings.sort((a, b) => {
+    const svA = severityOrder[a.severity] ?? 99;
+    const svB = severityOrder[b.severity] ?? 99;
+    if (svA !== svB) return svA - svB;
+    const catA = categoryOrder[a.category] ?? 99;
+    const catB = categoryOrder[b.category] ?? 99;
+    if (catA !== catB) return catA - catB;
+    return a.code.localeCompare(b.code);
+  });
+
   const executiveSummary: ExecutiveSummary = {
     riskLevel,
     title: summaryTitle,
