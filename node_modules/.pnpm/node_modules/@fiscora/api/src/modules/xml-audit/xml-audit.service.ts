@@ -885,15 +885,687 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
 
   // ── Findings ──
   const findings: Finding[] = [];
+  const addedCodes = new Set<string>();
+
+  function addFindingOnce(f: Finding) {
+    if (!addedCodes.has(f.code)) {
+      addedCodes.add(f.code);
+      findings.push(f);
+    }
+  }
 
   if (diag.bomDetected) {
-    findings.push({
+    addFindingOnce({
       severity: "INFO",
       category: "TECHNICAL",
       code: "BOM_UTF8_DETECTED",
       title: "BOM UTF-8 detectado",
       message: "El archivo contiene BOM UTF-8 al inicio. Se normalizó en memoria para lectura sin modificar contenido fiscal.",
       recommendedAction: "En fases futuras podrás descargar el XML técnicamente normalizado.",
+    });
+  }
+
+  if (diag.leadingContentBeforeXml) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "LEADING_CONTENT_BEFORE_XML",
+      title: "Contenido previo al XML",
+      message: "Se detectó contenido antes del inicio del XML. Validar origen del archivo.",
+      recommendedAction: "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
+    });
+  }
+
+  if (!hasTimbreFiscalDigital) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "UNSTAMPED_XML",
+      title: "XML sin timbre fiscal",
+      message: "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
+      recommendedAction: "Solicita al emisor el XML timbrado o verifica en el portal del SAT.",
+    });
+  }
+
+  if (structureDiagnostics.hasAddenda) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "STRUCTURE",
+      code: "ADDENDA_DETECTED",
+      title: "Addenda detectada",
+      message: "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
+      recommendedAction: "Revisa que la addenda no interfiera con la validez fiscal del CFDI.",
+    });
+  }
+
+  if (unknownComplements.length > 0) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "STRUCTURE",
+      code: "UNKNOWN_COMPLEMENT",
+      title: "Complemento desconocido detectado",
+      message: `Se encontraron complementos no reconocidos por el motor base: ${unknownComplements.join(", ")}.`,
+      recommendedAction: "Verifica si el complemento es válido fiscalmente o requiere un módulo adicional.",
+    });
+  }
+
+  if (totalsValidation && !totalsValidation.matches) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "TOTAL_MISMATCH",
+      title: "Total global inconsistente",
+      message: "El total global no coincide con conceptos, impuestos, descuentos y retenciones.",
+      recommendedAction: "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
+    });
+  }
+
+  // ── Map issues to findings ──
+
+  if (issues.some(i => i.includes("El subtotal global no coincide"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "SUBTOTAL_MISMATCH",
+      title: "Subtotal global inconsistente",
+      message: "El subtotal global no coincide con la suma de importes de conceptos.",
+      recommendedAction: "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
+    });
+  }
+
+  if (issues.some(i => i.includes("El total no coincide con subtotal + impuestos"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "ARITHMETIC_TOTAL_MISMATCH",
+      title: "Total aritmético inconsistente",
+      message: "El total del comprobante no coincide con la operación resta de subtotal, descuento, impuestos y retenciones.",
+      recommendedAction: "Revisa los valores de subtotal, descuentos, traslados y retenciones declarados en el XML.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró la versión del CFDI"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TECHNICAL",
+      code: "MISSING_VERSION",
+      title: "Versión del CFDI faltante",
+      message: "No se encontró la versión del CFDI en el comprobante.",
+      recommendedAction: "Verifica que el XML sea un CFDI válido emitido por un proveedor autorizado.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el UUID"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TECHNICAL",
+      code: "MISSING_UUID",
+      title: "UUID del timbre faltante",
+      message: "No se encontró el UUID en el TimbreFiscalDigital.",
+      recommendedAction: "El comprobante no cuenta con un UUID válido; solicita el XML timbrado al emisor.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el RFC del emisor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_RFC_EMISOR",
+      title: "RFC del emisor faltante",
+      message: "No se encontró el RFC del emisor en el comprobante.",
+      recommendedAction: "El RFC del emisor es obligatorio; solicita un CFDI válido al proveedor.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el RFC del receptor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_RFC_RECEPTOR",
+      title: "RFC del receptor faltante",
+      message: "No se encontró el RFC del receptor en el comprobante.",
+      recommendedAction: "El RFC del receptor es obligatorio; verifica que el CFDI incluya tus datos fiscales.",
+    });
+  }
+
+  if (issues.some(i => i.includes("El comprobante no contiene conceptos"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_CONCEPTS",
+      title: "Conceptos fiscales faltantes",
+      message: "El comprobante no contiene conceptos. Sin conceptos no hay base fiscal en el CFDI.",
+      recommendedAction: "Solicita al emisor un CFDI que incluya al menos un concepto.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el total"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_TOTAL",
+      title: "Total del comprobante faltante",
+      message: "No se encontró el total del comprobante.",
+      recommendedAction: "El total es obligatorio; verifica que el XML esté completo.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el subtotal"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_SUBTOTAL",
+      title: "Subtotal del comprobante faltante",
+      message: "No se encontró el subtotal del comprobante.",
+      recommendedAction: "El subtotal es obligatorio; verifica que el XML esté completo.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el tipo de comprobante"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_TIPO_COMPROBANTE",
+      title: "Tipo de comprobante faltante",
+      message: "No se encontró el TipoDeComprobante en el CFDI.",
+      recommendedAction: "El tipo de comprobante es obligatorio; verifica que el XML esté completo.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró la fecha"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_FECHA",
+      title: "Fecha del comprobante faltante",
+      message: "No se encontró la fecha del comprobante.",
+      recommendedAction: "La fecha es obligatoria; verifica que el XML esté completo.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró la moneda"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "MISSING_MONEDA",
+      title: "Moneda del comprobante faltante",
+      message: "No se encontró la moneda en el comprobante.",
+      recommendedAction: "La moneda es obligatoria; verifica que el XML esté completo.",
+    });
+  }
+
+  if (issues.some(i => i.includes("El subtotal no puede ser negativo"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "SUBTOTAL_NEGATIVE",
+      title: "Subtotal negativo",
+      message: "El subtotal del comprobante es negativo, lo cual no es válido.",
+      recommendedAction: "Revisa el origen del CFDI; un subtotal negativo puede indicar un error en la emisión.",
+    });
+  }
+
+  if (issues.some(i => i.includes("El total debe ser mayor a 0"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "TOTAL_NON_POSITIVE",
+      title: "Total no positivo en ingreso/egreso",
+      message: "El total debe ser mayor a 0 en comprobantes de ingreso o egreso.",
+      recommendedAction: "Verifica que el CFDI tenga un valor fiscal válido.",
+    });
+  }
+
+  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el nombre del emisor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "CFDI40_MISSING_EMISOR_NAME",
+      title: "Nombre del emisor faltante (CFDI 4.0)",
+      message: "En CFDI 4.0 el nombre del emisor es obligatorio y no se encontró.",
+      recommendedAction: "Solicita al emisor que el CFDI incluya su nombre completo o razón social.",
+    });
+  }
+
+  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el nombre del receptor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "CFDI40_MISSING_RECEPTOR_NAME",
+      title: "Nombre del receptor faltante (CFDI 4.0)",
+      message: "En CFDI 4.0 el nombre del receptor es obligatorio y no se encontró.",
+      recommendedAction: "Verifica que el CFDI incluya tu nombre o razón fiscal.",
+    });
+  }
+
+  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el uso del CFDI"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "CFDI40_MISSING_USO_CFDI",
+      title: "Uso del CFDI faltante (CFDI 4.0)",
+      message: "En CFDI 4.0 el UsoCFDI del receptor es obligatorio y no se encontró.",
+      recommendedAction: "Asegúrate de proporcionar tu uso de CFDI correcto al emisor.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el régimen fiscal del receptor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "CFDI40_MISSING_REGIMEN_RECEPTOR",
+      title: "Régimen fiscal del receptor faltante (CFDI 4.0)",
+      message: "En CFDI 4.0 el régimen fiscal del receptor es obligatorio y no se encontró.",
+      recommendedAction: "Verifica que tu régimen fiscal esté correctamente registrado con el emisor.",
+    });
+  }
+
+  if (issues.some(i => i.includes("No se encontró el domicilio fiscal del receptor"))) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "FISCAL",
+      code: "CFDI40_MISSING_DOMICILIO_RECEPTOR",
+      title: "Domicilio fiscal del receptor faltante (CFDI 4.0)",
+      message: "En CFDI 4.0 el DomicilioFiscalReceptor es obligatorio y no se encontró.",
+      recommendedAction: "Verifica que tu domicilio fiscal esté correctamente registrado con el emisor.",
+    });
+  }
+
+  // ── Map warnings to findings ──
+
+  if (warnings.some(w => w.includes("Versión de CFDI no estándar"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "UNSUPPORTED_CFDI_VERSION",
+      title: "Versión de CFDI no estándar",
+      message: "La versión del CFDI no es 3.3 ni 4.0.",
+      recommendedAction: "Verifica que el comprobante use una versión de CFDI aceptada por el SAT.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El total de impuestos trasladados global no coincide"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRANSFERRED_TAXES_MISMATCH",
+      title: "Impuestos trasladados globales inconsistentes",
+      message: "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
+      recommendedAction: "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El total de impuestos retenidos global no coincide"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "RETAINED_TAXES_MISMATCH",
+      title: "Impuestos retenidos globales inconsistentes",
+      message: "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
+      recommendedAction: "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Se detectó una tasa de IVA no común"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "UNCOMMON_VAT_RATE",
+      title: "Tasa de IVA no común",
+      message: "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
+      recommendedAction: "Verifica que la tasa corresponda al supuesto fiscal aplicable.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TAX_BASE_RATE_MISMATCH",
+      title: "Importe fiscal no coincide con base por tasa",
+      message: "El importe de un impuesto no coincide con el resultado de base por tasa/cuota.",
+      recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un concepto no contiene ClaveProdServ"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "CONCEPT_MISSING_CLAVE_PROD_SERV",
+      title: "Concepto sin ClaveProdServ",
+      message: "Un concepto del CFDI no contiene clave de producto o servicio.",
+      recommendedAction: "La clave de producto o servicio es importante para la clasificación fiscal; solicita al emisor incluirla.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un concepto no contiene cantidad"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "CONCEPT_MISSING_CANTIDAD",
+      title: "Concepto sin cantidad",
+      message: "Un concepto del CFDI no tiene cantidad especificada.",
+      recommendedAction: "La cantidad permite verificar la integridad del cálculo fiscal; solicítala al emisor.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un concepto no contiene descripción"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "CONCEPT_MISSING_DESCRIPCION",
+      title: "Concepto sin descripción",
+      message: "Un concepto del CFDI no tiene descripción del bien o servicio.",
+      recommendedAction: "La descripción es necesaria para identificar el producto o servicio; solicítala al emisor.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un concepto no contiene ObjetoImp"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "CONCEPT_MISSING_OBJETO_IMP",
+      title: "Concepto sin ObjetoImp (CFDI 4.0)",
+      message: "Un concepto en CFDI 4.0 no contiene el campo ObjetoImp.",
+      recommendedAction: "ObjetoImp es obligatorio en CFDI 4.0; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un concepto marcado como objeto de impuesto sí objeto de impuesto no contiene impuestos"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "CONCEPT_OBJETO_IMP_NO_TAX",
+      title: "Concepto marcado como objeto de impuesto sin impuestos",
+      message: "Un concepto con ObjetoImp=02 (sí objeto de impuesto) no contiene traslados ni retenciones.",
+      recommendedAction: "Verifica que el concepto deba estar exento o solicita al emisor corregir los impuestos.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un traslado de concepto no contiene base"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRASLADO_MISSING_BASE",
+      title: "Traslado sin base",
+      message: "Un traslado de impuesto en un concepto no tiene base especificada.",
+      recommendedAction: "La base es necesaria para calcular el impuesto; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un traslado de concepto no contiene impuesto"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRASLADO_MISSING_IMPUESTO",
+      title: "Traslado sin tipo de impuesto",
+      message: "Un traslado de concepto no especifica el tipo de impuesto (IVA/IEPS).",
+      recommendedAction: "El tipo de impuesto es obligatorio; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un traslado de concepto no contiene tipo factor"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRASLADO_MISSING_TIPO_FACTOR",
+      title: "Traslado sin tipo factor",
+      message: "Un traslado de concepto no contiene el tipo factor (Tasa/Cuota/Exento).",
+      recommendedAction: "El tipo factor es obligatorio; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un traslado de concepto gravado no contiene importe"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRASLADO_MISSING_IMPORTE",
+      title: "Traslado gravado sin importe",
+      message: "Un traslado de concepto con tipo factor distinto de Exento no contiene importe.",
+      recommendedAction: "El importe del traslado es obligatorio para impuestos gravados; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Una retención de concepto no contiene base"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "RETENCION_MISSING_BASE",
+      title: "Retención sin base",
+      message: "Una retención de concepto no tiene base especificada.",
+      recommendedAction: "La base es necesaria para calcular la retención; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Una retención de concepto no contiene impuesto"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "RETENCION_MISSING_IMPUESTO",
+      title: "Retención sin tipo de impuesto",
+      message: "Una retención de concepto no especifica el tipo de impuesto (ISR/IVA).",
+      recommendedAction: "El tipo de impuesto es obligatorio; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Una retención de concepto no contiene importe"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "RETENCION_MISSING_IMPORTE",
+      title: "Retención sin importe",
+      message: "Una retención de concepto no tiene importe especificado.",
+      recommendedAction: "El importe de la retención es obligatorio; solicita al emisor corregir el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("No se especificó el método de pago"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "MISSING_METODO_PAGO",
+      title: "Método de pago no especificado",
+      message: "El método de pago (MetodoPago) no fue especificado en el comprobante.",
+      recommendedAction: "Se recomienda especificar el método de pago para mayor claridad fiscal.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("No se especificó la forma de pago"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "MISSING_FORMA_PAGO",
+      title: "Forma de pago no especificada",
+      message: "La forma de pago (FormaPago) no fue especificada en el comprobante.",
+      recommendedAction: "Se recomienda especificar la forma de pago para mayor claridad fiscal.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El complemento de pago no contiene documentos relacionados"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "COMPLEMENT",
+      code: "PAGO_MISSING_DOCUMENTOS",
+      title: "Complemento de pago sin documentos relacionados",
+      message: "El complemento de pago no contiene documentos relacionados.",
+      recommendedAction: "En comprobantes de pago los documentos relacionados son esperados; verifica el origen.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El comprobante es tipo Pago, pero no se detectó complemento de pagos"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "COMPLEMENT",
+      code: "PAGO_MISSING_COMPLEMENT",
+      title: "Complemento de pagos faltante en tipo Pago",
+      message: "El comprobante es tipo Pago pero no se detectó el complemento de pagos.",
+      recommendedAction: "Verifica que el XML contenga el complemento de pagos necesario.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "PAGO_MONEDA_NOT_XXX",
+      title: "Moneda distinta de XXX en tipo Pago",
+      message: "En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX.",
+      recommendedAction: "Verifica que la moneda declarada sea correcta para el tipo de comprobante.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Se detectó un impuesto no clasificado por el catálogo base"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "UNCLASSIFIED_TAX",
+      title: "Impuesto no clasificado detectado",
+      message: "Se detectó un impuesto con código no reconocido por el catálogo base del motor.",
+      recommendedAction: "Revisa que el tipo de impuesto en el CFDI corresponda al catálogo fiscal vigente.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un impuesto exento contiene importe"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "EXENTO_WITH_IMPORTE",
+      title: "Impuesto exento con importe",
+      message: "Un impuesto exento contiene importe mayor a 0; revisar consistencia fiscal.",
+      recommendedAction: "Un impuesto exento no debería tener importe; verifica que el tipo factor sea correcto.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un impuesto con tipo factor Tasa no contiene tasa o cuota"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TASA_MISSING_TASA_OCUOTA",
+      title: "Impuesto con tipo Tasa sin tasa o cuota",
+      message: "Un impuesto con tipo factor Tasa no contiene el valor de tasa o cuota.",
+      recommendedAction: "El valor de tasa o cuota es obligatorio para impuestos con tipo factor Tasa.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un impuesto IEPS con tipo factor Tasa no contiene tasa o cuota"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "IEPS_TASA_MISSING_TASA_OCUOTA",
+      title: "IEPS con tipo Tasa sin tasa o cuota",
+      message: "Un impuesto IEPS con tipo factor Tasa no contiene el valor de tasa o cuota.",
+      recommendedAction: "El valor de tasa o cuota es obligatorio para IEPS con tipo factor Tasa.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Una retención ISR tiene importe mayor que su base"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "ISR_RETENTION_EXCEEDS_BASE",
+      title: "Retención ISR con importe mayor que la base",
+      message: "Una retención ISR tiene importe mayor que su base.",
+      recommendedAction: "Revisa que el cálculo de la retención ISR sea fiscalmente correcto.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Una retención de IVA tiene importe mayor que su base"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "IVA_RETENTION_EXCEEDS_BASE",
+      title: "Retención de IVA con importe mayor que la base",
+      message: "Una retención de IVA tiene importe mayor que su base.",
+      recommendedAction: "Revisa que el cálculo de la retención de IVA sea fiscalmente correcto.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Un impuesto tiene importe mayor a 0 con base igual o menor a 0"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TAX_IMPORTE_WITHOUT_BASE",
+      title: "Impuesto con importe y base no positiva",
+      message: "Un impuesto tiene importe mayor a 0 con base igual o menor a 0.",
+      recommendedAction: "Revisa que la base del impuesto sea correcta y consistente con el importe.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("La moneda del comprobante es 'XXX'"))) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "MONEDA_XXX",
+      title: "Moneda en código XXX",
+      message: "La moneda del comprobante es 'XXX' (sin moneda), inusual en comprobantes que no son de pago.",
+      recommendedAction: "Verifica que usar moneda XXX sea correcto para el tipo de operación.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El total del comprobante es 0"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "TOTAL_ZERO",
+      title: "Total del comprobante es 0",
+      message: "El total del comprobante es 0, inusual en comprobantes de ingreso o egreso.",
+      recommendedAction: "Verifica que el total declarado sea correcto.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("No se encontró la fecha de timbrado"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_TIMBRADO_FECHA",
+      title: "Fecha de timbrado faltante",
+      message: "No se encontró la fecha de timbrado en el TimbreFiscalDigital.",
+      recommendedAction: "La fecha de timbrado debería estar presente si el XML fue timbrado.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El formato del UUID no es estándar"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "UUID_NON_STANDARD",
+      title: "Formato de UUID no estándar",
+      message: "El formato del UUID del TimbreFiscalDigital no cumple con el estándar.",
+      recommendedAction: "Verifica que el UUID haya sido generado correctamente por el PAC.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El RFC del emisor tiene un formato sospechoso"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "SUSPICIOUS_RFC_EMISOR",
+      title: "RFC del emisor con formato sospechoso",
+      message: "El RFC del emisor no cumple con el formato estándar del SAT.",
+      recommendedAction: "Verifica que el RFC del emisor sea válido ante el SAT.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El RFC del receptor tiene un formato sospechoso"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "SUSPICIOUS_RFC_RECEPTOR",
+      title: "RFC del receptor con formato sospechoso",
+      message: "El RFC del receptor no cumple con el formato estándar del SAT.",
+      recommendedAction: "Verifica que tu RFC esté correctamente registrado ante el SAT.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("No se pudo determinar la versión del CFDI"))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "UNDETERMINED_VERSION",
+      title: "Versión del CFDI no determinada",
+      message: "No se pudo determinar la versión del CFDI del comprobante.",
+      recommendedAction: "Verifica que el XML sea un CFDI válido con una versión estándar.",
     });
   }
 
