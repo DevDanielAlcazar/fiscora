@@ -138,6 +138,55 @@ export default function XmlAuditPage() {
               );
             })()}
 
+            {result.findings && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Hallazgos del análisis</h2>
+                {result.findings.length > 0 ? (
+                  <>
+                    <div className="flex gap-4 text-sm">
+                      <span className="px-3 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold text-xs">
+                        Críticos: {result.findings.filter(f => f.severity === "CRITICAL").length}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 font-bold text-xs">
+                        Advertencias: {result.findings.filter(f => f.severity === "WARNING").length}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs">
+                        Informativos: {result.findings.filter(f => f.severity === "INFO").length}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {result.findings.map((f, i) => {
+                        const badge: Record<string, { label: string; style: string }> = {
+                          INFO: { label: "Informativo", style: "text-blue-700 bg-blue-50 border-blue-200" },
+                          WARNING: { label: "Advertencia", style: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+                          CRITICAL: { label: "Crítico", style: "text-red-700 bg-red-50 border-red-200" },
+                        };
+                        const b = badge[f.severity] ?? badge.INFO;
+                        return (
+                          <div key={i} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}>{b.label}</span>
+                              <span className="text-xs text-muted-foreground font-mono">{f.category}</span>
+                              <span className="text-xs text-muted-foreground font-mono">{f.code}</span>
+                            </div>
+                            <p className="text-sm font-medium">{f.title}</p>
+                            <p className="text-sm text-muted-foreground">{f.message}</p>
+                            {f.recommendedAction && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No se detectaron hallazgos estructurados.</p>
+                )}
+              </div>
+            )}
+
             {result.paymentComplement && (
               <div className="p-6 rounded-xl border border-border bg-card space-y-4">
                 <h2 className="font-semibold text-lg">Complemento de pago</h2>

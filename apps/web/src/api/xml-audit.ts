@@ -109,6 +109,15 @@ export interface ConceptInfo {
   impuestos?: ConceptImpuestos;
 }
 
+export interface Finding {
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  category: "TECHNICAL" | "FISCAL" | "STRUCTURE" | "COMPLEMENT" | "TAX" | "TOTALS";
+  code: string;
+  title: string;
+  message: string;
+  recommendedAction?: string;
+}
+
 export interface AnalysisResult {
   uuid: string | null;
   tipoComprobante: string | null;
@@ -131,6 +140,7 @@ export interface AnalysisResult {
   totalImpuestosRetenidos: string | null;
   issues: string[];
   warnings: string[];
+  findings?: Finding[];
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement;

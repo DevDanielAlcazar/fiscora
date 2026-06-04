@@ -883,41 +883,7 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     warnings.push("No se pudo determinar la versión del CFDI");
   }
 
-  // ── Executive Summary ──
-  let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
-  let summaryTitle = "XML sin incidencias críticas detectadas";
-  let summaryMessage = "El comprobante pudo leerse correctamente y no se detectaron incidencias fiscales básicas.";
-  let summaryAction = "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
-
-  if (issues.length > 0) {
-    riskLevel = "CRITICAL";
-    summaryTitle = "XML con incidencias críticas";
-    summaryMessage = "Se detectaron incidencias que pueden afectar la validez, lectura o consistencia fiscal del comprobante.";
-    summaryAction = "Corrige el origen del XML o solicita al emisor/proveedor una revisión antes de continuar.";
-  } else if (warnings.length > 0) {
-    riskLevel = "WARNING";
-    summaryTitle = "XML con advertencias";
-    summaryMessage = "El comprobante pudo leerse, pero se detectaron advertencias que conviene revisar.";
-    summaryAction = "Revisa las advertencias antes de usar este XML en procesos fiscales o contables.";
-  }
-
-  if (riskLevel !== "CRITICAL") {
-    if (!diag.isStamped) {
-      summaryMessage += " El XML no está timbrado, lo que puede afectar su validez fiscal.";
-      summaryAction += " Verifica que el comprobante haya sido timbrado ante el SAT antes de utilizarlo.";
-    }
-    if (diag.safeNormalizationApplied) {
-      summaryAction += " La normalización aplicada fue solo técnica (BOM/contenido previo), no fiscal.";
-    }
-  }
-
-  const executiveSummary: ExecutiveSummary = {
-    riskLevel,
-    title: summaryTitle,
-    message: summaryMessage,
-    recommendedAction: summaryAction,
-  };
-
+  // ── Findings ──
   const findings: Finding[] = [];
 
   if (diag.bomDetected) {
@@ -1040,6 +1006,54 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
     });
   }
+
+  // ── Executive Summary ──
+  let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
+  let summaryTitle: string;
+  let summaryMessage: string;
+  let summaryAction: string;
+
+  const hasCritical = findings.some(f => f.severity === "CRITICAL");
+  const hasWarning = findings.some(f => f.severity === "WARNING");
+  const hasInfoOnly = findings.length > 0 && !hasCritical && !hasWarning;
+
+  if (hasCritical) {
+    riskLevel = "CRITICAL";
+    summaryTitle = "XML con incidencias críticas";
+    summaryMessage = "Se detectaron hallazgos críticos que pueden afectar la lectura, consistencia fiscal o uso operativo del comprobante.";
+    summaryAction = "Revisa los hallazgos críticos antes de usar este XML en procesos fiscales, contables u operativos.";
+  } else if (hasWarning) {
+    riskLevel = "WARNING";
+    summaryTitle = "XML con advertencias";
+    summaryMessage = "El comprobante pudo leerse, pero se detectaron advertencias que conviene revisar.";
+    summaryAction = "Revisa las advertencias para confirmar que corresponden al caso fiscal u operativo.";
+  } else {
+    riskLevel = "OK";
+    summaryTitle = "XML sin incidencias críticas detectadas";
+    summaryMessage = "El comprobante pudo leerse correctamente y no se detectaron hallazgos críticos ni advertencias.";
+    summaryAction = "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
+  }
+
+  if (hasInfoOnly) {
+    summaryMessage += " Existen hallazgos informativos que no representan una incidencia crítica.";
+  }
+
+  if (riskLevel !== "CRITICAL") {
+    if (findings.some(f => f.code === "BOM_UTF8_DETECTED")) {
+      summaryAction += " La normalización aplicada fue solo técnica (BOM/contenido previo), no fiscal.";
+    }
+    if (findings.some(f => f.code === "UNSTAMPED_XML")) {
+      summaryMessage += " El XML no está timbrado, lo que puede afectar su validez fiscal.";
+      summaryAction += " Verifica que el comprobante haya sido timbrado ante el SAT antes de utilizarlo.";
+    }
+  }
+
+  const executiveSummary: ExecutiveSummary = {
+    riskLevel,
+    title: summaryTitle,
+    message: summaryMessage,
+    recommendedAction: summaryAction,
+  };
 
   return {
     uuid,
