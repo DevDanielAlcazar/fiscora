@@ -11,6 +11,7 @@ export default function XmlAuditPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -55,6 +56,7 @@ export default function XmlAuditPage() {
     try {
       const analysis = await analyzeXml(token, selectedFile);
       setResult(analysis);
+      setFilter("ALL");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible analizar el XML.");
     } finally {
@@ -154,31 +156,56 @@ export default function XmlAuditPage() {
                         Informativos: {result.findings.filter(f => f.severity === "INFO").length}
                       </span>
                     </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {(["ALL", "CRITICAL", "WARNING", "INFO"] as const).map((f) => {
+                        const labels: Record<string, string> = { ALL: "Todos", CRITICAL: "Críticos", WARNING: "Advertencias", INFO: "Informativos" };
+                        const active = filter === f;
+                        return (
+                          <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                              active
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {labels[f]}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <div className="space-y-3">
-                      {result.findings.map((f, i) => {
+                      {(() => {
+                        const filtered = filter === "ALL" ? result.findings : result.findings.filter(f => f.severity === filter);
+                        if (filtered.length === 0) {
+                          return <p className="text-sm text-muted-foreground">No hay hallazgos para este filtro.</p>;
+                        }
                         const badge: Record<string, { label: string; style: string }> = {
                           INFO: { label: "Informativo", style: "text-blue-700 bg-blue-50 border-blue-200" },
                           WARNING: { label: "Advertencia", style: "text-yellow-700 bg-yellow-50 border-yellow-200" },
                           CRITICAL: { label: "Crítico", style: "text-red-700 bg-red-50 border-red-200" },
                         };
-                        const b = badge[f.severity] ?? badge.INFO;
-                        return (
-                          <div key={i} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}>{b.label}</span>
-                              <span className="text-xs text-muted-foreground font-mono">{f.category}</span>
-                              <span className="text-xs text-muted-foreground font-mono">{f.code}</span>
+                        return filtered.map((f, i) => {
+                          const b = badge[f.severity] ?? badge.INFO;
+                          return (
+                            <div key={i} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}>{b.label}</span>
+                                <span className="text-xs text-muted-foreground font-mono">{f.category}</span>
+                                <span className="text-xs text-muted-foreground font-mono">{f.code}</span>
+                              </div>
+                              <p className="text-sm font-medium">{f.title}</p>
+                              <p className="text-sm text-muted-foreground">{f.message}</p>
+                              {f.recommendedAction && (
+                                <p className="text-xs text-muted-foreground">
+                                  <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
+                                </p>
+                              )}
                             </div>
-                            <p className="text-sm font-medium">{f.title}</p>
-                            <p className="text-sm text-muted-foreground">{f.message}</p>
-                            {f.recommendedAction && (
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   </>
                 ) : (
@@ -771,35 +798,45 @@ export default function XmlAuditPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Incidencias</h3>
-              {result.issues.length > 0 ? (
-                <ul className="space-y-1">
-                  {result.issues.map((issue, i) => (
-                    <li key={i} className="text-sm text-red-500 flex items-center gap-2">
-                      <span>⚠</span> {issue}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-emerald-600">Sin incidencias detectadas</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Advertencias</h3>
-              {result.warnings.length > 0 ? (
-                <ul className="space-y-1">
-                  {result.warnings.map((w, i) => (
-                    <li key={i} className="text-sm text-yellow-600 flex items-center gap-2">
-                      <span>!</span> {w}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-emerald-600">Sin advertencias</p>
-              )}
-            </div>
+            {result.findings ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Compatibilidad técnica</h3>
+                <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+                  Las incidencias y advertencias tradicionales se conservan internamente por compatibilidad. Consulta los hallazgos estructurados para el diagnóstico principal.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Incidencias</h3>
+                  {result.issues.length > 0 ? (
+                    <ul className="space-y-1">
+                      {result.issues.map((issue, i) => (
+                        <li key={i} className="text-sm text-red-500 flex items-center gap-2">
+                          <span>⚠</span> {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-emerald-600">Sin incidencias detectadas</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Advertencias</h3>
+                  {result.warnings.length > 0 ? (
+                    <ul className="space-y-1">
+                      {result.warnings.map((w, i) => (
+                        <li key={i} className="text-sm text-yellow-600 flex items-center gap-2">
+                          <span>!</span> {w}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-emerald-600">Sin advertencias</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
           </>
         )}
