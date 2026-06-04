@@ -508,6 +508,76 @@ export default function XmlAuditPage() {
               </div>
             )}
 
+            {result.taxSummary && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Resumen de impuestos</h2>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Trasladados</h3>
+                  {result.taxSummary.transferred.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/50 text-muted-foreground">
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Impuesto</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Tipo factor</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Tasa o cuota</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Base calculada</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Importe calculado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.taxSummary.transferred.map((t, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2 font-medium">{t.impuestoLabel} ({t.impuesto})</td>
+                              <td className="py-1 pr-2">{t.tipoFactor ?? "—"}</td>
+                              <td className="py-1 pr-2">{t.tasaOCuota ?? "—"}</td>
+                              <td className="py-1 pr-2">{t.baseCalculated}</td>
+                              <td className="py-1 pr-2">{t.importeCalculated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No se detectaron impuestos trasladados por concepto.</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Retenidos</h3>
+                  {result.taxSummary.retained.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/50 text-muted-foreground">
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Impuesto</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Tipo factor</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Tasa o cuota</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Base calculada</th>
+                            <th className="text-left py-1 pr-2 whitespace-nowrap">Importe calculado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.taxSummary.retained.map((r, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2 font-medium">{r.impuestoLabel} ({r.impuesto})</td>
+                              <td className="py-1 pr-2">{r.tipoFactor ?? "—"}</td>
+                              <td className="py-1 pr-2">{r.tasaOCuota ?? "—"}</td>
+                              <td className="py-1 pr-2">{r.baseCalculated}</td>
+                              <td className="py-1 pr-2">{r.importeCalculated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No se detectaron impuestos retenidos por concepto.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {result.totalsValidation && (
               <div className="p-6 rounded-xl border border-border bg-card space-y-4">
                 <div className="flex items-center justify-between">

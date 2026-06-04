@@ -66,6 +66,20 @@ export interface ConceptImpuestos {
   retenciones: ConceptTaxEntry[];
 }
 
+export interface TaxSummaryEntry {
+  impuesto: string;
+  impuestoLabel: string;
+  tipoFactor?: string;
+  tasaOCuota?: string;
+  baseCalculated: string;
+  importeCalculated: string;
+}
+
+export interface TaxSummary {
+  transferred: TaxSummaryEntry[];
+  retained: TaxSummaryEntry[];
+}
+
 export interface TotalsValidation {
   subtotalXml?: string;
   subtotalCalculated?: string;
@@ -123,6 +137,7 @@ export interface AnalysisResult {
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;
+  taxSummary?: TaxSummary;
 }
 
 export interface AnalyzeResponse {

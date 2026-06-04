@@ -97,6 +97,29 @@ export interface TotalsValidation {
   matches: boolean;
 }
 
+export interface TaxSummaryEntry {
+  impuesto: string;
+  impuestoLabel: string;
+  tipoFactor?: string;
+  tasaOCuota?: string;
+  baseCalculated: string;
+  importeCalculated: string;
+}
+
+export interface TaxSummary {
+  transferred: TaxSummaryEntry[];
+  retained: TaxSummaryEntry[];
+}
+
+export interface Finding {
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  category: "TECHNICAL" | "FISCAL" | "STRUCTURE" | "COMPLEMENT" | "TAX" | "TOTALS";
+  code: string;
+  title: string;
+  message: string;
+  recommendedAction?: string;
+}
+
 export interface CfdiAnalysisResult {
   uuid: string | null;
   version: string | null;
@@ -119,12 +142,14 @@ export interface CfdiAnalysisResult {
   formaPago: string | null;
   issues: string[];
   warnings: string[];
+  findings: Finding[];
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement | null;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
+  taxSummary?: TaxSummary | null;
 }
 
 export interface AnalysisResponse {
@@ -149,12 +174,14 @@ export interface AnalysisResponse {
   totalImpuestosRetenidos: string | null;
   issues: string[];
   warnings: string[];
+  findings: Finding[];
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement | null;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
+  taxSummary?: TaxSummary | null;
 }
 
 const BOM = "\uFEFF";
@@ -178,6 +205,19 @@ function toNum(val: string | null | undefined): number | null {
   if (val === null || val === undefined) return null;
   const n = parseFloat(val.replace(",", ""));
   return isNaN(n) ? null : n;
+}
+
+function toMoneyNumber(val: string | null | undefined): number {
+  const n = toNum(val);
+  return n !== null ? roundMoney(n) : 0;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatMoney(value: number): string {
+  return roundMoney(value).toFixed(2);
 }
 
 function rc(version: string | null, target: "3.3" | "4.0"): boolean {
@@ -618,8 +658,8 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
   let totalsValidation: TotalsValidation | null = null;
 
   if ((tipoComprobante === "I" || tipoComprobante === "E") && concepts && concepts.length > 0) {
-    const sumaImportes = concepts.reduce((acc, c) => acc + (toNum(c.importe) ?? 0), 0);
-    const sumaDescuentos = concepts.reduce((acc, c) => acc + (toNum(c.descuento) ?? 0), 0);
+    const sumaImportes = concepts.reduce((acc, c) => acc + toMoneyNumber(c.importe), 0);
+    const sumaDescuentos = concepts.reduce((acc, c) => acc + toMoneyNumber(c.descuento), 0);
 
     let sumaTraslados = 0;
     let sumaRetenciones = 0;
@@ -627,39 +667,40 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     for (const c of concepts) {
       if (c.impuestos) {
         for (const t of c.impuestos.traslados) {
-          sumaTraslados += toNum(t.importe) ?? 0;
+          sumaTraslados += toMoneyNumber(t.importe);
         }
         for (const r of c.impuestos.retenciones) {
-          sumaRetenciones += toNum(r.importe) ?? 0;
+          sumaRetenciones += toMoneyNumber(r.importe);
         }
       }
     }
 
-    const subtotalCalculated = sumaImportes;
-    const discountCalculated = sumaDescuentos;
-    const transferredTaxesCalculated = sumaTraslados;
-    const retainedTaxesCalculated = sumaRetenciones;
+    const subtotalCalculated = roundMoney(sumaImportes);
+    const discountCalculated = roundMoney(sumaDescuentos);
+    const transferredTaxesCalculated = roundMoney(sumaTraslados);
+    const retainedTaxesCalculated = roundMoney(sumaRetenciones);
 
-    const subtotalNum = toNum(subtotal) ?? 0;
-    const totalNum = toNum(total) ?? 0;
-    const trasladadosNum = toNum(totalTrasladadosVal) ?? 0;
-    const retenidosNum = toNum(totalRetenidosVal) ?? 0;
+    const subtotalNum = toMoneyNumber(subtotal);
+    const totalNum = toMoneyNumber(total);
+    const trasladadosNum = toMoneyNumber(totalTrasladadosVal);
+    const retenidosNum = toMoneyNumber(totalRetenidosVal);
 
-    const totalCalculated = subtotalCalculated - discountCalculated + transferredTaxesCalculated - retainedTaxesCalculated;
-    const difference = Math.abs(totalCalculated - totalNum);
-    const matches = difference <= 0.01;
+    const totalCalculated = roundMoney(subtotalCalculated - discountCalculated + transferredTaxesCalculated - retainedTaxesCalculated);
+    const rawDifference = Math.abs(totalCalculated - totalNum);
+    const matches = rawDifference <= 0.01;
+    const difference = matches ? 0 : roundMoney(rawDifference);
 
     totalsValidation = {
-      subtotalXml: subtotal ?? undefined,
-      subtotalCalculated: String(subtotalCalculated),
-      discountCalculated: String(discountCalculated),
-      transferredTaxesXml: totalTrasladadosVal ?? undefined,
-      transferredTaxesCalculated: String(transferredTaxesCalculated),
-      retainedTaxesXml: totalRetenidosVal ?? undefined,
-      retainedTaxesCalculated: String(retainedTaxesCalculated),
-      totalXml: total ?? undefined,
-      totalCalculated: String(totalCalculated),
-      difference: String(difference),
+      subtotalXml: formatMoney(subtotalNum),
+      subtotalCalculated: formatMoney(subtotalCalculated),
+      discountCalculated: formatMoney(discountCalculated),
+      transferredTaxesXml: formatMoney(trasladadosNum),
+      transferredTaxesCalculated: formatMoney(transferredTaxesCalculated),
+      retainedTaxesXml: formatMoney(retenidosNum),
+      retainedTaxesCalculated: formatMoney(retainedTaxesCalculated),
+      totalXml: formatMoney(totalNum),
+      totalCalculated: formatMoney(totalCalculated),
+      difference: formatMoney(difference),
       tolerance: "0.01",
       matches,
     };
@@ -678,6 +719,135 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
 
     if (retenidosNum > 0 && Math.abs(retainedTaxesCalculated - retenidosNum) > 0.01) {
       warnings.push("El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.");
+    }
+  }
+
+  // ── Tax Summary ──
+  const TAX_LABELS: Record<string, string> = { "001": "ISR", "002": "IVA", "003": "IEPS" };
+
+  function groupTaxEntries(entries: ConceptTaxEntry[]): TaxSummaryEntry[] {
+    const map = new Map<string, { base: number; importe: number; impuesto: string; tipoFactor: string | undefined; tasaOCuota: string | undefined }>();
+
+    for (const e of entries) {
+      const impuesto = e.impuesto ?? "SIN_IMPUESTO";
+      const grupo = `${impuesto}|${e.tipoFactor ?? ""}|${e.tasaOCuota ?? ""}`;
+
+      if (!map.has(grupo)) {
+        map.set(grupo, { base: 0, importe: 0, impuesto, tipoFactor: e.tipoFactor, tasaOCuota: e.tasaOCuota });
+      }
+      const g = map.get(grupo)!;
+      g.base += toNum(e.base) ?? 0;
+      g.importe += toNum(e.importe) ?? 0;
+    }
+
+    const result: TaxSummaryEntry[] = [];
+    for (const [, g] of map) {
+      result.push({
+        impuesto: g.impuesto,
+        impuestoLabel: TAX_LABELS[g.impuesto] ?? `Impuesto ${g.impuesto}`,
+        tipoFactor: g.tipoFactor,
+        tasaOCuota: g.tasaOCuota,
+        baseCalculated: formatMoney(g.base),
+        importeCalculated: formatMoney(g.importe),
+      });
+    }
+
+    return result;
+  }
+
+  let taxSummary: TaxSummary | null = null;
+
+  if (concepts && concepts.length > 0) {
+    const allTraslados: ConceptTaxEntry[] = [];
+    const allRetenciones: ConceptTaxEntry[] = [];
+
+    for (const c of concepts) {
+      if (c.impuestos) {
+        allTraslados.push(...c.impuestos.traslados);
+        allRetenciones.push(...c.impuestos.retenciones);
+      }
+    }
+
+    const transferred = groupTaxEntries(allTraslados);
+    const retained = groupTaxEntries(allRetenciones);
+
+    if (transferred.length > 0 || retained.length > 0) {
+      taxSummary = { transferred, retained };
+    }
+
+    for (const t of allTraslados) {
+      if (t.impuesto && !["001", "002", "003"].includes(t.impuesto)) {
+        warnings.push("Se detectó un impuesto no clasificado por el catálogo base del motor.");
+        break;
+      }
+    }
+
+    for (const r of allRetenciones) {
+      if (r.impuesto && !["001", "002", "003"].includes(r.impuesto)) {
+        warnings.push("Se detectó un impuesto no clasificado por el catálogo base del motor.");
+        break;
+      }
+    }
+
+    for (const t of allTraslados) {
+      if (t.tipoFactor === "Exento" && toNum(t.importe) && toNum(t.importe)! > 0) {
+        warnings.push("Un impuesto exento contiene importe; revisar consistencia fiscal.");
+        break;
+      }
+    }
+
+    for (const t of allTraslados) {
+      if (t.tipoFactor === "Tasa" && !t.tasaOCuota) {
+        warnings.push("Un impuesto con tipo factor Tasa no contiene tasa o cuota.");
+        break;
+      }
+    }
+
+    for (const t of allTraslados) {
+      if (t.impuesto === "002" && t.tipoFactor === "Tasa" && t.tasaOCuota && !["0.160000", "0.080000", "0.000000"].includes(t.tasaOCuota)) {
+        warnings.push("Se detectó una tasa de IVA no común; revisar si corresponde al caso fiscal.");
+        break;
+      }
+    }
+
+    for (const t of allTraslados) {
+      if (t.impuesto === "003" && t.tipoFactor === "Tasa" && !t.tasaOCuota) {
+        warnings.push("Un impuesto IEPS con tipo factor Tasa no contiene tasa o cuota.");
+        break;
+      }
+    }
+
+    for (const r of allRetenciones) {
+      if (tipoComprobante === "I" || tipoComprobante === "E") {
+        if (r.impuesto === "001" && toNum(r.importe) && toNum(r.base) && toNum(r.importe)! > toNum(r.base)!) {
+          warnings.push("Una retención ISR tiene importe mayor que su base.");
+          break;
+        }
+        if (r.impuesto === "002" && toNum(r.importe) && toNum(r.base) && toNum(r.importe)! > toNum(r.base)!) {
+          warnings.push("Una retención de IVA tiene importe mayor que su base.");
+          break;
+        }
+      }
+    }
+
+    const allEntries = [...allTraslados, ...allRetenciones];
+    for (const e of allEntries) {
+      if (e.tipoFactor === "Tasa") {
+        const base = toNum(e.base) ?? 0;
+        const importe = toNum(e.importe) ?? 0;
+        if (base <= 0 && importe > 0) {
+          warnings.push("Un impuesto tiene importe mayor a 0 con base igual o menor a 0.");
+          break;
+        }
+        if (e.tasaOCuota) {
+          const tasa = toNum(e.tasaOCuota) ?? 0;
+          const esperado = roundMoney(base * tasa);
+          if (Math.abs(esperado - importe) > 0.01) {
+            warnings.push("El importe de un impuesto no coincide con base por tasa.");
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -748,6 +918,129 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     recommendedAction: summaryAction,
   };
 
+  const findings: Finding[] = [];
+
+  if (diag.bomDetected) {
+    findings.push({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "BOM_UTF8_DETECTED",
+      title: "BOM UTF-8 detectado",
+      message: "El archivo contiene BOM UTF-8 al inicio. Se normalizó en memoria para lectura sin modificar contenido fiscal.",
+      recommendedAction: "En fases futuras podrás descargar el XML técnicamente normalizado.",
+    });
+  }
+
+  if (diag.leadingContentBeforeXml) {
+    findings.push({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "LEADING_CONTENT_BEFORE_XML",
+      title: "Contenido previo al XML",
+      message: "Se detectó contenido antes del inicio del XML. Validar origen del archivo.",
+      recommendedAction: "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
+    });
+  }
+
+  if (!hasTimbreFiscalDigital) {
+    findings.push({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "UNSTAMPED_XML",
+      title: "XML sin timbre fiscal",
+      message: "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
+      recommendedAction: "Solicita al emisor el XML timbrado o verifica en el portal del SAT.",
+    });
+  }
+
+  if (structureDiagnostics.hasAddenda) {
+    findings.push({
+      severity: "INFO",
+      category: "STRUCTURE",
+      code: "ADDENDA_DETECTED",
+      title: "Addenda detectada",
+      message: "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
+      recommendedAction: "Revisa que la addenda no interfiera con la validez fiscal del CFDI.",
+    });
+  }
+
+  if (unknownComplements.length > 0) {
+    findings.push({
+      severity: "WARNING",
+      category: "STRUCTURE",
+      code: "UNKNOWN_COMPLEMENT",
+      title: "Complemento desconocido detectado",
+      message: `Se encontraron complementos no reconocidos por el motor base: ${unknownComplements.join(", ")}.`,
+      recommendedAction: "Verifica si el complemento es válido fiscalmente o requiere un módulo adicional.",
+    });
+  }
+
+  if (totalsValidation && !totalsValidation.matches) {
+    findings.push({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "TOTAL_MISMATCH",
+      title: "Total global inconsistente",
+      message: "El total global no coincide con conceptos, impuestos, descuentos y retenciones.",
+      recommendedAction: "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
+    });
+  }
+
+  if (issues.some(i => i.includes("El subtotal global no coincide"))) {
+    findings.push({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "SUBTOTAL_MISMATCH",
+      title: "Subtotal global inconsistente",
+      message: "El subtotal global no coincide con la suma de importes de conceptos.",
+      recommendedAction: "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El total de impuestos trasladados global no coincide"))) {
+    findings.push({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TRANSFERRED_TAXES_MISMATCH",
+      title: "Impuestos trasladados globales inconsistentes",
+      message: "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
+      recommendedAction: "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El total de impuestos retenidos global no coincide"))) {
+    findings.push({
+      severity: "WARNING",
+      category: "TAX",
+      code: "RETAINED_TAXES_MISMATCH",
+      title: "Impuestos retenidos globales inconsistentes",
+      message: "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
+      recommendedAction: "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("Se detectó una tasa de IVA no común"))) {
+    findings.push({
+      severity: "WARNING",
+      category: "TAX",
+      code: "UNCOMMON_VAT_RATE",
+      title: "Tasa de IVA no común",
+      message: "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
+      recommendedAction: "Verifica que la tasa corresponda al supuesto fiscal aplicable.",
+    });
+  }
+
+  if (warnings.some(w => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
+    findings.push({
+      severity: "WARNING",
+      category: "TAX",
+      code: "TAX_BASE_RATE_MISMATCH",
+      title: "Importe fiscal no coincide con base por tasa",
+      message: "El importe de un impuesto no coincide con el resultado de base por tasa/cuota.",
+      recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
+    });
+  }
+
   return {
     uuid,
     version,
@@ -770,12 +1063,14 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     formaPago,
     issues,
     warnings,
+    findings,
     technicalDiagnostics: diag,
     executiveSummary,
     paymentComplement: paymentComplement ?? undefined,
     structureDiagnostics,
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,
+    taxSummary: taxSummary ?? undefined,
   };
 }
 
@@ -802,11 +1097,13 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     totalImpuestosRetenidos: result.totalImpuestosRetenidos,
     issues: result.issues,
     warnings: result.warnings,
+    findings: result.findings,
     technicalDiagnostics: result.technicalDiagnostics,
     executiveSummary: result.executiveSummary,
     paymentComplement: result.paymentComplement,
     structureDiagnostics: result.structureDiagnostics,
     concepts: result.concepts,
     totalsValidation: result.totalsValidation,
+    taxSummary: result.taxSummary,
   };
 }
