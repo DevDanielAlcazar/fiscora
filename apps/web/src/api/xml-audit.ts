@@ -110,6 +110,7 @@ export interface ConceptInfo {
 }
 
 export interface Finding {
+  id: string;
   severity: "INFO" | "WARNING" | "CRITICAL";
   category: "TECHNICAL" | "FISCAL" | "STRUCTURE" | "COMPLEMENT" | "TAX" | "TOTALS";
   code: string;
@@ -117,6 +118,18 @@ export interface Finding {
   message: string;
   recommendedAction?: string;
   evidence?: { label: string; value?: string }[];
+}
+
+export interface NormalizedXml {
+  available: boolean;
+  reason: string;
+  filename: string;
+  content: string;
+  originalSha256: string;
+  normalizedSha256: string;
+  normalizationType: "TECHNICAL_SAFE";
+  fiscalContentModified: false;
+  stampRisk: "NONE";
 }
 
 export interface AnalysisResult {
@@ -149,6 +162,7 @@ export interface AnalysisResult {
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;
   taxSummary?: TaxSummary;
+  normalizedXml?: NormalizedXml;
 }
 
 export interface AnalyzeResponse {

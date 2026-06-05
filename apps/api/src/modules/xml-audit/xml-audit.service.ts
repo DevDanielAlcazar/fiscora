@@ -1,4 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
+import { createHash } from "node:crypto";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -112,6 +113,7 @@ export interface TaxSummary {
 }
 
 export interface Finding {
+  id: string;
   severity: "INFO" | "WARNING" | "CRITICAL";
   category: "TECHNICAL" | "FISCAL" | "STRUCTURE" | "COMPLEMENT" | "TAX" | "TOTALS";
   code: string;
@@ -119,6 +121,22 @@ export interface Finding {
   message: string;
   recommendedAction?: string;
   evidence?: { label: string; value?: string }[];
+}
+
+export interface NormalizedXml {
+  available: boolean;
+  reason: string;
+  filename: string;
+  content: string;
+  originalSha256: string;
+  normalizedSha256: string;
+  normalizationType: "TECHNICAL_SAFE";
+  fiscalContentModified: false;
+  stampRisk: "NONE";
+}
+
+function sha256Text(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 export interface CfdiAnalysisResult {
@@ -151,6 +169,7 @@ export interface CfdiAnalysisResult {
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
+  normalizedXml?: NormalizedXml;
 }
 
 export interface AnalysisResponse {
@@ -183,6 +202,7 @@ export interface AnalysisResponse {
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
+  normalizedXml?: NormalizedXml;
 }
 
 const BOM = "\uFEFF";
@@ -229,7 +249,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const RFC_MORAL = /^[A-ZÑ&]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 const RFC_FISICA = /^[A-ZÑ&]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 
-export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
+export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnalysisResult {
   const issues: string[] = [];
   const warnings: string[] = [];
   const safeNormalizationNotes: string[] = [];
@@ -263,6 +283,9 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     safeNormalizationApplied = true;
     safeNormalizationNotes.push("Contenido previo al primer '<' removido en memoria");
   }
+
+  const originalSha256 = sha256Text(rawXml);
+  const normalizedSha256 = sha256Text(xmlContent);
 
   if (bomDetected) {
     diag.bomDetected = true;
@@ -890,12 +913,17 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
 
   // ── Findings ──
   const findings: Finding[] = [];
-  const addedCodes = new Set<string>();
+  const addedKeys = new Set<string>();
+  const codeCounters: Record<string, number> = {};
 
-  function addFindingOnce(f: Finding) {
-    if (!addedCodes.has(f.code)) {
-      addedCodes.add(f.code);
-      findings.push(f);
+  function addFindingOnce(f: Omit<Finding, "id">) {
+    const evidenceStr = JSON.stringify(f.evidence ?? []);
+    const key = `${f.code}||${f.message}||${evidenceStr}`;
+    if (!addedKeys.has(key)) {
+      addedKeys.add(key);
+      if (!codeCounters[f.code]) codeCounters[f.code] = 1;
+      const id = `${f.code}-${codeCounters[f.code]++}`;
+      findings.push({ ...f, id });
     }
   }
 
@@ -911,6 +939,10 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
         { label: "Problema detectado", value: "BOM UTF-8 al inicio del archivo" },
         { label: "Normalización aplicada", value: "Sí, solo en memoria" },
         { label: "Contenido fiscal modificado", value: "No" },
+        { label: "Hash original SHA-256", value: originalSha256 },
+        { label: "Hash normalizado SHA-256", value: normalizedSha256 },
+        { label: "Riesgo para timbre/sello", value: "Ninguno" },
+        { label: "Tipo de normalización", value: "TECHNICAL_SAFE" },
       ],
     });
   }
@@ -923,6 +955,15 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Contenido previo al XML",
       message: "Se detectó contenido antes del inicio del XML. Validar origen del archivo.",
       recommendedAction: "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
+      evidence: [
+        { label: "Problema detectado", value: "Contenido previo al primer '<'" },
+        { label: "Normalización aplicada", value: "Sí, solo en memoria" },
+        { label: "Contenido fiscal modificado", value: "No" },
+        { label: "Hash original SHA-256", value: originalSha256 },
+        { label: "Hash normalizado SHA-256", value: normalizedSha256 },
+        { label: "Riesgo para timbre/sello", value: "Ninguno" },
+        { label: "Tipo de normalización", value: "TECHNICAL_SAFE" },
+      ],
     });
   }
 
@@ -1670,6 +1711,24 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     recommendedAction: summaryAction,
   };
 
+  let normalizedXml: NormalizedXml | undefined;
+  if (safeNormalizationApplied) {
+    const normalizedFilename = originalFilename
+      ? originalFilename.replace(/\.xml$/i, "") + "-normalizado.xml"
+      : "cfdi-normalizado.xml";
+    normalizedXml = {
+      available: true,
+      reason: "Se detectó un problema técnico de codificación o contenido previo al XML. Fiscora generó una versión normalizada sin modificar el contenido fiscal ni el timbre del CFDI.",
+      filename: normalizedFilename,
+      content: xmlContent,
+      originalSha256,
+      normalizedSha256,
+      normalizationType: "TECHNICAL_SAFE",
+      fiscalContentModified: false,
+      stampRisk: "NONE",
+    };
+  }
+
   return {
     uuid,
     version,
@@ -1700,6 +1759,7 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,
     taxSummary: taxSummary ?? undefined,
+    normalizedXml,
   };
 }
 
@@ -1734,5 +1794,6 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     concepts: result.concepts,
     totalsValidation: result.totalsValidation,
     taxSummary: result.taxSummary,
+    normalizedXml: result.normalizedXml,
   };
 }

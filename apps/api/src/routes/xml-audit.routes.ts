@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { ModuleAccessService } from "../modules/modules/module-access.service.js";
 import { UsageService } from "../modules/usage/usage.service.js";
 import { analyzeCfdi, toAnalysisResponse } from "../modules/xml-audit/xml-audit.service.js";
+import { XmlAnalysisRecordService } from "../modules/xml-audit/xml-analysis-record.service.js";
 
 const MODULE_KEY = "AUDITORIA_XML";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -86,7 +87,7 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
       // Analyze XML
       let result;
       try {
-        result = analyzeCfdi(xmlContent);
+        result = analyzeCfdi(xmlContent, file.filename);
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
         if (error.code === "XML_INVALID") {
@@ -122,6 +123,23 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         }
       }
 
+      const analysisResponse = toAnalysisResponse(result);
+
+      // Save analysis record (non-blocking — failure does not break response)
+      try {
+        await XmlAnalysisRecordService.saveXmlAnalysisRecord({
+          prisma: fastify.prisma,
+          userId: request.user.userId,
+          organizationId: request.user.organizationId,
+          analysis: analysisResponse,
+        });
+      } catch (saveError: unknown) {
+        fastify.log.error(
+          { error: saveError, userId: request.user.userId },
+          "Failed to save XmlAnalysisRecord",
+        );
+      }
+
       fastify.log.info(
         { organizationId: request.user.organizationId, uuid: result.uuid },
         "XML analyzed successfully",
@@ -129,7 +147,7 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         ok: true,
-        analysis: toAnalysisResponse(result),
+        analysis: analysisResponse,
       });
     },
   });

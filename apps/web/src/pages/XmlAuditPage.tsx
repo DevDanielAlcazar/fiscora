@@ -13,6 +13,15 @@ export default function XmlAuditPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT">("ALL");
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
+
+  function toggleEvidence(code: string) {
+    setExpandedEvidence(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code); else next.add(code);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -234,19 +243,33 @@ export default function XmlAuditPage() {
                                   <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
                                 </p>
                               )}
-                              {f.evidence && f.evidence.length > 0 && (
-                                <div className="space-y-1 pt-1">
-                                  <p className="text-xs font-semibold text-muted-foreground">Evidencia</p>
-                                  <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
-                                    {f.evidence.map((e, eIdx) => (
-                                      <div key={eIdx} className="contents">
-                                        <span className="text-muted-foreground whitespace-nowrap">{e.label}:</span>
-                                        <span className="font-mono text-foreground/80 break-all">{e.value ?? "—"}</span>
-                                      </div>
-                                    ))}
+                              {f.evidence && f.evidence.length > 0 && (() => {
+                                const findingKey = f.id ?? f.code;
+                                const isExpanded = expandedEvidence.has(findingKey);
+                                const visibleEvidence = isExpanded ? f.evidence : f.evidence.slice(0, 4);
+                                const hasMore = f.evidence.length > 4;
+                                return (
+                                  <div className="space-y-1 pt-1 border-t border-border/40 mt-2">
+                                    <p className="text-xs font-semibold text-muted-foreground pt-1">Evidencia detectada</p>
+                                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
+                                      {visibleEvidence.map((e, eIdx) => (
+                                        <div key={eIdx} className="contents">
+                                          <span className="text-muted-foreground whitespace-nowrap">{e.label}:</span>
+                                          <span className="font-mono text-foreground/80 break-all">{e.value ?? "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {hasMore && (
+                                      <button
+                                        onClick={() => toggleEvidence(findingKey)}
+                                        className="text-xs font-semibold text-primary hover:underline mt-1"
+                                      >
+                                        {isExpanded ? "Ver menos" : `Ver más evidencia (${f.evidence.length - 4} restantes)`}
+                                      </button>
+                                    )}
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           );
                         });
@@ -410,6 +433,48 @@ export default function XmlAuditPage() {
                   </ul>
                 </div>
               )}
+
+              {result.normalizedXml?.available && (() => {
+                const nx = result.normalizedXml!;
+                function handleDownloadNormalized() {
+                  const blob = new Blob([nx.content], { type: "application/xml" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = nx.filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }
+                return (
+                  <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
+                    <p className="text-sm font-semibold text-blue-800">XML normalizado disponible</p>
+                    <p className="text-sm text-blue-700">
+                      Se detectó un problema técnico de codificación o contenido previo al XML. Fiscora generó una versión normalizada sin modificar el contenido fiscal ni el timbre del CFDI.
+                    </p>
+                    <button
+                      onClick={handleDownloadNormalized}
+                      className="w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-all"
+                    >
+                      Descargar XML normalizado
+                    </button>
+                    <div className="space-y-1 pt-1 border-t border-blue-200/60">
+                      <p className="text-xs font-semibold text-blue-800">Trazabilidad técnica</p>
+                      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                        <span className="text-blue-600 whitespace-nowrap">Hash original:</span>
+                        <span className="font-mono text-blue-800 break-all">{nx.originalSha256}</span>
+                        <span className="text-blue-600 whitespace-nowrap">Hash normalizado:</span>
+                        <span className="font-mono text-blue-800 break-all">{nx.normalizedSha256}</span>
+                        <span className="text-blue-600 whitespace-nowrap">Contenido fiscal modificado:</span>
+                        <span className="font-mono text-blue-800">No</span>
+                        <span className="text-blue-600 whitespace-nowrap">Riesgo para timbre/sello:</span>
+                        <span className="font-mono text-blue-800">Ninguno</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="p-6 rounded-xl border border-border bg-card space-y-4">
@@ -886,6 +951,339 @@ export default function XmlAuditPage() {
           </>
         )}
 
+        {result && (() => {
+          const r = result;
+          function handleExportJson() {
+            const payload = {
+              generatedAt: new Date().toISOString(),
+              uuid: r.uuid,
+              tipoComprobante: r.tipoComprobante,
+              rfcEmisor: r.rfcEmisor,
+              nombreEmisor: r.nombreEmisor,
+              rfcReceptor: r.rfcReceptor,
+              nombreReceptor: r.nombreReceptor,
+              fecha: r.fecha,
+              total: r.total,
+              subtotal: r.subtotal,
+              moneda: r.moneda,
+              version: r.version,
+              serie: r.serie,
+              folio: r.folio,
+              usoCfdi: r.usoCfdi,
+              metodoPago: r.metodoPago,
+              formaPago: r.formaPago,
+              fechaTimbrado: r.fechaTimbrado,
+              totalImpuestosTrasladados: r.totalImpuestosTrasladados,
+              totalImpuestosRetenidos: r.totalImpuestosRetenidos,
+              issues: r.issues,
+              warnings: r.warnings,
+              executiveSummary: r.executiveSummary,
+              findings: r.findings,
+              technicalDiagnostics: r.technicalDiagnostics,
+              structureDiagnostics: r.structureDiagnostics,
+              paymentComplement: r.paymentComplement,
+              concepts: r.concepts,
+              taxSummary: r.taxSummary,
+              totalsValidation: r.totalsValidation,
+              normalizedXml: r.normalizedXml
+                ? {
+                    available: r.normalizedXml.available,
+                    reason: r.normalizedXml.reason,
+                    filename: r.normalizedXml.filename,
+                    originalSha256: r.normalizedXml.originalSha256,
+                    normalizedSha256: r.normalizedXml.normalizedSha256,
+                    normalizationType: r.normalizedXml.normalizationType,
+                    fiscalContentModified: r.normalizedXml.fiscalContentModified,
+                    stampRisk: r.normalizedXml.stampRisk,
+                  }
+                : undefined,
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const suffix = r.uuid ?? ts;
+            a.download = `fiscora-analisis-xml-${suffix}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          function escCsv(val: string): string {
+            const v = val.replace(/"/g, '""');
+            return /[",\n\r]/.test(v) ? `"${v}"` : v;
+          }
+          function formatEvidence(evidence: { label: string; value?: string }[] | undefined): string {
+            if (!evidence || evidence.length === 0) return "";
+            return evidence.map(e => `${e.label}: ${e.value ?? "—"}`).join(" | ");
+          }
+          function handleExportCsv() {
+            if (!r.findings || r.findings.length === 0) return;
+            const header = "ID,Severidad,Categoria,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
+            const rows = r.findings.map(f => {
+              const cols = [
+                escCsv(f.id),
+                escCsv(f.severity),
+                escCsv(f.category),
+                escCsv(f.code),
+                escCsv(f.title),
+                escCsv(f.message),
+                escCsv(f.recommendedAction ?? ""),
+                escCsv(formatEvidence(f.evidence)),
+              ];
+              return cols.join(",");
+            });
+            const bom = "\uFEFF";
+            const csv = bom + header + "\r\n" + rows.join("\r\n");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;header=present" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const suffix = r.uuid ?? ts;
+            a.download = `fiscora-hallazgos-xml-${suffix}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          // TODO: Reemplazar multi-section CSV por generación real .xlsx usando librería como exceljs o xlsx cuando se agregue como dependencia
+          function handleExportExcel() {
+            const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const suffix = r.uuid ?? ts;
+            const bom = "\uFEFF";
+            const lines: string[] = [];
+
+            function section(title: string) {
+              lines.push("");
+              lines.push(`"${title}"`);
+              lines.push("");
+            }
+            function row(...vals: (string | null | undefined)[]) {
+              lines.push(vals.map(v => escCsv(v ?? "—")).join(","));
+            }
+            function sub(header: string, data: Record<string, string | null | undefined>) {
+              lines.push(escCsv(header));
+              for (const [k, v] of Object.entries(data)) {
+                row(k, v ?? "—");
+              }
+              lines.push("");
+            }
+
+            section("RESUMEN EJECUTIVO");
+            sub("", {
+              "Nivel de riesgo": r.executiveSummary.riskLevel,
+              Título: r.executiveSummary.title,
+              Mensaje: r.executiveSummary.message,
+              "Acción recomendada": r.executiveSummary.recommendedAction,
+            });
+
+            section("METADATA FISCAL");
+            sub("", {
+              UUID: r.uuid,
+              "Tipo comprobante": r.tipoComprobante,
+              "RFC emisor": r.rfcEmisor,
+              "Nombre emisor": r.nombreEmisor,
+              "RFC receptor": r.rfcReceptor,
+              "Nombre receptor": r.nombreReceptor,
+              Fecha: r.fecha,
+              "Serie": r.serie,
+              Folio: r.folio,
+              Subtotal: r.subtotal,
+              Total: r.total,
+              Moneda: r.moneda,
+              "Versión CFDI": r.version,
+              "Uso CFDI": r.usoCfdi,
+              "Método pago": r.metodoPago,
+              "Forma pago": r.formaPago,
+              "Fecha timbrado": r.fechaTimbrado,
+              "Total impuestos trasladados": r.totalImpuestosTrasladados,
+              "Total impuestos retenidos": r.totalImpuestosRetenidos,
+            });
+
+            section("HALLAZGOS");
+            if (r.findings && r.findings.length > 0) {
+              row("ID", "Severidad", "Categoría", "Código", "Título", "Mensaje", "Acción recomendada");
+              for (const f of r.findings) {
+                row(f.id, f.severity, f.category, f.code, f.title, f.message, f.recommendedAction ?? "");
+              }
+              lines.push("");
+              section("EVIDENCIA DE HALLAZGOS");
+              row("ID hallazgo", "Label", "Valor");
+              for (const f of r.findings) {
+                if (f.evidence) {
+                  for (const e of f.evidence) {
+                    row(f.id, e.label, e.value ?? "—");
+                  }
+                }
+              }
+            } else {
+              row("No se detectaron hallazgos");
+            }
+
+            section("DIAGNÓSTICO TÉCNICO");
+            sub("", {
+              "XML timbrado": r.technicalDiagnostics.isStamped ? "Sí" : "No",
+              "Timbre Fiscal Digital": r.technicalDiagnostics.hasTimbreFiscalDigital ? "Sí" : "No",
+              "BOM UTF-8 detectado": r.technicalDiagnostics.bomDetected ? "Sí" : "No",
+              "Contenido previo al XML": r.technicalDiagnostics.leadingContentBeforeXml ? "Sí" : "No",
+              "Normalización segura aplicada": r.technicalDiagnostics.safeNormalizationApplied ? "Sí" : "No",
+            });
+            if (r.technicalDiagnostics.safeNormalizationNotes.length > 0) {
+              lines.push(escCsv("Notas de normalización"));
+              for (const n of r.technicalDiagnostics.safeNormalizationNotes) {
+                row(n);
+              }
+              lines.push("");
+            }
+
+            section("DIAGNÓSTICO ESTRUCTURAL");
+            sub("", {
+              "Tiene complemento": r.structureDiagnostics.hasComplemento ? "Sí" : "No",
+              "Tiene addenda": r.structureDiagnostics.hasAddenda ? "Sí" : "No",
+            });
+            if (r.structureDiagnostics.namespaces.length > 0) {
+              lines.push(escCsv("Namespaces"));
+              for (const ns of r.structureDiagnostics.namespaces) row(ns);
+              lines.push("");
+            }
+            if (r.structureDiagnostics.complementNames.length > 0) {
+              lines.push(escCsv("Complementos detectados"));
+              for (const c of r.structureDiagnostics.complementNames) row(c);
+              lines.push("");
+            }
+
+            if (r.paymentComplement) {
+              section("COMPLEMENTO DE PAGO");
+              sub("", {
+                Versión: r.paymentComplement.version ?? "—",
+                "Total pagos": String(r.paymentComplement.pagos.length),
+              });
+              for (let i = 0; i < r.paymentComplement.pagos.length; i++) {
+                const p = r.paymentComplement.pagos[i];
+                lines.push("");
+                lines.push(escCsv(`Pago ${i + 1}`));
+                sub("", {
+                  "Fecha pago": p.fechaPago,
+                  "Forma pago": p.formaDePagoP,
+                  Moneda: p.monedaP,
+                  Monto: p.monto,
+                  "Tipo cambio": p.tipoCambioP,
+                  "Núm. operación": p.numOperacion,
+                });
+                if (p.documentosRelacionados.length > 0) {
+                  lines.push(escCsv("Documentos relacionados"));
+                  row("UUID", "Serie", "Folio", "Moneda DR", "Equivalencia", "Parcialidad", "Saldo ant.", "Pagado", "Saldo insoluto", "Objeto imp.");
+                  for (const d of p.documentosRelacionados) {
+                    row(d.idDocumento, d.serie, d.folio, d.monedaDR, d.equivalenciaDR, d.numParcialidad, d.impSaldoAnt, d.impPagado, d.impSaldoInsoluto, d.objetoImpDR);
+                  }
+                }
+              }
+            }
+
+            if (r.concepts && r.concepts.length > 0) {
+              section("CONCEPTOS");
+              row("ClaveProdServ", "No. identificación", "Cantidad", "Clave unidad", "Unidad", "Descripción", "Valor unitario", "Importe", "Descuento", "Objeto imp.");
+              for (const c of r.concepts) {
+                row(c.claveProdServ, c.noIdentificacion, c.cantidad, c.claveUnidad, c.unidad, c.descripcion, c.valorUnitario, c.importe, c.descuento, c.objetoImp);
+              }
+              lines.push("");
+              section("IMPUESTOS POR CONCEPTO");
+              row("Concepto #", "Tipo", "Base", "Impuesto", "Tipo factor", "Tasa o cuota", "Importe");
+              for (let i = 0; i < r.concepts.length; i++) {
+                const c = r.concepts[i];
+                const label = `Concepto #${i + 1}`;
+                if (c.impuestos) {
+                  for (const t of c.impuestos.traslados) row(label, "Traslado", t.base, t.impuesto, t.tipoFactor, t.tasaOCuota, t.importe);
+                  for (const t of c.impuestos.retenciones) row(label, "Retención", t.base, t.impuesto, t.tipoFactor, t.tasaOCuota, t.importe);
+                }
+              }
+            }
+
+            if (r.taxSummary) {
+              section("RESUMEN DE IMPUESTOS");
+              if (r.taxSummary.transferred.length > 0) {
+                lines.push(escCsv("Trasladados"));
+                row("Impuesto", "Tipo factor", "Tasa o cuota", "Base calculada", "Importe calculado");
+                for (const t of r.taxSummary.transferred) row(t.impuestoLabel, t.tipoFactor, t.tasaOCuota, t.baseCalculated, t.importeCalculated);
+                lines.push("");
+              }
+              if (r.taxSummary.retained.length > 0) {
+                lines.push(escCsv("Retenidos"));
+                row("Impuesto", "Tipo factor", "Tasa o cuota", "Base calculada", "Importe calculado");
+                for (const t of r.taxSummary.retained) row(t.impuestoLabel, t.tipoFactor, t.tasaOCuota, t.baseCalculated, t.importeCalculated);
+                lines.push("");
+              }
+            }
+
+            if (r.totalsValidation) {
+              section("VALIDACIÓN DE TOTALES");
+              sub("", {
+                "Subtotal XML": r.totalsValidation.subtotalXml,
+                "Subtotal calculado": r.totalsValidation.subtotalCalculated,
+                "Descuento calculado": r.totalsValidation.discountCalculated,
+                "Impuestos trasladados XML": r.totalsValidation.transferredTaxesXml,
+                "Impuestos trasladados calculados": r.totalsValidation.transferredTaxesCalculated,
+                "Impuestos retenidos XML": r.totalsValidation.retainedTaxesXml,
+                "Impuestos retenidos calculados": r.totalsValidation.retainedTaxesCalculated,
+                "Total XML": r.totalsValidation.totalXml,
+                "Total calculado": r.totalsValidation.totalCalculated,
+                Diferencia: r.totalsValidation.difference,
+                Tolerancia: r.totalsValidation.tolerance,
+                Coinciden: r.totalsValidation.matches ? "Sí" : "No",
+              });
+            }
+
+            if (r.normalizedXml) {
+              section("NORMALIZACIÓN TÉCNICA");
+              sub("", {
+                Disponible: r.normalizedXml.available ? "Sí" : "No",
+                Archivo: r.normalizedXml.filename,
+                "Tipo normalización": r.normalizedXml.normalizationType,
+                "Contenido fiscal modificado": r.normalizedXml.fiscalContentModified ? "Sí" : "No",
+                "Riesgo timbre/sello": r.normalizedXml.stampRisk,
+                "Hash original SHA-256": r.normalizedXml.originalSha256,
+                "Hash normalizado SHA-256": r.normalizedXml.normalizedSha256,
+              });
+            }
+
+            const csv = bom + "\r\n" + lines.join("\r\n");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;header=present" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `fiscora-analisis-xml-${suffix}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          return (
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleExportJson}
+                className="w-full py-2.5 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
+              >
+                Exportar resultado JSON
+              </button>
+              {r.findings && r.findings.length > 0 && (
+                <button
+                  onClick={handleExportCsv}
+                  className="w-full py-2.5 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
+                >
+                  Exportar hallazgos CSV
+                </button>
+              )}
+              <button
+                onClick={handleExportExcel}
+                className="w-full py-2.5 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
+              >
+                Exportar análisis Excel (CSV)
+              </button>
+            </div>
+          );
+        })()}
         <button
           onClick={() => navigate("/dashboard")}
           className="w-full py-2.5 px-4 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-muted transition-all"
