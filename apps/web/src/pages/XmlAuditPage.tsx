@@ -12,6 +12,7 @@ export default function XmlAuditPage() {
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT">("ALL");
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -57,6 +58,7 @@ export default function XmlAuditPage() {
       const analysis = await analyzeXml(token, selectedFile);
       setResult(analysis);
       setFilter("ALL");
+      setCategoryFilter("ALL");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible analizar el XML.");
     } finally {
@@ -157,29 +159,59 @@ export default function XmlAuditPage() {
                       </span>
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      {(["ALL", "CRITICAL", "WARNING", "INFO"] as const).map((f) => {
+                      {(["ALL", "CRITICAL", "WARNING", "INFO"] as const).map((s) => {
                         const labels: Record<string, string> = { ALL: "Todos", CRITICAL: "Críticos", WARNING: "Advertencias", INFO: "Informativos" };
-                        const active = filter === f;
+                        const active = filter === s;
                         return (
                           <button
-                            key={f}
-                            onClick={() => setFilter(f)}
+                            key={s}
+                            onClick={() => setFilter(s)}
                             className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
                               active
                                 ? "bg-foreground text-background border-foreground"
                                 : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
                             }`}
                           >
-                            {labels[f]}
+                            {labels[s]}
                           </button>
                         );
                       })}
                     </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground self-center font-medium">Categoría:</span>
+                      {(["ALL", "TOTALS", "FISCAL", "TAX", "TECHNICAL", "STRUCTURE", "COMPLEMENT"] as const).map((c) => {
+                        const catLabels: Record<string, string> = { ALL: "Todas", TOTALS: "Totales", FISCAL: "Fiscal", TAX: "Impuestos", TECHNICAL: "Técnico", STRUCTURE: "Estructura", COMPLEMENT: "Complementos" };
+                        const active = categoryFilter === c;
+                        return (
+                          <button
+                            key={c}
+                            onClick={() => setCategoryFilter(c)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                              active
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {catLabels[c]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>Totales: {result.findings.filter(f => f.category === "TOTALS").length}</span>
+                      <span>Fiscal: {result.findings.filter(f => f.category === "FISCAL").length}</span>
+                      <span>Impuestos: {result.findings.filter(f => f.category === "TAX").length}</span>
+                      <span>Técnico: {result.findings.filter(f => f.category === "TECHNICAL").length}</span>
+                      <span>Estructura: {result.findings.filter(f => f.category === "STRUCTURE").length}</span>
+                      <span>Complementos: {result.findings.filter(f => f.category === "COMPLEMENT").length}</span>
+                    </div>
                     <div className="space-y-3">
                       {(() => {
-                        const filtered = filter === "ALL" ? result.findings : result.findings.filter(f => f.severity === filter);
+                        let filtered = result.findings;
+                        if (filter !== "ALL") filtered = filtered.filter(f => f.severity === filter);
+                        if (categoryFilter !== "ALL") filtered = filtered.filter(f => f.category === categoryFilter);
                         if (filtered.length === 0) {
-                          return <p className="text-sm text-muted-foreground">No hay hallazgos para este filtro.</p>;
+                          return <p className="text-sm text-muted-foreground">No hay hallazgos para los filtros seleccionados.</p>;
                         }
                         const badge: Record<string, { label: string; style: string }> = {
                           INFO: { label: "Informativo", style: "text-blue-700 bg-blue-50 border-blue-200" },
@@ -201,6 +233,19 @@ export default function XmlAuditPage() {
                                 <p className="text-xs text-muted-foreground">
                                   <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
                                 </p>
+                              )}
+                              {f.evidence && f.evidence.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <p className="text-xs font-semibold text-muted-foreground">Evidencia</p>
+                                  <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
+                                    {f.evidence.map((e, eIdx) => (
+                                      <div key={eIdx} className="contents">
+                                        <span className="text-muted-foreground whitespace-nowrap">{e.label}:</span>
+                                        <span className="font-mono text-foreground/80 break-all">{e.value ?? "—"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           );

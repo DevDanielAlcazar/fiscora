@@ -118,6 +118,7 @@ export interface Finding {
   title: string;
   message: string;
   recommendedAction?: string;
+  evidence?: { label: string; value?: string }[];
 }
 
 export interface CfdiAnalysisResult {
@@ -756,6 +757,8 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
   }
 
   let taxSummary: TaxSummary | null = null;
+  let lastUncommonVatRate: string | undefined;
+  let lastBaseRateMismatch: { base: string; tasaOCuota: string; importe: string } | undefined;
 
   if (concepts && concepts.length > 0) {
     const allTraslados: ConceptTaxEntry[] = [];
@@ -806,6 +809,7 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
     for (const t of allTraslados) {
       if (t.impuesto === "002" && t.tipoFactor === "Tasa" && t.tasaOCuota && !["0.160000", "0.080000", "0.000000"].includes(t.tasaOCuota)) {
         warnings.push("Se detectó una tasa de IVA no común; revisar si corresponde al caso fiscal.");
+        lastUncommonVatRate = t.tasaOCuota;
         break;
       }
     }
@@ -844,6 +848,7 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
           const esperado = roundMoney(base * tasa);
           if (Math.abs(esperado - importe) > 0.01) {
             warnings.push("El importe de un impuesto no coincide con base por tasa.");
+            lastBaseRateMismatch = { base: e.base ?? "", tasaOCuota: e.tasaOCuota ?? "", importe: e.importe ?? "" };
             break;
           }
         }
@@ -902,6 +907,11 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "BOM UTF-8 detectado",
       message: "El archivo contiene BOM UTF-8 al inicio. Se normalizó en memoria para lectura sin modificar contenido fiscal.",
       recommendedAction: "En fases futuras podrás descargar el XML técnicamente normalizado.",
+      evidence: [
+        { label: "Problema detectado", value: "BOM UTF-8 al inicio del archivo" },
+        { label: "Normalización aplicada", value: "Sí, solo en memoria" },
+        { label: "Contenido fiscal modificado", value: "No" },
+      ],
     });
   }
 
@@ -957,6 +967,12 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Total global inconsistente",
       message: "El total global no coincide con conceptos, impuestos, descuentos y retenciones.",
       recommendedAction: "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
+      evidence: [
+        { label: "Total XML", value: totalsValidation.totalXml },
+        { label: "Total calculado", value: totalsValidation.totalCalculated },
+        { label: "Diferencia", value: totalsValidation.difference },
+        { label: "Tolerancia", value: totalsValidation.tolerance },
+      ],
     });
   }
 
@@ -970,6 +986,10 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Subtotal global inconsistente",
       message: "El subtotal global no coincide con la suma de importes de conceptos.",
       recommendedAction: "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
+      evidence: [
+        { label: "Subtotal XML", value: totalsValidation?.subtotalXml },
+        { label: "Subtotal calculado", value: totalsValidation?.subtotalCalculated },
+      ],
     });
   }
 
@@ -1192,6 +1212,10 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Impuestos trasladados globales inconsistentes",
       message: "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
       recommendedAction: "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
+      evidence: [
+        { label: "Trasladados XML", value: totalsValidation?.transferredTaxesXml },
+        { label: "Trasladados calculados", value: totalsValidation?.transferredTaxesCalculated },
+      ],
     });
   }
 
@@ -1203,6 +1227,10 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Impuestos retenidos globales inconsistentes",
       message: "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
       recommendedAction: "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
+      evidence: [
+        { label: "Retenidos XML", value: totalsValidation?.retainedTaxesXml },
+        { label: "Retenidos calculados", value: totalsValidation?.retainedTaxesCalculated },
+      ],
     });
   }
 
@@ -1214,10 +1242,17 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Tasa de IVA no común",
       message: "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
       recommendedAction: "Verifica que la tasa corresponda al supuesto fiscal aplicable.",
+      evidence: [
+        { label: "Impuesto", value: "IVA (002)" },
+        { label: "Tasa detectada", value: lastUncommonVatRate },
+        { label: "Tasas comunes", value: "0.160000, 0.080000, 0.000000" },
+      ],
     });
   }
 
   if (warnings.some(w => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
+    const baseNum = toNum(lastBaseRateMismatch?.base);
+    const tasaNum = toNum(lastBaseRateMismatch?.tasaOCuota);
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1225,6 +1260,12 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Importe fiscal no coincide con base por tasa",
       message: "El importe de un impuesto no coincide con el resultado de base por tasa/cuota.",
       recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
+      evidence: [
+        { label: "Base", value: lastBaseRateMismatch?.base },
+        { label: "Tasa", value: lastBaseRateMismatch?.tasaOCuota },
+        { label: "Importe XML", value: lastBaseRateMismatch?.importe },
+        { label: "Importe esperado", value: baseNum !== null && tasaNum !== null ? formatMoney(baseNum * tasaNum) : undefined },
+      ],
     });
   }
 
@@ -1566,116 +1607,6 @@ export function analyzeCfdi(rawXml: string): CfdiAnalysisResult {
       title: "Versión del CFDI no determinada",
       message: "No se pudo determinar la versión del CFDI del comprobante.",
       recommendedAction: "Verifica que el XML sea un CFDI válido con una versión estándar.",
-    });
-  }
-
-  if (diag.leadingContentBeforeXml) {
-    findings.push({
-      severity: "INFO",
-      category: "TECHNICAL",
-      code: "LEADING_CONTENT_BEFORE_XML",
-      title: "Contenido previo al XML",
-      message: "Se detectó contenido antes del inicio del XML. Validar origen del archivo.",
-      recommendedAction: "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
-    });
-  }
-
-  if (!hasTimbreFiscalDigital) {
-    findings.push({
-      severity: "WARNING",
-      category: "TECHNICAL",
-      code: "UNSTAMPED_XML",
-      title: "XML sin timbre fiscal",
-      message: "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
-      recommendedAction: "Solicita al emisor el XML timbrado o verifica en el portal del SAT.",
-    });
-  }
-
-  if (structureDiagnostics.hasAddenda) {
-    findings.push({
-      severity: "INFO",
-      category: "STRUCTURE",
-      code: "ADDENDA_DETECTED",
-      title: "Addenda detectada",
-      message: "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
-      recommendedAction: "Revisa que la addenda no interfiera con la validez fiscal del CFDI.",
-    });
-  }
-
-  if (unknownComplements.length > 0) {
-    findings.push({
-      severity: "WARNING",
-      category: "STRUCTURE",
-      code: "UNKNOWN_COMPLEMENT",
-      title: "Complemento desconocido detectado",
-      message: `Se encontraron complementos no reconocidos por el motor base: ${unknownComplements.join(", ")}.`,
-      recommendedAction: "Verifica si el complemento es válido fiscalmente o requiere un módulo adicional.",
-    });
-  }
-
-  if (totalsValidation && !totalsValidation.matches) {
-    findings.push({
-      severity: "CRITICAL",
-      category: "TOTALS",
-      code: "TOTAL_MISMATCH",
-      title: "Total global inconsistente",
-      message: "El total global no coincide con conceptos, impuestos, descuentos y retenciones.",
-      recommendedAction: "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
-    });
-  }
-
-  if (issues.some(i => i.includes("El subtotal global no coincide"))) {
-    findings.push({
-      severity: "CRITICAL",
-      category: "TOTALS",
-      code: "SUBTOTAL_MISMATCH",
-      title: "Subtotal global inconsistente",
-      message: "El subtotal global no coincide con la suma de importes de conceptos.",
-      recommendedAction: "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
-    });
-  }
-
-  if (warnings.some(w => w.includes("El total de impuestos trasladados global no coincide"))) {
-    findings.push({
-      severity: "WARNING",
-      category: "TAX",
-      code: "TRANSFERRED_TAXES_MISMATCH",
-      title: "Impuestos trasladados globales inconsistentes",
-      message: "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
-      recommendedAction: "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
-    });
-  }
-
-  if (warnings.some(w => w.includes("El total de impuestos retenidos global no coincide"))) {
-    findings.push({
-      severity: "WARNING",
-      category: "TAX",
-      code: "RETAINED_TAXES_MISMATCH",
-      title: "Impuestos retenidos globales inconsistentes",
-      message: "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
-      recommendedAction: "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
-    });
-  }
-
-  if (warnings.some(w => w.includes("Se detectó una tasa de IVA no común"))) {
-    findings.push({
-      severity: "WARNING",
-      category: "TAX",
-      code: "UNCOMMON_VAT_RATE",
-      title: "Tasa de IVA no común",
-      message: "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
-      recommendedAction: "Verifica que la tasa corresponda al supuesto fiscal aplicable.",
-    });
-  }
-
-  if (warnings.some(w => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
-    findings.push({
-      severity: "WARNING",
-      category: "TAX",
-      code: "TAX_BASE_RATE_MISMATCH",
-      title: "Importe fiscal no coincide con base por tasa",
-      message: "El importe de un impuesto no coincide con el resultado de base por tasa/cuota.",
-      recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
     });
   }
 

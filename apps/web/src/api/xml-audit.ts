@@ -116,6 +116,7 @@ export interface Finding {
   title: string;
   message: string;
   recommendedAction?: string;
+  evidence?: { label: string; value?: string }[];
 }
 
 export interface AnalysisResult {
