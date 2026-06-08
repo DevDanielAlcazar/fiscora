@@ -197,6 +197,13 @@ model XmlAnalysisRecord {
   expiresAt                 DateTime
   createdAt                 DateTime  @default(now())
 
+  sourceType        String?
+  sourceFilename    String?
+  batchId           String?
+  zipFilename       String?
+  zipEntryName      String?
+  zipEntryIndex     Int?
+
   user          User          @relation(fields: [userId], references: [id])
   organization  Organization? @relation(fields: [organizationId], references: [id])
 
@@ -205,6 +212,9 @@ model XmlAnalysisRecord {
   @@index([createdAt])
   @@index([expiresAt])
   @@index([riskLevel])
+  @@index([sourceType])
+  @@index([batchId])
+  @@index([zipFilename])
 }
 
 model LaborCalculationSession {

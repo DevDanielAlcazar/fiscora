@@ -769,6 +769,390 @@ export async function adminRoutes(fastify: FastifyInstance) {
     },
   });
 
+  fastify.get("/api/admin/xml-analyses", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const query = request.query as {
+        page?: string;
+        pageSize?: string;
+        riskLevel?: string;
+        rfcEmisor?: string;
+        rfcReceptor?: string;
+        uuid?: string;
+        tipoComprobante?: string;
+        from?: string;
+        to?: string;
+      };
+
+      const page = Math.max(1, parseInt(query.page ?? "1", 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(query.pageSize ?? "50", 10) || 50));
+      const skip = (page - 1) * pageSize;
+
+      const where: Record<string, unknown> = {};
+
+      if (query.riskLevel) where.riskLevel = query.riskLevel;
+      if (query.rfcEmisor) where.rfcEmisor = { contains: query.rfcEmisor, mode: "insensitive" };
+      if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
+      if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
+      if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
+      if (query.from || query.to) {
+        const createdAt: Record<string, Date> = {};
+        if (query.from) createdAt.gte = new Date(query.from);
+        if (query.to) createdAt.lte = new Date(query.to);
+        where.createdAt = createdAt;
+      }
+
+      const [total, items] = await Promise.all([
+        fastify.prisma.xmlAnalysisRecord.count({ where: where as any }),
+        fastify.prisma.xmlAnalysisRecord.findMany({
+          where: where as any,
+          skip,
+          take: pageSize,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            createdAt: true,
+            expiresAt: true,
+            userId: true,
+            organizationId: true,
+            uuid: true,
+            tipoComprobante: true,
+            rfcEmisor: true,
+            nombreEmisor: true,
+            rfcReceptor: true,
+            nombreReceptor: true,
+            fecha: true,
+            total: true,
+            subtotal: true,
+            moneda: true,
+            version: true,
+            serie: true,
+            folio: true,
+            riskLevel: true,
+            findingsCount: true,
+            criticalCount: true,
+            warningCount: true,
+            infoCount: true,
+            hasBom: true,
+            hasTechnicalNormalization: true,
+            hasNormalizedXml: true,
+            normalizedFilename: true,
+            originalSha256: true,
+            normalizedSha256: true,
+            sourceType: true,
+            sourceFilename: true,
+            batchId: true,
+            zipFilename: true,
+            zipEntryName: true,
+            zipEntryIndex: true,
+            user: { select: { email: true } },
+            organization: { select: { name: true } },
+          },
+        }),
+      ]);
+
+      const totalPages = Math.ceil(total / pageSize);
+
+      return reply.send({
+        items: items.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          userId: r.userId,
+          userEmail: r.user.email,
+          organizationId: r.organizationId,
+          organizationName: r.organization?.name ?? null,
+          uuid: r.uuid,
+          tipoComprobante: r.tipoComprobante,
+          rfcEmisor: r.rfcEmisor,
+          nombreEmisor: r.nombreEmisor,
+          rfcReceptor: r.rfcReceptor,
+          nombreReceptor: r.nombreReceptor,
+          fecha: r.fecha,
+          total: r.total,
+          subtotal: r.subtotal,
+          moneda: r.moneda,
+          version: r.version,
+          serie: r.serie,
+          folio: r.folio,
+          riskLevel: r.riskLevel,
+          findingsCount: r.findingsCount,
+          criticalCount: r.criticalCount,
+          warningCount: r.warningCount,
+          infoCount: r.infoCount,
+          hasBom: r.hasBom,
+          hasTechnicalNormalization: r.hasTechnicalNormalization,
+          hasNormalizedXml: r.hasNormalizedXml,
+          normalizedFilename: r.normalizedFilename,
+          originalSha256: r.originalSha256,
+          normalizedSha256: r.normalizedSha256,
+          sourceType: r.sourceType,
+          sourceFilename: r.sourceFilename,
+          batchId: r.batchId,
+          zipFilename: r.zipFilename,
+          zipEntryName: r.zipEntryName,
+          zipEntryIndex: r.zipEntryIndex,
+        })),
+        pagination: { page, pageSize, total, totalPages },
+      });
+    },
+  });
+
+  fastify.get("/api/admin/xml-analyses/export", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const query = request.query as {
+        riskLevel?: string;
+        rfcEmisor?: string;
+        rfcReceptor?: string;
+        uuid?: string;
+        tipoComprobante?: string;
+        from?: string;
+        to?: string;
+      };
+
+      const where: Record<string, unknown> = {};
+      if (query.riskLevel) where.riskLevel = query.riskLevel;
+      if (query.rfcEmisor) where.rfcEmisor = { contains: query.rfcEmisor, mode: "insensitive" };
+      if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
+      if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
+      if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
+      if (query.from || query.to) {
+        const createdAt: Record<string, Date> = {};
+        if (query.from) createdAt.gte = new Date(query.from);
+        if (query.to) createdAt.lte = new Date(query.to);
+        where.createdAt = createdAt;
+      }
+
+      const records = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: where as any,
+        orderBy: { createdAt: "desc" },
+        take: 5000,
+        select: {
+          id: true,
+          createdAt: true,
+          expiresAt: true,
+          userId: true,
+          uuid: true,
+          tipoComprobante: true,
+          rfcEmisor: true,
+          nombreEmisor: true,
+          rfcReceptor: true,
+          nombreReceptor: true,
+          fecha: true,
+          total: true,
+          subtotal: true,
+          moneda: true,
+          version: true,
+          serie: true,
+          folio: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          normalizedFilename: true,
+          originalSha256: true,
+          normalizedSha256: true,
+          sourceType: true,
+          sourceFilename: true,
+          batchId: true,
+          zipFilename: true,
+          zipEntryName: true,
+          zipEntryIndex: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true, id: true } },
+        },
+      });
+
+      function esc(val: string | null | undefined): string {
+        if (val === null || val === undefined) return "";
+        const v = String(val).replace(/"/g, '""');
+        return /[",\n\r]/.test(v) ? `"${v}"` : v;
+      }
+
+      const header = [
+        "ID", "Fecha analisis", "Expira", "Usuario ID", "Usuario email",
+        "Organizacion ID", "Organizacion", "UUID", "Tipo comprobante",
+        "RFC emisor", "Nombre emisor", "RFC receptor", "Nombre receptor",
+        "Fecha CFDI", "Subtotal", "Total", "Moneda", "Version", "Serie",
+        "Folio", "Riesgo", "Hallazgos", "Criticos", "Advertencias",
+        "Informativos", "BOM", "Normalizacion tecnica", "XML normalizado",
+        "Archivo normalizado", "Hash original SHA-256", "Hash normalizado SHA-256",
+        "Origen", "Archivo fuente", "Batch ID", "ZIP filename", "ZIP entry",
+        "ZIP entry index",
+      ].join(",");
+
+      const rows = records.map((r) =>
+        [
+          esc(r.id),
+          esc(r.createdAt.toISOString()),
+          esc(r.expiresAt.toISOString()),
+          esc(r.userId),
+          esc(r.user.email),
+          esc(r.organization?.id ?? null),
+          esc(r.organization?.name ?? null),
+          esc(r.uuid),
+          esc(r.tipoComprobante),
+          esc(r.rfcEmisor),
+          esc(r.nombreEmisor),
+          esc(r.rfcReceptor),
+          esc(r.nombreReceptor),
+          esc(r.fecha),
+          esc(r.subtotal),
+          esc(r.total),
+          esc(r.moneda),
+          esc(r.version),
+          esc(r.serie),
+          esc(r.folio),
+          esc(r.riskLevel),
+          String(r.findingsCount),
+          String(r.criticalCount),
+          String(r.warningCount),
+          String(r.infoCount),
+          r.hasBom ? "Sí" : "No",
+          r.hasTechnicalNormalization ? "Sí" : "No",
+          r.hasNormalizedXml ? "Sí" : "No",
+          esc(r.normalizedFilename),
+          esc(r.originalSha256),
+          esc(r.normalizedSha256),
+          esc(r.sourceType),
+          esc(r.sourceFilename),
+          esc(r.batchId),
+          esc(r.zipFilename),
+          esc(r.zipEntryName),
+          r.zipEntryIndex != null ? String(r.zipEntryIndex) : "",
+        ].join(","),
+      );
+
+      const bom = "\uFEFF";
+      const csv = bom + header + "\r\n" + rows.join("\r\n");
+
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header("Content-Disposition", 'attachment; filename="fiscora-analisis-xml-recientes.csv"');
+      return reply.send(csv);
+    },
+  });
+
+  fastify.get("/api/admin/xml-analyses/:id", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const { id } = request.params as { id: string };
+
+      const record = await fastify.prisma.xmlAnalysisRecord.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          createdAt: true,
+          expiresAt: true,
+          userId: true,
+          organizationId: true,
+          uuid: true,
+          tipoComprobante: true,
+          rfcEmisor: true,
+          nombreEmisor: true,
+          rfcReceptor: true,
+          nombreReceptor: true,
+          fecha: true,
+          total: true,
+          subtotal: true,
+          moneda: true,
+          version: true,
+          serie: true,
+          folio: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          normalizedFilename: true,
+          originalSha256: true,
+          normalizedSha256: true,
+          sourceType: true,
+          sourceFilename: true,
+          batchId: true,
+          zipFilename: true,
+          zipEntryName: true,
+          zipEntryIndex: true,
+          analysisJson: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      if (!record) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Registro no encontrado." },
+        });
+      }
+
+      return reply.send({
+        id: record.id,
+        createdAt: record.createdAt,
+        expiresAt: record.expiresAt,
+        userId: record.userId,
+        userEmail: record.user.email,
+        organizationId: record.organizationId,
+        organizationName: record.organization?.name ?? null,
+        uuid: record.uuid,
+        tipoComprobante: record.tipoComprobante,
+        rfcEmisor: record.rfcEmisor,
+        nombreEmisor: record.nombreEmisor,
+        rfcReceptor: record.rfcReceptor,
+        nombreReceptor: record.nombreReceptor,
+        fecha: record.fecha,
+        total: record.total,
+        subtotal: record.subtotal,
+        moneda: record.moneda,
+        version: record.version,
+        serie: record.serie,
+        folio: record.folio,
+        riskLevel: record.riskLevel,
+        findingsCount: record.findingsCount,
+        criticalCount: record.criticalCount,
+        warningCount: record.warningCount,
+        infoCount: record.infoCount,
+        hasBom: record.hasBom,
+        hasTechnicalNormalization: record.hasTechnicalNormalization,
+        hasNormalizedXml: record.hasNormalizedXml,
+        normalizedFilename: record.normalizedFilename,
+        originalSha256: record.originalSha256,
+        normalizedSha256: record.normalizedSha256,
+        sourceType: record.sourceType,
+        sourceFilename: record.sourceFilename,
+        batchId: record.batchId,
+        zipFilename: record.zipFilename,
+        zipEntryName: record.zipEntryName,
+        zipEntryIndex: record.zipEntryIndex,
+        analysisJson: record.analysisJson,
+      });
+    },
+  });
+
   fastify.get("/api/admin/plans", {
     preHandler: [fastify.authenticate],
     handler: async (request, reply) => {

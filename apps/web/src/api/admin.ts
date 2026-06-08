@@ -281,6 +281,144 @@ export async function getAdminPlans(token: string): Promise<{ plans: AdminPlanEn
   return res.json();
 }
 
+export interface XmlAnalysisListItem {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  userId: string;
+  userEmail: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  uuid: string | null;
+  tipoComprobante: string | null;
+  rfcEmisor: string | null;
+  nombreEmisor: string | null;
+  rfcReceptor: string | null;
+  nombreReceptor: string | null;
+  fecha: string | null;
+  total: string | null;
+  subtotal: string | null;
+  moneda: string | null;
+  version: string | null;
+  serie: string | null;
+  folio: string | null;
+  riskLevel: string | null;
+  findingsCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  hasBom: boolean;
+  hasTechnicalNormalization: boolean;
+  hasNormalizedXml: boolean;
+  normalizedFilename: string | null;
+  originalSha256: string | null;
+  normalizedSha256: string | null;
+  sourceType: string | null;
+  sourceFilename: string | null;
+  batchId: string | null;
+  zipFilename: string | null;
+  zipEntryName: string | null;
+  zipEntryIndex: number | null;
+}
+
+export interface XmlAnalysisListResponse {
+  items: XmlAnalysisListItem[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+}
+
+export interface XmlAnalysisDetailResponse extends XmlAnalysisListItem {
+  analysisJson: Record<string, unknown>;
+}
+
+export interface XmlAnalysesQuery {
+  page?: number;
+  pageSize?: number;
+  riskLevel?: string;
+  rfcEmisor?: string;
+  rfcReceptor?: string;
+  uuid?: string;
+  tipoComprobante?: string;
+  from?: string;
+  to?: string;
+}
+
+export async function getXmlAnalyses(
+  token: string,
+  query: XmlAnalysesQuery = {},
+): Promise<XmlAnalysisListResponse> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.riskLevel) params.set("riskLevel", query.riskLevel);
+  if (query.rfcEmisor) params.set("rfcEmisor", query.rfcEmisor);
+  if (query.rfcReceptor) params.set("rfcReceptor", query.rfcReceptor);
+  if (query.uuid) params.set("uuid", query.uuid);
+  if (query.tipoComprobante) params.set("tipoComprobante", query.tipoComprobante);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  const qs = params.toString();
+
+  const res = await fetch(`/api/admin/xml-analyses${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al consultar análisis XML");
+  }
+
+  return res.json();
+}
+
+export async function getXmlAnalysisDetail(token: string, id: string): Promise<XmlAnalysisDetailResponse> {
+  const res = await fetch(`/api/admin/xml-analyses/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (res.status === 404) {
+    throw new Error("Registro no encontrado.");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al consultar detalle del análisis");
+  }
+
+  return res.json();
+}
+
+export async function exportXmlAnalyses(token: string, query: XmlAnalysesQuery = {}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (query.riskLevel) params.set("riskLevel", query.riskLevel);
+  if (query.rfcEmisor) params.set("rfcEmisor", query.rfcEmisor);
+  if (query.rfcReceptor) params.set("rfcReceptor", query.rfcReceptor);
+  if (query.uuid) params.set("uuid", query.uuid);
+  if (query.tipoComprobante) params.set("tipoComprobante", query.tipoComprobante);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  const qs = params.toString();
+
+  const res = await fetch(`/api/admin/xml-analyses/export${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al exportar análisis XML");
+  }
+
+  return res.blob();
+}
+
 export async function updateAdminPlan(
   token: string,
   planKey: string,

@@ -1,11 +1,21 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import type { AnalysisResponse } from "./xml-audit.service.js";
 
+export interface SourceMetadata {
+  sourceType: "INDIVIDUAL" | "ZIP";
+  sourceFilename?: string;
+  batchId?: string;
+  zipFilename?: string;
+  zipEntryName?: string;
+  zipEntryIndex?: number;
+}
+
 interface SaveXmlAnalysisRecordParams {
   prisma: PrismaClient;
   userId: string;
   organizationId?: string | null;
   analysis: AnalysisResponse;
+  source?: SourceMetadata;
 }
 
 function sanitizeAnalysisJson(analysis: AnalysisResponse): Record<string, unknown> {
@@ -19,7 +29,7 @@ function sanitizeAnalysisJson(analysis: AnalysisResponse): Record<string, unknow
 
 export class XmlAnalysisRecordService {
   static async saveXmlAnalysisRecord(params: SaveXmlAnalysisRecordParams): Promise<void> {
-    const { prisma, userId, organizationId, analysis } = params;
+    const { prisma, userId, organizationId, analysis, source } = params;
 
     const findings = analysis.findings ?? [];
     const criticalCount = findings.filter(f => f.severity === "CRITICAL").length;
@@ -59,6 +69,12 @@ export class XmlAnalysisRecordService {
         normalizedSha256: analysis.normalizedXml?.normalizedSha256 ?? null,
         analysisJson: sanitizeAnalysisJson(analysis) as Prisma.InputJsonValue,
         expiresAt,
+        sourceType: source?.sourceType ?? null,
+        sourceFilename: source?.sourceFilename ?? null,
+        batchId: source?.batchId ?? null,
+        zipFilename: source?.zipFilename ?? null,
+        zipEntryName: source?.zipEntryName ?? null,
+        zipEntryIndex: source?.zipEntryIndex ?? null,
       },
     });
   }

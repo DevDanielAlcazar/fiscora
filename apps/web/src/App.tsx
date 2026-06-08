@@ -6,6 +6,7 @@ import AdminWebhookPage from "./pages/AdminWebhookPage";
 import AdminModulesPage from "./pages/AdminModulesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminPlansPage from "./pages/AdminPlansPage";
+import AdminXmlAnalysesPage from "./pages/AdminXmlAnalysesPage";
 import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/admin/modules" element={<AdminModulesPage />} />
       <Route path="/admin/users" element={<AdminUsersPage />} />
       <Route path="/admin/plans" element={<AdminPlansPage />} />
+      <Route path="/admin/xml-analyses" element={<AdminXmlAnalysesPage />} />
       <Route path="/billing/success" element={<BillingSuccessPage />} />
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
       <Route path="/plans" element={<PlansPage />} />

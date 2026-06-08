@@ -387,6 +387,12 @@ export default function DashboardPage() {
         {user.role === "SUPER_ADMIN" && (
           <>
             <button
+              onClick={() => navigate("/admin/xml-analyses")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Análisis XML recientes
+            </button>
+            <button
               onClick={() => navigate("/admin/stripe-webhook")}
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >

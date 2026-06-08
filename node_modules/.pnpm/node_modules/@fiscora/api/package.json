@@ -19,6 +19,7 @@
     "@fiscora/validators": "workspace:*",
     "@fiscora/xml-engine": "workspace:*",
     "@prisma/client": "5.22.0",
+    "adm-zip": "^0.5.17",
     "argon2": "^0.44.0",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
@@ -29,6 +30,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"
   }

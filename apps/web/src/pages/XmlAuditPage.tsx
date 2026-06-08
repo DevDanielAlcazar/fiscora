@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
-import { analyzeXml, type AnalysisResult } from "../api/xml-audit";
+import { analyzeXml, analyzeZipInventory, analyzeZipFull, downloadNormalizedZip, type AnalysisResult, type ZipInventoryResult, type ZipFullAnalysisResult } from "../api/xml-audit";
 
 export default function XmlAuditPage() {
   const navigate = useNavigate();
@@ -14,6 +14,20 @@ export default function XmlAuditPage() {
   const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT">("ALL");
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipValidating, setZipValidating] = useState(false);
+  const [zipResult, setZipResult] = useState<ZipInventoryResult | null>(null);
+  const [zipError, setZipError] = useState("");
+  const [fullAnalysisLoading, setFullAnalysisLoading] = useState(false);
+  const [fullAnalysisResult, setFullAnalysisResult] = useState<ZipFullAnalysisResult | null>(null);
+  const [fullAnalysisError, setFullAnalysisError] = useState("");
+  const [normalizedZipLoading, setNormalizedZipLoading] = useState(false);
+  const [normalizedZipError, setNormalizedZipError] = useState("");
+  const [expandedMassiveDetail, setExpandedMassiveDetail] = useState<string | null>(null);
+
+  function toggleMassiveDetail(key: string) {
+    setExpandedMassiveDetail(prev => prev === key ? null : key);
+  }
 
   function toggleEvidence(code: string) {
     setExpandedEvidence(prev => {
@@ -82,6 +96,237 @@ export default function XmlAuditPage() {
     setSelectedFile(file);
   }
 
+  async function handleValidateZip() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!zipFile) {
+      setZipError("Selecciona un archivo ZIP.");
+      return;
+    }
+
+    if (!zipFile.name.toLowerCase().endsWith(".zip")) {
+      setZipError("Solo se permiten archivos ZIP.");
+      return;
+    }
+
+    if (zipFile.size > 25 * 1024 * 1024) {
+      setZipError("El archivo ZIP supera el límite de 25 MB.");
+      return;
+    }
+
+    setZipError("");
+    setZipResult(null);
+    setZipValidating(true);
+
+    try {
+      const result = await analyzeZipInventory(token, zipFile);
+      setZipResult(result);
+    } catch (err) {
+      setZipError(err instanceof Error ? err.message : "No fue posible validar el ZIP.");
+    } finally {
+      setZipValidating(false);
+    }
+  }
+
+  function escCsvMassive(val: string | number | null | undefined): string {
+    const s = val === null || val === undefined ? "" : String(val);
+    const v = s.replace(/"/g, '""');
+    return /[",\n\r]/.test(v) ? `"${v}"` : v;
+  }
+
+  function handleExportMassiveCsv() {
+    if (!fullAnalysisResult) return;
+    const r = fullAnalysisResult;
+    const bom = "\uFEFF";
+    const lines: string[] = [];
+
+    function section(title: string) {
+      lines.push("");
+      lines.push(`"${title}"`);
+      lines.push("");
+    }
+    function row(...vals: (string | number | null | undefined)[]) {
+      lines.push(vals.map(v => escCsvMassive(v ?? "—")).join(","));
+    }
+
+    section("RESUMEN MASIVO");
+    row("Archivo ZIP", r.filename);
+    row("Total entradas", r.totalEntries);
+    row("XML encontrados", r.xmlFilesFound);
+    row("XML analizados", r.analyzedCount);
+    row("XML fallidos", r.failedCount);
+    row("Entradas ignoradas", r.ignoredEntries);
+    row("Críticos", r.summary.criticalCount);
+    row("Advertencias", r.summary.warningCount);
+    row("OK", r.summary.okCount);
+    row("Solo informativos", r.summary.infoOnlyCount);
+    row("XMLs con BOM", r.summary.filesWithBom);
+    row("XMLs con normalización técnica", r.summary.filesWithTechnicalNormalization);
+    const tiposStr = Object.entries(r.summary.byTipoComprobante)
+      .map(([t, c]) => `${t}: ${c}`)
+      .join(" | ");
+    row("Tipos de comprobante", tiposStr || "—");
+
+    section("RESULTADOS POR XML");
+    const resultHeader = [
+      "#", "Archivo", "Tamaño bytes", "Estado", "Código error", "Mensaje error",
+      "UUID", "Tipo comprobante", "RFC emisor", "Nombre emisor", "RFC receptor",
+      "Nombre receptor", "Fecha", "Subtotal", "Total", "Moneda", "Versión",
+      "Serie", "Folio", "Riesgo", "Título resumen ejecutivo", "Mensaje resumen ejecutivo",
+      "Acción recomendada", "Total hallazgos", "Críticos", "Advertencias",
+      "Informativos", "BOM detectado", "Contenido previo al XML",
+      "Normalización segura aplicada", "XML normalizado disponible",
+      "Archivo normalizado", "Tipo normalización", "Contenido fiscal modificado",
+      "Riesgo timbre/sello", "Hash original SHA-256", "Hash normalizado SHA-256",
+    ];
+    row(...resultHeader);
+
+    for (let i = 0; i < r.results.length; i++) {
+      const f = r.results[i];
+      const isA = f.status === "ANALYZED";
+      const a = f.analysis;
+      const es = a?.executiveSummary;
+      const td = a?.technicalDiagnostics;
+      const nx = a?.normalizedXml;
+      const findings = a?.findings ?? [];
+      row(
+        i + 1,
+        f.name,
+        f.sizeBytes,
+        f.status,
+        f.errorCode ?? "",
+        f.errorMessage ?? "",
+        isA ? (a?.uuid ?? "") : "",
+        isA ? (a?.tipoComprobante ?? "") : "",
+        isA ? (a?.rfcEmisor ?? "") : "",
+        isA ? (a?.nombreEmisor ?? "") : "",
+        isA ? (a?.rfcReceptor ?? "") : "",
+        isA ? (a?.nombreReceptor ?? "") : "",
+        isA ? (a?.fecha ?? "") : "",
+        isA ? (a?.subtotal ?? "") : "",
+        isA ? (a?.total ?? "") : "",
+        isA ? (a?.moneda ?? "") : "",
+        isA ? (a?.version ?? "") : "",
+        isA ? (a?.serie ?? "") : "",
+        isA ? (a?.folio ?? "") : "",
+        isA ? (es?.riskLevel ?? "") : "",
+        isA ? (es?.title ?? "") : "",
+        isA ? (es?.message ?? "") : "",
+        isA ? (es?.recommendedAction ?? "") : "",
+        isA ? findings.length : 0,
+        isA ? findings.filter(f => f.severity === "CRITICAL").length : 0,
+        isA ? findings.filter(f => f.severity === "WARNING").length : 0,
+        isA ? findings.filter(f => f.severity === "INFO").length : 0,
+        isA ? (td?.bomDetected ? "Sí" : "No") : "",
+        isA ? (td?.leadingContentBeforeXml ? "Sí" : "No") : "",
+        isA ? (td?.safeNormalizationApplied ? "Sí" : "No") : "",
+        isA ? (nx?.available ? "Sí" : "No") : "",
+        isA ? (nx?.filename ?? "") : "",
+        isA ? (nx?.normalizationType ?? "") : "",
+        isA ? (nx?.fiscalContentModified ? "Sí" : "No") : "",
+        isA ? (nx?.stampRisk ?? "") : "",
+        isA ? (nx?.originalSha256 ?? "") : "",
+        isA ? (nx?.normalizedSha256 ?? "") : "",
+      );
+    }
+
+    section("HALLAZGOS POR XML");
+    row("Archivo", "Finding ID", "Severidad", "Categoría", "Código", "Título", "Mensaje", "Acción recomendada", "Evidencia");
+    for (const f of r.results) {
+      if (f.status !== "ANALYZED" || !f.analysis?.findings) continue;
+      for (const finding of f.analysis.findings) {
+        const evidenceStr = finding.evidence
+          ? finding.evidence.map(e => `${e.label}: ${e.value ?? "—"}`).join(" | ")
+          : "";
+        row(f.name, finding.id, finding.severity, finding.category, finding.code, finding.title, finding.message, finding.recommendedAction ?? "", evidenceStr);
+      }
+    }
+
+    const csv = bom + "\r\n" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;header=present" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const zipBase = r.filename ? r.filename.replace(/\.zip$/i, "").replace(/[^a-zA-Z0-9_-]/g, "_") : "masivo";
+    a.download = `fiscora-analisis-masivo-xml-${zipBase}-${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDownloadNormalized() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!zipFile) {
+      setNormalizedZipError("Selecciona un archivo ZIP.");
+      return;
+    }
+
+    setNormalizedZipError("");
+    setNormalizedZipLoading(true);
+
+    try {
+      const blob = await downloadNormalizedZip(token, zipFile);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const zipBase = zipFile.name.replace(/\.zip$/i, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fiscora-xml-normalizados-${zipBase}-${ts}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setNormalizedZipError(err instanceof Error ? err.message : "Error al generar ZIP de XMLs normalizados.");
+    } finally {
+      setNormalizedZipLoading(false);
+    }
+  }
+
+  async function handleFullAnalyze() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!zipFile) {
+      setFullAnalysisError("Selecciona un archivo ZIP.");
+      return;
+    }
+
+    setFullAnalysisError("");
+    setFullAnalysisResult(null);
+    setFullAnalysisLoading(true);
+
+    try {
+      const result = await analyzeZipFull(token, zipFile);
+      setFullAnalysisResult(result);
+    } catch (err) {
+      setFullAnalysisError(err instanceof Error ? err.message : "No fue posible analizar los XMLs del ZIP.");
+    } finally {
+      setFullAnalysisLoading(false);
+    }
+  }
+
+  function handleZipFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setZipError("");
+    setZipResult(null);
+    const file = e.target.files?.[0] ?? null;
+    setZipFile(file);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -117,6 +362,603 @@ export default function XmlAuditPage() {
 
           {error && (
             <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{error}</p>
+          )}
+        </div>
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <h2 className="text-xl font-extrabold tracking-tight">Auditoría XML masiva</h2>
+          <p className="text-sm text-muted-foreground">
+            Sube un archivo ZIP para validar los XML incluidos antes de ejecutar el análisis masivo.
+          </p>
+          <input
+            type="file"
+            accept=".zip"
+            onChange={handleZipFileChange}
+            className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+          />
+
+          <button
+            onClick={handleValidateZip}
+            disabled={zipValidating || !zipFile}
+            className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+          >
+            {zipValidating ? "Validando ZIP..." : "Validar ZIP"}
+          </button>
+
+          {zipError && (
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{zipError}</p>
+          )}
+
+          {zipResult && (
+            <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-3">
+              <h3 className="font-semibold text-sm">Inventario del ZIP</h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Archivo</span>
+                  <span className="font-medium">{zipResult.filename}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Total de entradas</span>
+                  <span className="font-medium">{zipResult.totalEntries}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XML encontrados</span>
+                  <span className="font-medium">{zipResult.xmlFilesFound}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Entradas ignoradas</span>
+                  <span className="font-medium">{zipResult.ignoredEntries}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XMLs con BOM</span>
+                  <span className="font-medium">{zipResult.technicalSummary.filesWithBom}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XMLs con contenido previo</span>
+                  <span className="font-medium">{zipResult.technicalSummary.filesWithLeadingContent}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Normalización segura disponible</span>
+                  <span className="font-medium">{zipResult.technicalSummary.filesWithSafeNormalizationAvailable}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XMLs sin inicio XML válido</span>
+                  <span className="font-medium">{zipResult.technicalSummary.filesWithoutXmlStart}</span>
+                </div>
+              </div>
+
+              {zipResult.warnings.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Advertencias</p>
+                  {zipResult.warnings.map((w, i) => (
+                    <p key={i} className="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">{w}</p>
+                  ))}
+                </div>
+              )}
+
+              {(zipResult.technicalSummary.filesWithBom > 0 || zipResult.technicalSummary.filesWithLeadingContent > 0) && (
+                <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                  Se detectaron XMLs con problemas técnicos reparables. En una fase posterior se podrá generar descarga normalizada masiva.
+                </p>
+              )}
+
+              {zipResult.xmlFilesFound > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">XMLs encontrados</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">#</th>
+                          <th className="text-left py-1 pr-2">Nombre</th>
+                          <th className="text-left py-1 pr-2">Tamaño</th>
+                          <th className="text-left py-1 pr-2">BOM</th>
+                          <th className="text-left py-1 pr-2">Contenido previo</th>
+                          <th className="text-left py-1 pr-2">Normalización segura</th>
+                          <th className="text-left py-1 pr-2">Inicio XML válido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {zipResult.files.map((f, i) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
+                            <td className="py-1 pr-2 font-mono break-all max-w-[220px]">{f.name}</td>
+                            <td className="py-1 pr-2">{f.sizeBytes.toLocaleString()} bytes</td>
+                            <td className="py-1 pr-2">{f.technicalDiagnostics.bomDetected ? "Sí" : "No"}</td>
+                            <td className="py-1 pr-2">{f.technicalDiagnostics.leadingContentBeforeXml ? "Sí" : "No"}</td>
+                            <td className="py-1 pr-2">{f.technicalDiagnostics.safeNormalizationAvailable ? "Sí" : "No"}</td>
+                            <td className="py-1 pr-2">{f.technicalDiagnostics.startsWithXml ? "Sí" : "No"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No se encontraron archivos XML dentro del ZIP.</p>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleFullAnalyze}
+            disabled={fullAnalysisLoading || !zipFile}
+            className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+          >
+            {fullAnalysisLoading ? "Analizando XMLs del ZIP..." : "Analizar XMLs del ZIP"}
+          </button>
+
+          {fullAnalysisError && (
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{fullAnalysisError}</p>
+          )}
+
+          {fullAnalysisResult && (
+            <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-3">
+              <h3 className="font-semibold text-sm">Resultado del análisis masivo</h3>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XML encontrados</span>
+                  <span className="font-medium">{fullAnalysisResult.xmlFilesFound}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XML analizados</span>
+                  <span className="font-medium">{fullAnalysisResult.analyzedCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Fallidos</span>
+                  <span className="font-medium text-red-600">{fullAnalysisResult.failedCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Críticos</span>
+                  <span className="font-medium text-red-600">{fullAnalysisResult.summary.criticalCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Advertencias</span>
+                  <span className="font-medium text-yellow-600">{fullAnalysisResult.summary.warningCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">OK</span>
+                  <span className="font-medium text-emerald-600">{fullAnalysisResult.summary.okCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Solo informativos</span>
+                  <span className="font-medium">{fullAnalysisResult.summary.infoOnlyCount}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XMLs con BOM</span>
+                  <span className="font-medium">{fullAnalysisResult.summary.filesWithBom}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">XMLs con normalización técnica</span>
+                  <span className="font-medium">{fullAnalysisResult.summary.filesWithTechnicalNormalization}</span>
+                </div>
+              </div>
+
+              {Object.keys(fullAnalysisResult.summary.byTipoComprobante).length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Tipos de comprobante detectados</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(fullAnalysisResult.summary.byTipoComprobante).map(([tipo, count]) => (
+                      <span key={tipo} className="text-xs bg-muted px-2 py-0.5 rounded font-mono">{tipo}: {count}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {fullAnalysisResult.warnings.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Advertencias</p>
+                  {fullAnalysisResult.warnings.map((w, i) => (
+                    <p key={i} className="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">{w}</p>
+                  ))}
+                </div>
+              )}
+
+              {fullAnalysisResult.results.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Resultados por archivo</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">#</th>
+                          <th className="text-left py-1 pr-2">Archivo</th>
+                          <th className="text-left py-1 pr-2">Estado</th>
+                          <th className="text-left py-1 pr-2">UUID</th>
+                          <th className="text-left py-1 pr-2">Tipo</th>
+                          <th className="text-left py-1 pr-2">RFC emisor</th>
+                          <th className="text-left py-1 pr-2">RFC receptor</th>
+                          <th className="text-left py-1 pr-2">Total</th>
+                          <th className="text-left py-1 pr-2">Moneda</th>
+                          <th className="text-left py-1 pr-2">Riesgo</th>
+                          <th className="text-left py-1 pr-2">Críticos</th>
+                          <th className="text-left py-1 pr-2">Advertencias</th>
+                          <th className="text-left py-1 pr-2">Informativos</th>
+                          <th className="text-left py-1 pr-2">BOM</th>
+                          <th className="text-left py-1 pr-2">XML normalizado</th>
+                          <th className="text-left py-1 pr-2">Error</th>
+                          <th className="text-left py-1 pr-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fullAnalysisResult.results.map((r, i) => {
+                          const isAnalyzed = r.status === "ANALYZED";
+                          const key = `${r.index}-${r.name}`;
+                          const isExpanded = expandedMassiveDetail === key;
+                          const riskBadge = isAnalyzed && r.analysis?.executiveSummary.riskLevel === "CRITICAL" ? "text-red-600" :
+                            isAnalyzed && r.analysis?.executiveSummary.riskLevel === "WARNING" ? "text-yellow-600" : "text-emerald-600";
+                          return (
+                            <tr key={`${i}-row`} className="border-b border-border/30">
+                              <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
+                              <td className="py-1 pr-2 font-mono break-all max-w-[180px]">{r.name}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (
+                                <span className="text-emerald-600 font-medium">Analizado</span>
+                              ) : (
+                                <span className="text-red-600 font-medium">Fallido</span>
+                              )}</td>
+                              <td className="py-1 pr-2 font-mono max-w-[100px] truncate">{isAnalyzed ? (r.analysis?.uuid ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.tipoComprobante ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2 font-mono">{isAnalyzed ? (r.analysis?.rfcEmisor ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2 font-mono">{isAnalyzed ? (r.analysis?.rfcReceptor ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.total ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.moneda ?? "—") : "—"}</td>
+                              <td className={`py-1 pr-2 ${riskBadge}`}>{isAnalyzed ? (r.analysis?.executiveSummary.riskLevel ?? "—") : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.findings?.filter(f => f.severity === "CRITICAL").length ?? 0) : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.findings?.filter(f => f.severity === "WARNING").length ?? 0) : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.findings?.filter(f => f.severity === "INFO").length ?? 0) : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.technicalDiagnostics.bomDetected ? "Sí" : "No") : "—"}</td>
+                              <td className="py-1 pr-2">{isAnalyzed ? (r.analysis?.normalizedXml?.available ? "Sí" : "No") : "—"}</td>
+                              <td className="py-1 pr-2 text-red-600 max-w-[120px] break-all">{r.status === "FAILED" ? (r.errorMessage ?? r.errorCode ?? "Error") : "—"}</td>
+                              <td className="py-1 pr-2">
+                                <button onClick={() => toggleMassiveDetail(key)} className="text-primary font-semibold hover:underline whitespace-nowrap">
+                                  {isExpanded ? "Ocultar detalle" : "Ver detalle"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {fullAnalysisResult.results.map((r, i) => {
+                    const key = `${r.index}-${r.name}`;
+                    const isExpanded = expandedMassiveDetail === key;
+                    if (!isExpanded) return null;
+                    return (
+                      <div key={`detail-${i}`} className="p-4 rounded-lg border border-border bg-card space-y-4">
+                        <p className="text-xs font-semibold text-muted-foreground">Detalle: {r.name}</p>
+
+                        {r.status === "FAILED" && (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between py-1 border-b border-border/50">
+                              <span className="text-muted-foreground">Archivo</span>
+                              <span className="font-medium">{r.name}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-border/50">
+                              <span className="text-muted-foreground">Estado</span>
+                              <span className="font-medium text-red-600">Fallido</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-border/50">
+                              <span className="text-muted-foreground">Código de error</span>
+                              <span className="font-medium font-mono">{r.errorCode ?? "—"}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-border/50">
+                              <span className="text-muted-foreground">Mensaje de error</span>
+                              <span className="font-medium">{r.errorMessage ?? "—"}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {r.status === "ANALYZED" && r.analysis && (() => {
+                          const a = r.analysis!;
+                          const levelStyles: Record<string, string> = {
+                            OK: "text-emerald-700 bg-emerald-50 border-emerald-200",
+                            WARNING: "text-yellow-700 bg-yellow-50 border-yellow-200",
+                            CRITICAL: "text-red-700 bg-red-50 border-red-200",
+                          };
+                          const levelLabels: Record<string, string> = {
+                            OK: "Sin riesgo crítico detectado",
+                            WARNING: "Revisión recomendada",
+                            CRITICAL: "Incidencia crítica",
+                          };
+                          const s = levelStyles[a.executiveSummary.riskLevel] ?? levelStyles.WARNING;
+                          const badge: Record<string, { label: string; style: string }> = {
+                            INFO: { label: "Informativo", style: "text-blue-700 bg-blue-50 border-blue-200" },
+                            WARNING: { label: "Advertencia", style: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+                            CRITICAL: { label: "Crítico", style: "text-red-700 bg-red-50 border-red-200" },
+                          };
+                          const criticals = a.findings?.filter(f => f.severity === "CRITICAL") ?? [];
+                          const warnings = a.findings?.filter(f => f.severity === "WARNING") ?? [];
+                          const infos = a.findings?.filter(f => f.severity === "INFO") ?? [];
+                          return (
+                            <>
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold">Resumen ejecutivo</p>
+                                <div className={`p-3 rounded-lg border ${s} space-y-1`}>
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">{a.executiveSummary.title}</p>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${s}`}>
+                                      {levelLabels[a.executiveSummary.riskLevel] ?? a.executiveSummary.riskLevel}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{a.executiveSummary.message}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-semibold">Acción recomendada:</span> {a.executiveSummary.recommendedAction}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold">Hallazgos</p>
+                                <div className="flex gap-3 text-xs">
+                                  <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold">Críticos: {criticals.length}</span>
+                                  <span className="px-2 py-0.5 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 font-bold">Advertencias: {warnings.length}</span>
+                                  <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold">Informativos: {infos.length}</span>
+                                </div>
+                                {a.findings && a.findings.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {a.findings.map((f, fIdx) => {
+                                      const b = badge[f.severity] ?? badge.INFO;
+                                      return (
+                                        <div key={fIdx} className={`p-3 rounded-lg border ${b.style} space-y-1`}>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}>{b.label}</span>
+                                            <span className="text-xs text-muted-foreground font-mono">{f.category}</span>
+                                            <span className="text-xs text-muted-foreground font-mono">{f.code}</span>
+                                          </div>
+                                          <p className="text-sm font-medium">{f.title}</p>
+                                          <p className="text-sm text-muted-foreground">{f.message}</p>
+                                          {f.recommendedAction && (
+                                            <p className="text-xs text-muted-foreground">
+                                              <span className="font-semibold">Acción recomendada:</span> {f.recommendedAction}
+                                            </p>
+                                          )}
+                                          {f.evidence && f.evidence.length > 0 && (
+                                            <div className="space-y-0.5 pt-1 border-t border-border/40 mt-1">
+                                              <p className="text-xs font-semibold text-muted-foreground">Evidencia</p>
+                                              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                                                {f.evidence.map((e, eIdx) => (
+                                                  <div key={eIdx} className="contents">
+                                                    <span className="text-muted-foreground whitespace-nowrap">{e.label}:</span>
+                                                    <span className="font-mono text-foreground/80 break-all">{e.value ?? "—"}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No se detectaron hallazgos estructurados.</p>
+                                )}
+                              </div>
+
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold">Diagnóstico técnico</p>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">XML timbrado</span>
+                                    <span className={a.technicalDiagnostics.isStamped ? "text-emerald-600 font-medium" : "text-yellow-600 font-medium"}>{a.technicalDiagnostics.isStamped ? "Sí" : "No"}</span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">Timbre Fiscal Digital</span>
+                                    <span className={a.technicalDiagnostics.hasTimbreFiscalDigital ? "text-emerald-600 font-medium" : "text-yellow-600 font-medium"}>{a.technicalDiagnostics.hasTimbreFiscalDigital ? "Sí" : "No"}</span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">BOM UTF-8 detectado</span>
+                                    <span className="font-medium">{a.technicalDiagnostics.bomDetected ? "Sí" : "No"}</span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">Contenido previo al XML</span>
+                                    <span className="font-medium">{a.technicalDiagnostics.leadingContentBeforeXml ? "Sí" : "No"}</span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">Normalización segura aplicada</span>
+                                    <span className="font-medium">{a.technicalDiagnostics.safeNormalizationApplied ? "Sí" : "No"}</span>
+                                  </div>
+                                </div>
+                                {a.technicalDiagnostics.safeNormalizationNotes?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Notas de normalización</p>
+                                    <ul className="space-y-0.5">
+                                      {a.technicalDiagnostics.safeNormalizationNotes.map((note, nIdx) => (
+                                        <li key={nIdx} className="text-sm text-muted-foreground flex items-center gap-1">
+                                          <span className="text-blue-500">i</span> {note}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold">Diagnóstico estructural</p>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">Tiene Complemento</span>
+                                    <span className="font-medium">{a.structureDiagnostics.hasComplemento ? "Sí" : "No"}</span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-border/50">
+                                    <span className="text-muted-foreground">Tiene Addenda</span>
+                                    <span className="font-medium">{a.structureDiagnostics.hasAddenda ? "Sí" : "No"}</span>
+                                  </div>
+                                </div>
+                                {a.structureDiagnostics.namespaces?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Namespaces</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {a.structureDiagnostics.namespaces.map((ns, nsIdx) => (
+                                        <span key={nsIdx} className="text-xs bg-muted px-2 py-0.5 rounded font-mono">{ns}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {a.structureDiagnostics.complementNames?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Complementos detectados</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {a.structureDiagnostics.complementNames.map((name, nIdx) => (
+                                        <span key={nIdx} className="text-xs bg-muted px-2 py-0.5 rounded font-mono">{name}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {a.structureDiagnostics.knownComplements?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Complementos clasificados</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {a.structureDiagnostics.knownComplements.map((name, nIdx) => (
+                                        <span key={nIdx} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-mono">{name}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {a.structureDiagnostics.unknownComplements?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Complementos no clasificados</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {a.structureDiagnostics.unknownComplements.map((name, nIdx) => (
+                                        <span key={nIdx} className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-mono">{name}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {a.structureDiagnostics.nodeShapeNotes?.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-semibold text-muted-foreground">Notas de estructura</p>
+                                    <ul className="space-y-0.5">
+                                      {a.structureDiagnostics.nodeShapeNotes.map((note, nIdx) => (
+                                        <li key={nIdx} className="text-sm text-muted-foreground flex items-center gap-1">
+                                          <span className="text-blue-500">i</span> {note}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+
+                              {a.normalizedXml && (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-semibold">XML normalizado</p>
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="flex justify-between py-1 border-b border-border/50">
+                                      <span className="text-muted-foreground">Disponible</span>
+                                      <span className="font-medium">{a.normalizedXml.available ? "Sí" : "No"}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50">
+                                      <span className="text-muted-foreground">Archivo</span>
+                                      <span className="font-medium font-mono">{a.normalizedXml.filename}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50">
+                                      <span className="text-muted-foreground">Tipo normalización</span>
+                                      <span className="font-medium">{a.normalizedXml.normalizationType}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50">
+                                      <span className="text-muted-foreground">Contenido fiscal modificado</span>
+                                      <span className="font-medium">{a.normalizedXml.fiscalContentModified ? "Sí" : "No"}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50">
+                                      <span className="text-muted-foreground">Riesgo timbre/sello</span>
+                                      <span className="font-medium">{a.normalizedXml.stampRisk}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50 col-span-2">
+                                      <span className="text-muted-foreground">Hash original SHA-256</span>
+                                      <span className="font-mono text-xs break-all max-w-[300px] text-right">{a.normalizedXml.originalSha256}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/50 col-span-2">
+                                      <span className="text-muted-foreground">Hash normalizado SHA-256</span>
+                                      <span className="font-mono text-xs break-all max-w-[300px] text-right">{a.normalizedXml.normalizedSha256}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                  {/* TODO: En fase posterior, implementar descarga masiva:
+                    - Generar ZIP con XMLs normalizados técnicamente cuando aplique (BOM, contenido previo).
+                    - No incluir XMLs que requieran reparación fiscal en timbrados.
+                    - Para XML no timbrados, descarga de reparados solo después de flujo asistido y confirmación explícita.
+                    - Incluir manifiesto de trazabilidad por archivo. */}
+                </div>
+              )}
+              <button
+                onClick={handleExportMassiveCsv}
+                className="w-full py-2.5 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
+              >
+                Exportar análisis masivo CSV
+              </button>
+            </div>
+          )}
+
+          {zipFile && ((zipResult && zipResult.technicalSummary.filesWithSafeNormalizationAvailable > 0) || (fullAnalysisResult && fullAnalysisResult.summary.filesWithTechnicalNormalization > 0)) && (
+            <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
+              <p className="text-sm font-semibold text-blue-800">XMLs normalizables detectados</p>
+              <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-sm">
+                {zipResult && (
+                  <>
+                    <div className="flex justify-between py-1 border-b border-blue-200/50">
+                      <span className="text-blue-600">XMLs con BOM</span>
+                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithBom}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-blue-200/50">
+                      <span className="text-blue-600">XMLs con contenido previo</span>
+                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithLeadingContent}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-blue-200/50">
+                      <span className="text-blue-600">Normalización segura disponible</span>
+                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithSafeNormalizationAvailable}</span>
+                    </div>
+                  </>
+                )}
+                {fullAnalysisResult && (
+                  <>
+                    <div className="flex justify-between py-1 border-b border-blue-200/50 col-span-3">
+                      <span className="text-blue-600">XMLs con normalización técnica (análisis completo)</span>
+                      <span className="font-medium text-blue-800">{fullAnalysisResult.summary.filesWithTechnicalNormalization}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-blue-700">
+                Estos XMLs presentan problemas técnicos reparables. Fiscora puede generar una versión normalizada sin modificar contenido fiscal ni timbre/sello.
+              </p>
+              {fullAnalysisResult && Object.keys(fullAnalysisResult.summary.byTipoComprobante).length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-700">Tipos de comprobante detectados</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(fullAnalysisResult.summary.byTipoComprobante).map(([tipo, count]) => (
+                      <span key={tipo} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">{tipo}: {count}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-blue-600">
+                La descarga incluirá únicamente XMLs cuya normalización sea técnica segura. Los XMLs sin ajustes o con reparaciones fiscales no seguras quedarán solo en el manifiesto.
+              </p>
+              <button
+                onClick={handleDownloadNormalized}
+                disabled={normalizedZipLoading}
+                className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-all"
+              >
+                {normalizedZipLoading ? "Generando ZIP de XMLs normalizados..." : "Descargar ZIP de XMLs normalizados"}
+              </button>
+              <p className="text-xs text-blue-500">
+                El ZIP incluirá una carpeta normalized/ y un manifiesto con trazabilidad por archivo.
+              </p>
+              {normalizedZipError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{normalizedZipError}</p>
+              )}
+            </div>
           )}
         </div>
 
