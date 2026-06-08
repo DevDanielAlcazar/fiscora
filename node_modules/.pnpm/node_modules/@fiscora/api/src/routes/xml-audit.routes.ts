@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
+import crypto from "node:crypto";
 import { ModuleAccessService } from "../modules/modules/module-access.service.js";
 import { UsageService } from "../modules/usage/usage.service.js";
-import { analyzeCfdi, toAnalysisResponse } from "../modules/xml-audit/xml-audit.service.js";
+import { analyzeCfdi, toAnalysisResponse, type AnalysisResponse } from "../modules/xml-audit/xml-audit.service.js";
 import { XmlAnalysisRecordService } from "../modules/xml-audit/xml-analysis-record.service.js";
 import { analyzeZip, analyzeZipFull, generateNormalizedZip } from "../modules/xml-audit/xml-zip-audit.service.js";
 
@@ -230,14 +231,80 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       const buffer = Buffer.concat(chunks);
 
-      // TODO: En fase posterior registrar consumo de uso.
-      // Política propuesta: 1 uso por ZIP (independientemente de la cantidad de XMLs analizados).
-      // Pendiente de definición del plan de negocio.
-
       const result = analyzeZipFull(buffer, file.filename);
 
+      // Register usage only when at least one XML was found and analyzed
+      if (result.xmlFilesFound > 0 && modulePermissions.consumesUsage) {
+        try {
+          await UsageService.registerUsage({
+            prisma: fastify.prisma,
+            organizationId: request.user.organizationId,
+            userId: request.user.userId,
+            moduleKey: MODULE_KEY,
+            action: "XML_AUDIT_ANALYZE",
+          });
+          result.usage = { consumed: true, units: 1, policy: "ONE_PER_ZIP" };
+        } catch (err: unknown) {
+          const error = err as { code?: string; message: string };
+          if (error.code === "USAGE_LIMIT_EXCEEDED") {
+            return reply.code(403).send({
+              error: { code: "USAGE_LIMIT_EXCEEDED", message: "Has alcanzado el límite mensual de usos." },
+            });
+          }
+          return reply.code(500).send({
+            error: { code: "INTERNAL_ERROR", message: error.message },
+          });
+        }
+      }
+
+      // Persist each ANALYZED result as an individual XmlAnalysisRecord
+      const zipBatchId = crypto.randomUUID();
+      let recordsAttempted = 0;
+      let recordsSaved = 0;
+      let recordsFailed = 0;
+
+      for (const fr of result.results) {
+        if (fr.status !== "ANALYZED" || !fr.analysis) continue;
+        recordsAttempted++;
+        try {
+          await XmlAnalysisRecordService.saveXmlAnalysisRecord({
+            prisma: fastify.prisma,
+            userId: request.user.userId,
+            organizationId: request.user.organizationId,
+            analysis: fr.analysis as AnalysisResponse,
+            source: {
+              sourceType: "ZIP",
+              sourceFilename: file.filename,
+              batchId: zipBatchId,
+              zipFilename: file.filename,
+              zipEntryName: fr.name,
+              zipEntryIndex: fr.index,
+            },
+          });
+          recordsSaved++;
+        } catch (saveError: unknown) {
+          recordsFailed++;
+          fastify.log.error(
+            { error: saveError, zipEntryName: fr.name, zipBatchId },
+            "Failed to save XmlAnalysisRecord for ZIP entry",
+          );
+        }
+      }
+
+      result.persistence = {
+        enabled: true,
+        zipBatchId,
+        recordsAttempted,
+        recordsSaved,
+        recordsFailed,
+        retentionHours: 24,
+      };
+
+      // TODO: En fase posterior, persistir resultados FAILED con errorCode/errorMessage
+      // en modelo especializado o campos adicionales. Actualmente solo se persisten ANALYZED.
+
       fastify.log.info(
-        { organizationId: request.user.organizationId, filename: file.filename, analyzedCount: result.analyzedCount, failedCount: result.failedCount },
+        { organizationId: request.user.organizationId, filename: file.filename, analyzedCount: result.analyzedCount, failedCount: result.failedCount, usageConsumed: !!result.usage, recordsSaved },
         "ZIP full analysis completed",
       );
 
@@ -415,8 +482,8 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       const buffer = Buffer.concat(chunks);
 
-      // TODO: En fase posterior registrar consumo de uso (1 por ZIP) y persistir metadata en XmlAnalysisRecord
-      // cuando se implemente el análisis fiscal masivo de los XMLs contenidos.
+      // Inventario ZIP no consume uso; el consumo ocurre en analyze-zip/full.
+      // TODO: En fase posterior persistir metadata en XmlAnalysisRecord.
 
       const result = analyzeZip(buffer, file.filename);
 

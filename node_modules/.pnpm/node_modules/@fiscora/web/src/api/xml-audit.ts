@@ -273,6 +273,19 @@ export interface ZipFullAnalysisResult {
   warnings: string[];
   summary: ZipFullAnalysisSummary;
   results: ZipFullAnalysisFileResult[];
+  usage?: {
+    consumed: boolean;
+    units: number;
+    policy: string;
+  };
+  persistence?: {
+    enabled: true;
+    zipBatchId: string;
+    recordsAttempted: number;
+    recordsSaved: number;
+    recordsFailed: number;
+    retentionHours: 24;
+  };
 }
 
 export async function analyzeZipFull(token: string, file: File): Promise<ZipFullAnalysisResult> {

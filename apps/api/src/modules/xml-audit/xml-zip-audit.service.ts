@@ -124,6 +124,19 @@ export interface ZipFullAnalysisResult {
   warnings: string[];
   summary: ZipFullAnalysisSummary;
   results: ZipFullAnalysisFileResult[];
+  usage?: {
+    consumed: boolean;
+    units: number;
+    policy: "ONE_PER_ZIP";
+  };
+  persistence?: {
+    enabled: true;
+    zipBatchId: string;
+    recordsAttempted: number;
+    recordsSaved: number;
+    recordsFailed: number;
+    retentionHours: 24;
+  };
 }
 
 function sanitizeNormalizedXml(nx: NormalizedXml | undefined): (Omit<NormalizedXml, "content">) | undefined {
