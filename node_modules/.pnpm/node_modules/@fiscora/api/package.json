@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "xml-audit:regression": "tsx src/modules/xml-audit/xml-audit.regression.ts",
     "prisma:generate": "npx cross-env PRISMA_GENERATE_SKIP_AUTOINSTALL=true prisma generate --schema ../../prisma/schema.prisma"
   },
   "dependencies": {

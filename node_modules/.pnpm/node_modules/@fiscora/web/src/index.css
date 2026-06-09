@@ -65,3 +65,78 @@
     @apply bg-background text-foreground transition-colors duration-300;
   }
 }
+
+@media print {
+  html, body {
+    background: white !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body > *,
+  #root > *,
+  .min-h-screen > *:not(.print-report) {
+    display: none !important;
+  }
+  .print-report {
+    display: block !important;
+    background: white !important;
+    color: #111 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+  }
+  .print-report * {
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ddd !important;
+  }
+  .print-report a {
+    color: #2563eb !important;
+    text-decoration: underline;
+  }
+  .print-report table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+  }
+  .print-report th {
+    background: #f3f4f6 !important;
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    font-size: 10px;
+  }
+  .print-report td {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    font-size: 10px;
+    vertical-align: top;
+  }
+  .print-report h1 { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  .print-report h2 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #2563eb;
+  }
+  .print-report h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; }
+  .print-report p, .print-report li { font-size: 10px; line-height: 1.4; }
+  .print-report .page-break { page-break-before: always; }
+  .print-report .avoid-break { page-break-inside: avoid; }
+  .print-report .badge-ok { background: #d1fae5 !important; color: #065f46 !important; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 10px; display: inline-block; }
+  .print-report .badge-warning { background: #fef3c7 !important; color: #92400e !important; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 10px; display: inline-block; }
+  .print-report .badge-critical { background: #fee2e2 !important; color: #991b1b !important; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 10px; display: inline-block; }
+  .print-report .badge-info { background: #dbeafe !important; color: #1e40af !important; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 10px; display: inline-block; }
+  .print-report .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+  .print-report .meta-item { display: flex; padding: 2px 0; border-bottom: 1px solid #eee; }
+  .print-report .meta-label { width: 180px; font-weight: 600; font-size: 10px; color: #555 !important; flex-shrink: 0; }
+  .print-report .meta-value { font-size: 10px; word-break: break-all; }
+  .print-report .severity-critical { background: #fee2e2 !important; color: #991b1b !important; }
+  .print-report .severity-warning { background: #fef3c7 !important; color: #92400e !important; }
+  .print-report .severity-info { background: #dbeafe !important; color: #1e40af !important; }
+  .print-report .findings-count { display: flex; gap: 12px; font-size: 10px; margin-bottom: 8px; }
+  .print-report .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #d1d5db; font-size: 9px; color: #888 !important; text-align: center; }
+}

@@ -163,6 +163,17 @@ export interface AnalysisResult {
   totalsValidation?: TotalsValidation;
   taxSummary?: TaxSummary;
   normalizedXml?: NormalizedXml;
+  regimenFiscalReceptor?: string | null;
+  domicilioFiscalReceptor?: string | null;
+  lugarExpedicion?: string | null;
+  sello?: string | null;
+  certificado?: string | null;
+  noCertificado?: string | null;
+  selloCfd?: string | null;
+  selloSat?: string | null;
+  noCertificadoSat?: string | null;
+  rfcProvCertif?: string | null;
+  versionTimbre?: string | null;
 }
 
 export interface AnalyzeResponse {

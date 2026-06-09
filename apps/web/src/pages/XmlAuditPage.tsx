@@ -1913,6 +1913,12 @@ export default function XmlAuditPage() {
               >
                 Exportar análisis Excel (CSV)
               </button>
+              <button
+                onClick={() => window.print()}
+                className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+              >
+                Imprimir reporte / Guardar PDF
+              </button>
             </div>
           );
         })()}
@@ -1923,6 +1929,357 @@ export default function XmlAuditPage() {
           Volver al dashboard
         </button>
       </div>
+
+      {result && (() => {
+        const r = result;
+        function severityBadge(s: string) {
+          const cls = s === "CRITICAL" ? "badge-critical" : s === "WARNING" ? "badge-warning" : "badge-info";
+          return <span className={cls}>{s}</span>;
+        }
+        return (
+          <div className="print-report hidden">
+            <div style={{ padding: "32px 40px 24px", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial, Helvetica, sans-serif" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                <div>
+                  <h1 style={{ fontSize: "20px", fontWeight: 700, color: "#2563eb", margin: 0 }}>FISCORA</h1>
+                  <p style={{ fontSize: "10px", color: "#888", margin: "2px 0 0" }}>Reporte de Auditoría XML</p>
+                </div>
+                <div style={{ textAlign: "right", fontSize: "10px", color: "#555" }}>
+                  <p style={{ margin: 0 }}>{new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                  {r.uuid && <p style={{ margin: "2px 0 0", fontFamily: "monospace", fontSize: "9px", color: "#888" }}>UUID: {r.uuid}</p>}
+                </div>
+              </div>
+
+              <p style={{ fontSize: "9px", color: "#888", fontStyle: "italic", marginBottom: "16px", padding: "8px", background: "#f9fafb", borderRadius: "4px", border: "1px solid #e5e7eb" }}>
+                Este reporte se genera con base en el XML analizado en memoria. No sustituye la validación oficial del SAT ni constituye dictamen fiscal.
+              </p>
+
+              {r.executiveSummary && (
+                <div className="avoid-break">
+                  <h2>Resumen ejecutivo</h2>
+                  <div style={{ marginBottom: "8px" }}>
+                    <span className={`badge-${r.executiveSummary.riskLevel === "CRITICAL" ? "critical" : r.executiveSummary.riskLevel === "WARNING" ? "warning" : "ok"}`} style={{ marginBottom: "4px" }}>
+                      {r.executiveSummary.riskLevel}
+                    </span>
+                  </div>
+                  <p style={{ fontWeight: 600, margin: "4px 0" }}>{r.executiveSummary.title}</p>
+                  <p style={{ margin: "4px 0" }}>{r.executiveSummary.message}</p>
+                  <p style={{ margin: "4px 0", fontSize: "10px" }}><span style={{ fontWeight: 600 }}>Acción recomendada:</span> {r.executiveSummary.recommendedAction}</p>
+                </div>
+              )}
+
+              <div className="avoid-break">
+                <h2>Metadata fiscal</h2>
+                <div className="meta-grid">
+                  <div className="meta-item"><span className="meta-label">UUID</span><span className="meta-value">{r.uuid ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Tipo comprobante</span><span className="meta-value">{r.tipoComprobante ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Versión CFDI</span><span className="meta-value">{r.version ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Fecha CFDI</span><span className="meta-value">{r.fecha ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Fecha timbrado</span><span className="meta-value">{r.fechaTimbrado ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">RFC emisor</span><span className="meta-value">{r.rfcEmisor ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Nombre emisor</span><span className="meta-value">{r.nombreEmisor ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">RFC receptor</span><span className="meta-value">{r.rfcReceptor ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Nombre receptor</span><span className="meta-value">{r.nombreReceptor ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Serie</span><span className="meta-value">{r.serie ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Folio</span><span className="meta-value">{r.folio ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Moneda</span><span className="meta-value">{r.moneda ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Subtotal</span><span className="meta-value">{r.subtotal ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Total</span><span className="meta-value">{r.total ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Método de pago</span><span className="meta-value">{r.metodoPago ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Forma de pago</span><span className="meta-value">{r.formaPago ?? "—"}</span></div>
+                  <div className="meta-item"><span className="meta-label">Uso CFDI</span><span className="meta-value">{r.usoCfdi ?? "—"}</span></div>
+                </div>
+              </div>
+
+              <div className="avoid-break">
+                <h2>Hallazgos</h2>
+                {r.findings && r.findings.length > 0 ? (
+                  <>
+                    <div className="findings-count">
+                      <span>Críticos: <strong>{r.findings.filter(f => f.severity === "CRITICAL").length}</strong></span>
+                      <span>Advertencias: <strong>{r.findings.filter(f => f.severity === "WARNING").length}</strong></span>
+                      <span>Informativos: <strong>{r.findings.filter(f => f.severity === "INFO").length}</strong></span>
+                    </div>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th style={{ width: "70px" }}>Severidad</th>
+                          <th style={{ width: "60px" }}>Categoría</th>
+                          <th style={{ width: "80px" }}>Código</th>
+                          <th>Título</th>
+                          <th>Evidencia</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.findings.map(f => (
+                          <tr key={f.id}>
+                            <td>{severityBadge(f.severity)}</td>
+                            <td style={{ fontSize: "9px" }}>{f.category}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{f.code}</td>
+                            <td>
+                              <p style={{ fontWeight: 600, margin: 0, fontSize: "10px" }}>{f.title}</p>
+                              <p style={{ margin: "2px 0 0", fontSize: "9px" }}>{f.message}</p>
+                              {f.recommendedAction && <p style={{ margin: "2px 0 0", fontSize: "9px", color: "#555" }}>Acción: {f.recommendedAction}</p>}
+                            </td>
+                            <td style={{ fontSize: "9px" }}>
+                              {f.evidence && f.evidence.length > 0
+                                ? f.evidence.map((e, i) => <div key={i}><span style={{ fontWeight: 600 }}>{e.label}:</span> {e.value ?? "—"}</div>)
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <p style={{ fontSize: "10px", color: "#888" }}>No se detectaron hallazgos.</p>
+                )}
+              </div>
+
+              <div className="avoid-break">
+                <h2>Diagnóstico técnico</h2>
+                <table>
+                  <tbody>
+                    <tr><td style={{ fontWeight: 600, width: "240px" }}>XML timbrado</td><td>{r.technicalDiagnostics.isStamped ? "Sí" : "No"}</td></tr>
+                    <tr><td style={{ fontWeight: 600 }}>Timbre Fiscal Digital detectado</td><td>{r.technicalDiagnostics.hasTimbreFiscalDigital ? "Sí" : "No"}</td></tr>
+                    <tr><td style={{ fontWeight: 600 }}>BOM UTF-8 detectado</td><td>{r.technicalDiagnostics.bomDetected ? "Sí" : "No"}</td></tr>
+                    <tr><td style={{ fontWeight: 600 }}>Contenido previo al XML</td><td>{r.technicalDiagnostics.leadingContentBeforeXml ? "Sí" : "No"}</td></tr>
+                    <tr><td style={{ fontWeight: 600 }}>Normalización segura aplicada</td><td>{r.technicalDiagnostics.safeNormalizationApplied ? "Sí" : "No"}</td></tr>
+                    {r.normalizedXml && (
+                      <>
+                        <tr><td style={{ fontWeight: 600 }}>Hash original SHA-256</td><td style={{ fontFamily: "monospace", fontSize: "9px", wordBreak: "break-all" }}>{r.normalizedXml.originalSha256 ?? "—"}</td></tr>
+                        {r.normalizedXml.normalizedSha256 && <tr><td style={{ fontWeight: 600 }}>Hash normalizado SHA-256</td><td style={{ fontFamily: "monospace", fontSize: "9px", wordBreak: "break-all" }}>{r.normalizedXml.normalizedSha256}</td></tr>}
+                        <tr><td style={{ fontWeight: 600 }}>Riesgo timbre/sello</td><td>{r.normalizedXml.stampRisk ?? "—"}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Contenido fiscal modificado</td><td>{r.normalizedXml.fiscalContentModified ? "Sí" : "No"}</td></tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+                {r.technicalDiagnostics.safeNormalizationNotes.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Notas de normalización:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.technicalDiagnostics.safeNormalizationNotes.map((note, i) => <li key={i} style={{ fontSize: "10px" }}>{note}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="avoid-break">
+                <h2>Diagnóstico estructural</h2>
+                <table>
+                  <tbody>
+                    <tr><td style={{ fontWeight: 600, width: "240px" }}>Complemento detectado</td><td>{r.structureDiagnostics.hasComplemento ? "Sí" : "No"}</td></tr>
+                    <tr><td style={{ fontWeight: 600 }}>Addenda detectada</td><td>{r.structureDiagnostics.hasAddenda ? "Sí" : "No"}</td></tr>
+                  </tbody>
+                </table>
+                {r.structureDiagnostics.namespaces.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Namespaces:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.structureDiagnostics.namespaces.map((ns, i) => <li key={i} style={{ fontFamily: "monospace", fontSize: "9px" }}>{ns}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {r.structureDiagnostics.complementNames.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Complementos detectados:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.structureDiagnostics.complementNames.map((name, i) => <li key={i} style={{ fontSize: "10px" }}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {r.structureDiagnostics.knownComplements.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Complementos clasificados:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.structureDiagnostics.knownComplements.map((name, i) => <li key={i} style={{ fontSize: "10px" }}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {r.structureDiagnostics.unknownComplements.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Complementos no clasificados:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.structureDiagnostics.unknownComplements.map((name, i) => <li key={i} style={{ fontSize: "10px" }}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {r.structureDiagnostics.nodeShapeNotes.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Notas estructurales:</p>
+                    <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                      {r.structureDiagnostics.nodeShapeNotes.map((note, i) => <li key={i} style={{ fontSize: "10px" }}>{note}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {r.paymentComplement && (
+                <div className="avoid-break">
+                  <h2>Complemento de pago</h2>
+                  <table>
+                    <tbody>
+                      <tr><td style={{ fontWeight: 600, width: "240px" }}>Versión</td><td>{r.paymentComplement.version ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Total pagos</td><td>{r.paymentComplement.pagos.length}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Documentos relacionados</td><td>{r.paymentComplement.pagos.reduce((acc, p) => acc + p.documentosRelacionados.length, 0)}</td></tr>
+                    </tbody>
+                  </table>
+                  {r.paymentComplement.pagos.map((pago, idx) => (
+                    <div key={idx} style={{ marginTop: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Pago #{idx + 1}</p>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Id Documento</th>
+                            <th>Serie</th>
+                            <th>Folio</th>
+                            <th>Moneda DR</th>
+                            <th>Parcialidad</th>
+                            <th>Saldo anterior</th>
+                            <th>Pagado</th>
+                            <th>Saldo insoluto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pago.documentosRelacionados.length > 0 ? pago.documentosRelacionados.map((d, i) => (
+                            <tr key={i}>
+                              <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{d.idDocumento ?? "—"}</td>
+                              <td>{d.serie ?? "—"}</td>
+                              <td>{d.folio ?? "—"}</td>
+                              <td>{d.monedaDR ?? "—"}</td>
+                              <td>{d.numParcialidad ?? "—"}</td>
+                              <td>{d.impSaldoAnt ?? "—"}</td>
+                              <td>{d.impPagado ?? "—"}</td>
+                              <td>{d.impSaldoInsoluto ?? "—"}</td>
+                            </tr>
+                          )) : <tr><td colSpan={8} style={{ textAlign: "center", fontSize: "10px", color: "#888" }}>Sin documentos relacionados</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {r.concepts && r.concepts.length > 0 && (
+                <div className="avoid-break">
+                  <h2>Conceptos ({r.concepts.length})</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Clave</th>
+                        <th>No. id.</th>
+                        <th>Cant.</th>
+                        <th>Clave unid.</th>
+                        <th>Descripción</th>
+                        <th>Valor unit.</th>
+                        <th>Importe</th>
+                        <th>Dto.</th>
+                        <th>Obj. imp.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.concepts.map((c, i) => (
+                        <tr key={i}>
+                          <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{c.claveProdServ ?? "—"}</td>
+                          <td style={{ fontSize: "9px" }}>{c.noIdentificacion ?? "—"}</td>
+                          <td>{c.cantidad ?? "—"}</td>
+                          <td style={{ fontSize: "9px" }}>{c.claveUnidad ?? "—"}</td>
+                          <td style={{ fontSize: "9px" }}>{c.descripcion ?? "—"}</td>
+                          <td>{c.valorUnitario ?? "—"}</td>
+                          <td style={{ fontWeight: 600 }}>{c.importe ?? "—"}</td>
+                          <td>{c.descuento ?? "—"}</td>
+                          <td style={{ fontSize: "9px" }}>{c.objetoImp ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {r.taxSummary && (
+                <div className="avoid-break">
+                  <h2>Resumen de impuestos</h2>
+                  {r.taxSummary.transferred.length > 0 && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Trasladados</p>
+                      <table>
+                        <thead>
+                          <tr><th>Impuesto</th><th>Tipo factor</th><th>Tasa / cuota</th><th>Base calculada</th><th>Importe calculado</th></tr>
+                        </thead>
+                        <tbody>
+                          {r.taxSummary.transferred.map((t, i) => (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 600 }}>{t.impuestoLabel}</td>
+                              <td>{t.tipoFactor ?? "—"}</td>
+                              <td>{t.tasaOCuota ?? "—"}</td>
+                              <td>{t.baseCalculated}</td>
+                              <td style={{ fontWeight: 600 }}>{t.importeCalculated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {r.taxSummary.retained.length > 0 && (
+                    <div>
+                      <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Retenidos</p>
+                      <table>
+                        <thead>
+                          <tr><th>Impuesto</th><th>Tipo factor</th><th>Tasa / cuota</th><th>Base calculada</th><th>Importe calculado</th></tr>
+                        </thead>
+                        <tbody>
+                          {r.taxSummary.retained.map((r2, i) => (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 600 }}>{r2.impuestoLabel}</td>
+                              <td>{r2.tipoFactor ?? "—"}</td>
+                              <td>{r2.tasaOCuota ?? "—"}</td>
+                              <td>{r2.baseCalculated}</td>
+                              <td style={{ fontWeight: 600 }}>{r2.importeCalculated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {r.totalsValidation && (
+                <div className="avoid-break">
+                  <h2>Validación de totales</h2>
+                  <div style={{ marginBottom: "8px" }}>
+                    <span className={r.totalsValidation.matches ? "badge-ok" : "badge-critical"}>
+                      {r.totalsValidation.matches ? "Totales consistentes" : "Diferencias detectadas"}
+                    </span>
+                  </div>
+                  <table>
+                    <tbody>
+                      <tr><td style={{ fontWeight: 600, width: "240px" }}>Subtotal XML</td><td>{r.totalsValidation.subtotalXml ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Subtotal calculado</td><td>{r.totalsValidation.subtotalCalculated ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Descuento calculado</td><td>{r.totalsValidation.discountCalculated ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Impuestos trasladados XML</td><td>{r.totalsValidation.transferredTaxesXml ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Impuestos trasladados calculados</td><td>{r.totalsValidation.transferredTaxesCalculated ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Impuestos retenidos XML</td><td>{r.totalsValidation.retainedTaxesXml ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Impuestos retenidos calculados</td><td>{r.totalsValidation.retainedTaxesCalculated ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Total XML</td><td style={{ fontWeight: 600 }}>{r.totalsValidation.totalXml ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Total calculado</td><td style={{ fontWeight: 600 }}>{r.totalsValidation.totalCalculated ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Diferencia</td><td style={{ color: r.totalsValidation.matches ? "#065f46" : "#991b1b", fontWeight: 600 }}>{r.totalsValidation.difference ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Tolerancia</td><td>{r.totalsValidation.tolerance}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="footer">
+                <p style={{ margin: 0 }}>Generado por Fiscora / ConSafeDev</p>
+                <p style={{ margin: "4px 0 0" }}>No se almacena el XML fuente en este reporte.</p>
+                <p style={{ margin: "4px 0 0" }}>{new Date().toISOString()}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {selectedMassiveDetail && (() => {
         const sd = selectedMassiveDetail;

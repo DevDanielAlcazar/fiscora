@@ -16,7 +16,8 @@
     "typecheck": "pnpm --recursive typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\" && prisma format --schema prisma/schema.prisma",
     "prisma:generate": "cross-env PRISMA_GENERATE_SKIP_AUTOINSTALL=true prisma generate --schema prisma/schema.prisma",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test:xml-audit": "pnpm --filter @fiscora/api xml-audit:regression"
   },
   "devDependencies": {
     "@types/node": "^20.19.41",

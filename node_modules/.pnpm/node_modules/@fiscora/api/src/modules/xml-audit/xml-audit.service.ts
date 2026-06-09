@@ -170,6 +170,17 @@ export interface CfdiAnalysisResult {
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
   normalizedXml?: NormalizedXml;
+  regimenFiscalReceptor?: string | null;
+  domicilioFiscalReceptor?: string | null;
+  lugarExpedicion?: string | null;
+  sello?: string | null;
+  certificado?: string | null;
+  noCertificado?: string | null;
+  selloCfd?: string | null;
+  selloSat?: string | null;
+  noCertificadoSat?: string | null;
+  rfcProvCertif?: string | null;
+  versionTimbre?: string | null;
 }
 
 export interface AnalysisResponse {
@@ -203,6 +214,17 @@ export interface AnalysisResponse {
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
   normalizedXml?: NormalizedXml;
+  regimenFiscalReceptor?: string | null;
+  domicilioFiscalReceptor?: string | null;
+  lugarExpedicion?: string | null;
+  sello?: string | null;
+  certificado?: string | null;
+  noCertificado?: string | null;
+  selloCfd?: string | null;
+  selloSat?: string | null;
+  noCertificadoSat?: string | null;
+  rfcProvCertif?: string | null;
+  versionTimbre?: string | null;
 }
 
 const BOM = "\uFEFF";
@@ -239,6 +261,44 @@ function roundMoney(value: number): number {
 
 function formatMoney(value: number): string {
   return roundMoney(value).toFixed(2);
+}
+
+function isNonEmptyString(value: string | null | undefined): boolean {
+  return value !== null && value !== undefined && value.trim().length > 0;
+}
+
+function looksLikeCertificateNumber(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const cleaned = value.trim();
+  return /^\d{20}$/.test(cleaned) || (cleaned.length >= 10 && !isNaN(Number(cleaned)));
+}
+
+function parseCfdiDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isDateBefore(a: Date | null, b: Date | null): boolean {
+  if (!a || !b) return false;
+  return a.getTime() < b.getTime();
+}
+
+function normalizeRfc(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.toUpperCase().trim();
+}
+
+function isGenericNationalRfc(rfc: string | null | undefined): boolean {
+  return normalizeRfc(rfc) === "XAXX010101000";
+}
+
+function isGenericForeignRfc(rfc: string | null | undefined): boolean {
+  return normalizeRfc(rfc) === "XEXX010101000";
+}
+
+function isGenericRfc(rfc: string | null | undefined): boolean {
+  return isGenericNationalRfc(rfc) || isGenericForeignRfc(rfc);
 }
 
 function rc(version: string | null, target: "3.3" | "4.0"): boolean {
@@ -340,6 +400,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const metodoPago = str(get(comprobante, "@_MetodoPago"));
   const formaPago = str(get(comprobante, "@_FormaPago"));
   const descuento = str(get(comprobante, "@_Descuento"));
+  const sello = str(get(comprobante, "@_Sello"));
+  const certificado = str(get(comprobante, "@_Certificado"));
+  const noCertificado = str(get(comprobante, "@_NoCertificado"));
 
   // Emisor
   const emisor = get(comprobante, "cfdi:Emisor") as Record<string, unknown> ?? {};
@@ -351,6 +414,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const rfcReceptor = str(get(receptor, "@_Rfc"));
   const nombreReceptor = str(get(receptor, "@_Nombre"));
   const usoCfdi = str(get(receptor, "@_UsoCFDI"));
+  const regimenFiscalReceptor = str(get(receptor, "@_RegimenFiscalReceptor"));
+  const domicilioFiscalReceptor = str(get(receptor, "@_DomicilioFiscalReceptor"));
+  const lugarExpedicion = str(get(comprobante, "@_LugarExpedicion"));
 
   // Impuestos
   const impuestos = get(comprobante, "cfdi:Impuestos") as Record<string, unknown> ?? {};
@@ -368,9 +434,20 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const hasTimbreFiscalDigital = timbre !== null && typeof timbre === "object" && Object.keys(timbre).length > 0;
   diag.hasTimbreFiscalDigital = hasTimbreFiscalDigital;
 
+  let selloCfd: string | null = null;
+  let selloSat: string | null = null;
+  let noCertificadoSat: string | null = null;
+  let rfcProvCertif: string | null = null;
+  let versionTimbre: string | null = null;
+
   if (hasTimbreFiscalDigital) {
     uuid = str(get(timbre, "@_UUID")) ?? str(get(timbre, "@_uuid"));
     fechaTimbrado = str(get(timbre, "@_FechaTimbrado"));
+    selloCfd = str(get(timbre, "@_SelloCFD"));
+    selloSat = str(get(timbre, "@_SelloSAT"));
+    noCertificadoSat = str(get(timbre, "@_NoCertificadoSAT"));
+    rfcProvCertif = str(get(timbre, "@_RfcProvCertif"));
+    versionTimbre = str(get(timbre, "@_Version"));
   }
 
   diag.isStamped = hasTimbreFiscalDigital && uuid !== null;
@@ -576,13 +653,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     if (!nombreReceptor) issues.push("CFDI 4.0: No se encontró el nombre del receptor");
     if (!usoCfdi) issues.push("CFDI 4.0: No se encontró el uso del CFDI");
 
-    const regimenFiscalReceptor = str(get(receptor, "@_RegimenFiscalReceptor"));
     if (!regimenFiscalReceptor) {
       issues.push("CFDI 4.0: No se encontró el régimen fiscal del receptor");
     }
 
-    const domicilioFiscal = str(get(receptor, "@_DomicilioFiscalReceptor"));
-    if (!domicilioFiscal) {
+    if (!domicilioFiscalReceptor) {
       issues.push("CFDI 4.0: No se encontró el domicilio fiscal del receptor");
     }
   }
@@ -1651,6 +1726,336 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
+  // ── Generic RFC Findings ──
+
+  if (rfcReceptor && isGenericNationalRfc(rfcReceptor)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "GENERIC_RFC_RECEPTOR_NATIONAL",
+      title: "RFC genérico nacional en receptor",
+      message: "El receptor utiliza el RFC genérico nacional XAXX010101000. Esto puede ser válido para operaciones con público en general, pero debe revisarse según el contexto fiscal del comprobante.",
+      recommendedAction: "Confirma que el uso de RFC genérico corresponda al escenario fiscal real del comprobante y que los campos del receptor sean consistentes.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor },
+        { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Uso CFDI", value: usoCfdi ?? "—" },
+        { label: "Régimen fiscal receptor", value: regimenFiscalReceptor ?? "—" },
+        { label: "Domicilio fiscal receptor", value: domicilioFiscalReceptor ?? "—" },
+        { label: "Lugar expedición", value: lugarExpedicion ?? "—" },
+      ],
+    });
+  }
+
+  if (rfcReceptor && isGenericForeignRfc(rfcReceptor)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "GENERIC_RFC_RECEPTOR_FOREIGN",
+      title: "RFC genérico extranjero en receptor",
+      message: "El receptor utiliza el RFC genérico extranjero XEXX010101000. Esto puede ser válido para operaciones con residentes en el extranjero no inscritos en RFC, pero debe revisarse según el contexto fiscal del comprobante.",
+      recommendedAction: "Confirma que la operación corresponda a un receptor extranjero sin RFC mexicano y que los campos fiscales del receptor sean consistentes.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor },
+        { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Uso CFDI", value: usoCfdi ?? "—" },
+        { label: "Régimen fiscal receptor", value: regimenFiscalReceptor ?? "—" },
+        { label: "Domicilio fiscal receptor", value: domicilioFiscalReceptor ?? "—" },
+        { label: "Lugar expedición", value: lugarExpedicion ?? "—" },
+      ],
+    });
+  }
+
+  if (rfcEmisor && isGenericRfc(rfcEmisor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "GENERIC_RFC_EMISOR",
+      title: "RFC genérico usado como emisor",
+      message: "El RFC genérico aparece en el emisor del comprobante. Esto es inusual y puede indicar un XML de prueba, inválido o mal generado.",
+      recommendedAction: "Verifica que el RFC emisor corresponda a un contribuyente real y que el XML provenga de una emisión válida.",
+      evidence: [
+        { label: "RFC emisor", value: rfcEmisor },
+        { label: "Nombre emisor", value: nombreEmisor ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "XML timbrado", value: diag.isStamped ? "Sí" : "No" },
+      ],
+    });
+  }
+
+  if (rc(version, "4.0") && rfcReceptor && isGenericRfc(rfcReceptor) && regimenFiscalReceptor && regimenFiscalReceptor !== "616") {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "GENERIC_RFC_RECEPTOR_REGIMEN_NOT_616",
+      title: "Régimen fiscal receptor no esperado para RFC genérico",
+      message: "El receptor usa RFC genérico, pero el RégimenFiscalReceptor no es 616. Esto puede generar inconsistencias según el tipo de CFDI y el contexto de emisión.",
+      recommendedAction: "Revisa si el receptor genérico debe usar RégimenFiscalReceptor 616 conforme al escenario fiscal aplicable.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor },
+        { label: "Régimen fiscal receptor detectado", value: regimenFiscalReceptor },
+        { label: "Régimen esperado", value: "616 (Sin obligaciones)" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Uso CFDI", value: usoCfdi ?? "—" },
+      ],
+    });
+  }
+
+  if (rc(version, "4.0") && rfcReceptor && isGenericRfc(rfcReceptor) && usoCfdi) {
+    const isPago = tipoComprobante === "P" || tipoLabel === "Pago";
+    let usoReview = false;
+    if (isPago) {
+      if (usoCfdi !== "CP01") usoReview = true;
+    } else {
+      if (!["S01", "CP01"].includes(usoCfdi)) usoReview = true;
+    }
+    if (usoReview) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "GENERIC_RFC_RECEPTOR_USO_CFDI_REVIEW",
+        title: "Uso CFDI requiere revisión para RFC genérico",
+        message: "El receptor usa RFC genérico y el UsoCFDI detectado no corresponde al patrón esperado para este escenario. Puede ser válido en casos específicos, pero requiere revisión.",
+        recommendedAction: "Valida que el UsoCFDI sea consistente con el tipo de comprobante, el régimen fiscal del receptor y el escenario de emisión.",
+        evidence: [
+          { label: "RFC receptor", value: rfcReceptor },
+          { label: "Uso CFDI detectado", value: usoCfdi },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "Valores esperados de referencia", value: isPago ? "CP01" : "S01, CP01" },
+          { label: "Régimen fiscal receptor", value: regimenFiscalReceptor ?? "—" },
+        ],
+      });
+    }
+  }
+
+  if (rc(version, "4.0") && rfcReceptor && isGenericRfc(rfcReceptor) && domicilioFiscalReceptor && lugarExpedicion && domicilioFiscalReceptor !== lugarExpedicion) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "GENERIC_RFC_RECEPTOR_POSTAL_MISMATCH",
+      title: "Domicilio fiscal receptor no coincide con lugar de expedición",
+      message: "El receptor usa RFC genérico, pero el DomicilioFiscalReceptor no coincide con LugarExpedicion. Esto puede ser inconsistente para CFDI 4.0 según reglas de validación aplicables.",
+      recommendedAction: "Revisa el código postal del receptor y el lugar de expedición capturados en el CFDI.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor },
+        { label: "Domicilio fiscal receptor", value: domicilioFiscalReceptor },
+        { label: "Lugar expedición", value: lugarExpedicion },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Uso CFDI", value: usoCfdi ?? "—" },
+      ],
+    });
+  }
+
+  if (rfcReceptor && isGenericRfc(rfcReceptor) && nombreReceptor) {
+    const isPago = tipoComprobante === "P" || tipoLabel === "Pago";
+    if (!isPago) {
+      const normalizedName = nombreReceptor.toUpperCase().trim();
+      if (!normalizedName.includes("PUBLICO EN GENERAL") && !normalizedName.includes("PÚBLICO EN GENERAL")) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "FISCAL",
+          code: "GENERIC_RFC_RECEPTOR_NAME_REVIEW",
+          title: "Nombre de receptor con RFC genérico requiere revisión",
+          message: "El receptor usa RFC genérico, pero el nombre del receptor no corresponde al patrón común de público en general. Puede ser válido según el tipo de operación, pero conviene revisarlo.",
+          recommendedAction: "Confirma si el comprobante corresponde a público en general, extranjero u otro escenario donde el RFC genérico sea procedente.",
+          evidence: [
+            { label: "RFC receptor", value: rfcReceptor },
+            { label: "Nombre receptor", value: nombreReceptor },
+            { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+            { label: "Uso CFDI", value: usoCfdi ?? "—" },
+          ],
+        });
+      }
+    }
+  }
+
+  // ── Stamp / Sello / Certificado Findings ──
+  const isStampedOrTimbre = diag.isStamped || hasTimbreFiscalDigital;
+
+  if (isStampedOrTimbre && !isNonEmptyString(sello)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_COMPROBANTE_SELLO",
+      title: "Sello del CFDI ausente",
+      message: "El comprobante timbrado no contiene el atributo Sello en el nodo principal. Esto puede indicar un XML incompleto, alterado o mal generado.",
+      recommendedAction: "Solicita al emisor el XML original timbrado y verifica que el archivo no haya sido modificado.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "XML timbrado", value: diag.isStamped ? "Sí" : "No" },
+        { label: "Sello presente", value: "No" },
+        { label: "Timbre Fiscal Digital detectado", value: hasTimbreFiscalDigital ? "Sí" : "No" },
+      ],
+    });
+  }
+
+  if (isStampedOrTimbre && !isNonEmptyString(certificado)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_COMPROBANTE_CERTIFICADO",
+      title: "Certificado del CFDI ausente",
+      message: "El comprobante timbrado no contiene el atributo Certificado en el nodo principal. Esto puede indicar que el XML está incompleto o fue alterado.",
+      recommendedAction: "Verifica el XML original emitido por el PAC o solicita una nueva descarga al emisor.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Certificado presente", value: "No" },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+      ],
+    });
+  }
+
+  if (isStampedOrTimbre && !isNonEmptyString(noCertificado)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_NO_CERTIFICADO",
+      title: "Número de certificado del CFDI ausente",
+      message: "El comprobante no contiene NoCertificado en el nodo principal. Esto puede afectar la trazabilidad técnica del CFDI.",
+      recommendedAction: "Confirma que el XML corresponda al comprobante original timbrado y no a una representación parcial.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "NoCertificado", value: noCertificado ?? "—" },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+      ],
+    });
+  }
+
+  if (isNonEmptyString(noCertificado) && !looksLikeCertificateNumber(noCertificado)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "NO_CERTIFICADO_FORMAT_REVIEW",
+      title: "Formato de NoCertificado requiere revisión",
+      message: "El número de certificado del CFDI tiene un formato poco común. Puede ser válido en escenarios específicos, pero conviene revisarlo.",
+      recommendedAction: "Verifica que el NoCertificado corresponda al XML original emitido.",
+      evidence: [
+        { label: "NoCertificado", value: noCertificado ?? "—" },
+        { label: "Longitud", value: noCertificado ? String(noCertificado.trim().length) : "—" },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+      ],
+    });
+  }
+
+  if (hasTimbreFiscalDigital && !isNonEmptyString(selloCfd)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_TFD_SELLO_CFD",
+      title: "SelloCFD ausente en TimbreFiscalDigital",
+      message: "El TimbreFiscalDigital no contiene SelloCFD. Esto puede indicar un timbre incompleto o una extracción incorrecta del XML.",
+      recommendedAction: "Solicita el XML original al emisor o valida que el archivo no haya sido manipulado.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
+        { label: "SelloCFD presente", value: "No" },
+      ],
+    });
+  }
+
+  if (hasTimbreFiscalDigital && !isNonEmptyString(selloSat)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_TFD_SELLO_SAT",
+      title: "SelloSAT ausente en TimbreFiscalDigital",
+      message: "El TimbreFiscalDigital no contiene SelloSAT. Esto puede indicar un timbre incompleto o un XML alterado.",
+      recommendedAction: "Verifica el XML original timbrado y confirma que provenga de una fuente confiable.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
+        { label: "SelloSAT presente", value: "No" },
+      ],
+    });
+  }
+
+  if (hasTimbreFiscalDigital && !isNonEmptyString(noCertificadoSat)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "MISSING_TFD_NO_CERTIFICADO_SAT",
+      title: "NoCertificadoSAT ausente en TimbreFiscalDigital",
+      message: "El TimbreFiscalDigital no contiene NoCertificadoSAT. Esto limita la trazabilidad del timbrado.",
+      recommendedAction: "Solicita el XML original timbrado o revisa si el complemento fue alterado.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "NoCertificadoSAT", value: noCertificadoSat ?? "—" },
+        { label: "RFC proveedor certificación", value: rfcProvCertif ?? "—" },
+      ],
+    });
+  }
+
+  if (isNonEmptyString(noCertificadoSat) && !looksLikeCertificateNumber(noCertificadoSat)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "TFD_NO_CERTIFICADO_SAT_FORMAT_REVIEW",
+      title: "Formato de NoCertificadoSAT requiere revisión",
+      message: "El número de certificado SAT del timbre tiene un formato poco común. Puede requerir revisión técnica.",
+      recommendedAction: "Confirma que el TimbreFiscalDigital corresponda a una emisión válida.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "NoCertificadoSAT", value: noCertificadoSat ?? "—" },
+        { label: "Longitud", value: noCertificadoSat ? String(noCertificadoSat.trim().length) : "—" },
+      ],
+    });
+  }
+
+  if (hasTimbreFiscalDigital && !isNonEmptyString(rfcProvCertif)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "MISSING_RFC_PROV_CERTIF",
+      title: "RFC del proveedor de certificación no detectado",
+      message: "No se detectó RfcProvCertif en el TimbreFiscalDigital. Esto puede limitar la trazabilidad del PAC.",
+      recommendedAction: "Revisa el complemento TimbreFiscalDigital del XML original.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
+        { label: "RfcProvCertif", value: rfcProvCertif ?? "—" },
+      ],
+    });
+  }
+
+  if (hasTimbreFiscalDigital && !isNonEmptyString(versionTimbre)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "MISSING_TFD_VERSION",
+      title: "Versión del TimbreFiscalDigital no detectada",
+      message: "No se detectó la versión del complemento TimbreFiscalDigital. Puede deberse a estructura no estándar o atributos incompletos.",
+      recommendedAction: "Revisa el XML original si se requiere trazabilidad técnica completa del timbrado.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Complemento detectado", value: "TimbreFiscalDigital" },
+        { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
+      ],
+    });
+  }
+
+  const cfdiDate = parseCfdiDate(fecha);
+  const timbradoDate = parseCfdiDate(fechaTimbrado);
+  if (cfdiDate && timbradoDate && isDateBefore(timbradoDate, cfdiDate)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "TIMBRADO_DATE_BEFORE_CFDI_DATE",
+      title: "Fecha de timbrado anterior a la fecha del CFDI",
+      message: "La fecha de timbrado es anterior a la fecha de emisión del CFDI. Esto puede indicar inconsistencia temporal en el comprobante.",
+      recommendedAction: "Verifica las fechas del XML y confirma que el comprobante no haya sido generado con datos inconsistentes.",
+      evidence: [
+        { label: "Fecha CFDI", value: fecha ?? "—" },
+        { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+      ],
+    });
+  }
+
   // ── Executive Summary ──
   let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
   let summaryTitle: string;
@@ -1760,6 +2165,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     totalsValidation: totalsValidation ?? undefined,
     taxSummary: taxSummary ?? undefined,
     normalizedXml,
+    regimenFiscalReceptor: regimenFiscalReceptor ?? undefined,
+    domicilioFiscalReceptor: domicilioFiscalReceptor ?? undefined,
+    lugarExpedicion: lugarExpedicion ?? undefined,
+    sello: sello ?? undefined,
+    certificado: certificado ?? undefined,
+    noCertificado: noCertificado ?? undefined,
+    selloCfd: selloCfd ?? undefined,
+    selloSat: selloSat ?? undefined,
+    noCertificadoSat: noCertificadoSat ?? undefined,
+    rfcProvCertif: rfcProvCertif ?? undefined,
+    versionTimbre: versionTimbre ?? undefined,
   };
 }
 
@@ -1795,5 +2211,16 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     totalsValidation: result.totalsValidation,
     taxSummary: result.taxSummary,
     normalizedXml: result.normalizedXml,
+    regimenFiscalReceptor: result.regimenFiscalReceptor,
+    domicilioFiscalReceptor: result.domicilioFiscalReceptor,
+    lugarExpedicion: result.lugarExpedicion,
+    sello: result.sello,
+    certificado: result.certificado,
+    noCertificado: result.noCertificado,
+    selloCfd: result.selloCfd,
+    selloSat: result.selloSat,
+    noCertificadoSat: result.noCertificadoSat,
+    rfcProvCertif: result.rfcProvCertif,
+    versionTimbre: result.versionTimbre,
   };
 }
