@@ -7,6 +7,8 @@ import AdminModulesPage from "./pages/AdminModulesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminPlansPage from "./pages/AdminPlansPage";
 import AdminXmlAnalysesPage from "./pages/AdminXmlAnalysesPage";
+import AdminXmlAnalysisBatchesPage from "./pages/AdminXmlAnalysisBatchesPage";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
@@ -24,6 +26,8 @@ export default function App() {
       <Route path="/admin/users" element={<AdminUsersPage />} />
       <Route path="/admin/plans" element={<AdminPlansPage />} />
       <Route path="/admin/xml-analyses" element={<AdminXmlAnalysesPage />} />
+      <Route path="/admin/xml-analysis-batches" element={<AdminXmlAnalysisBatchesPage />} />
+      <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
       <Route path="/billing/success" element={<BillingSuccessPage />} />
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
       <Route path="/plans" element={<PlansPage />} />

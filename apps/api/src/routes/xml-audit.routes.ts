@@ -257,37 +257,66 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Persist each ANALYZED result as an individual XmlAnalysisRecord
+      // Persist each ANALYZED and FAILED result as an individual XmlAnalysisRecord
       const zipBatchId = crypto.randomUUID();
       let recordsAttempted = 0;
       let recordsSaved = 0;
       let recordsFailed = 0;
+      let analyzedRecordsAttempted = 0;
+      let failedRecordsAttempted = 0;
 
       for (const fr of result.results) {
-        if (fr.status !== "ANALYZED" || !fr.analysis) continue;
-        recordsAttempted++;
-        try {
-          await XmlAnalysisRecordService.saveXmlAnalysisRecord({
-            prisma: fastify.prisma,
-            userId: request.user.userId,
-            organizationId: request.user.organizationId,
-            analysis: fr.analysis as AnalysisResponse,
-            source: {
+        if (fr.status === "ANALYZED" && fr.analysis) {
+          recordsAttempted++;
+          analyzedRecordsAttempted++;
+          try {
+            await XmlAnalysisRecordService.saveXmlAnalysisRecord({
+              prisma: fastify.prisma,
+              userId: request.user.userId,
+              organizationId: request.user.organizationId,
+              analysis: fr.analysis as AnalysisResponse,
+              source: {
+                sourceType: "ZIP",
+                sourceFilename: file.filename,
+                batchId: zipBatchId,
+                zipFilename: file.filename,
+                zipEntryName: fr.name,
+                zipEntryIndex: fr.index,
+              },
+            });
+            recordsSaved++;
+          } catch (saveError: unknown) {
+            recordsFailed++;
+            fastify.log.error(
+              { error: saveError, zipEntryName: fr.name, zipBatchId },
+              "Failed to save XmlAnalysisRecord for ZIP entry",
+            );
+          }
+        } else if (fr.status === "FAILED") {
+          recordsAttempted++;
+          failedRecordsAttempted++;
+          try {
+            await XmlAnalysisRecordService.saveFailedXmlAnalysisRecord({
+              prisma: fastify.prisma,
+              userId: request.user.userId,
+              organizationId: request.user.organizationId,
               sourceType: "ZIP",
-              sourceFilename: file.filename,
               batchId: zipBatchId,
               zipFilename: file.filename,
               zipEntryName: fr.name,
               zipEntryIndex: fr.index,
-            },
-          });
-          recordsSaved++;
-        } catch (saveError: unknown) {
-          recordsFailed++;
-          fastify.log.error(
-            { error: saveError, zipEntryName: fr.name, zipBatchId },
-            "Failed to save XmlAnalysisRecord for ZIP entry",
-          );
+              sourceFilename: file.filename,
+              errorCode: fr.errorCode ?? "UNKNOWN_ERROR",
+              errorMessage: fr.errorMessage ?? "Error desconocido al analizar XML.",
+            });
+            recordsSaved++;
+          } catch (saveError: unknown) {
+            recordsFailed++;
+            fastify.log.error(
+              { error: saveError, zipEntryName: fr.name, zipBatchId },
+              "Failed to save FAILED XmlAnalysisRecord for ZIP entry",
+            );
+          }
         }
       }
 
@@ -298,10 +327,9 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         recordsSaved,
         recordsFailed,
         retentionHours: 24,
+        analyzedRecordsAttempted,
+        failedRecordsAttempted,
       };
-
-      // TODO: En fase posterior, persistir resultados FAILED con errorCode/errorMessage
-      // en modelo especializado o campos adicionales. Actualmente solo se persisten ANALYZED.
 
       fastify.log.info(
         { organizationId: request.user.organizationId, filename: file.filename, analyzedCount: result.analyzedCount, failedCount: result.failedCount, usageConsumed: !!result.usage, recordsSaved },

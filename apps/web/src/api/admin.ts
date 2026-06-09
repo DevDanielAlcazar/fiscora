@@ -289,6 +289,9 @@ export interface XmlAnalysisListItem {
   userEmail: string;
   organizationId: string | null;
   organizationName: string | null;
+  analysisStatus: string;
+  errorCode: string | null;
+  errorMessage: string | null;
   uuid: string | null;
   tipoComprobante: string | null;
   rfcEmisor: string | null;
@@ -340,6 +343,7 @@ export interface XmlAnalysesQuery {
   tipoComprobante?: string;
   from?: string;
   to?: string;
+  analysisStatus?: string;
 }
 
 export async function getXmlAnalyses(
@@ -354,6 +358,7 @@ export async function getXmlAnalyses(
   if (query.rfcReceptor) params.set("rfcReceptor", query.rfcReceptor);
   if (query.uuid) params.set("uuid", query.uuid);
   if (query.tipoComprobante) params.set("tipoComprobante", query.tipoComprobante);
+  if (query.analysisStatus) params.set("analysisStatus", query.analysisStatus);
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);
   const qs = params.toString();
@@ -400,6 +405,7 @@ export async function exportXmlAnalyses(token: string, query: XmlAnalysesQuery =
   if (query.rfcReceptor) params.set("rfcReceptor", query.rfcReceptor);
   if (query.uuid) params.set("uuid", query.uuid);
   if (query.tipoComprobante) params.set("tipoComprobante", query.tipoComprobante);
+  if (query.analysisStatus) params.set("analysisStatus", query.analysisStatus);
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);
   const qs = params.toString();
@@ -440,6 +446,272 @@ export async function updateAdminPlan(
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error?.message ?? "Error al actualizar plan");
+  }
+
+  return res.json();
+}
+
+export interface XmlAnalysisBatchListItem {
+  batchId: string;
+  zipFilename: string;
+  createdAtFirst: string;
+  createdAtLast: string;
+  expiresAt: string;
+  userId: string;
+  userEmail: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  totalRecords: number;
+  analyzedCount: number;
+  failedCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  okCount: number;
+  recordsWithBom: number;
+  recordsWithNormalization: number;
+  recordsWithNormalizedXml: number;
+  tiposComprobante: Record<string, number>;
+}
+
+export interface XmlAnalysisBatchListResponse {
+  items: XmlAnalysisBatchListItem[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+}
+
+export interface XmlAnalysisBatchDetailRecord {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  analysisStatus: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  zipEntryName: string | null;
+  zipEntryIndex: number | null;
+  uuid: string | null;
+  tipoComprobante: string | null;
+  rfcEmisor: string | null;
+  nombreEmisor: string | null;
+  rfcReceptor: string | null;
+  nombreReceptor: string | null;
+  fecha: string | null;
+  subtotal: string | null;
+  total: string | null;
+  moneda: string | null;
+  version: string | null;
+  serie: string | null;
+  folio: string | null;
+  riskLevel: string | null;
+  findingsCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  hasBom: boolean;
+  hasTechnicalNormalization: boolean;
+  hasNormalizedXml: boolean;
+  normalizedFilename: string | null;
+  originalSha256: string | null;
+  normalizedSha256: string | null;
+}
+
+export interface XmlAnalysisBatchDetailResponse {
+  batch: XmlAnalysisBatchListItem;
+  records: XmlAnalysisBatchDetailRecord[];
+}
+
+export interface XmlAnalysisBatchQuery {
+  page?: number;
+  pageSize?: number;
+  batchId?: string;
+  zipFilename?: string;
+  userEmail?: string;
+  organizationName?: string;
+  from?: string;
+  to?: string;
+  hasFailed?: string;
+  hasCritical?: string;
+}
+
+export async function getXmlAnalysisBatches(
+  token: string,
+  query: XmlAnalysisBatchQuery = {},
+): Promise<XmlAnalysisBatchListResponse> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.batchId) params.set("batchId", query.batchId);
+  if (query.zipFilename) params.set("zipFilename", query.zipFilename);
+  if (query.userEmail) params.set("userEmail", query.userEmail);
+  if (query.organizationName) params.set("organizationName", query.organizationName);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.hasFailed) params.set("hasFailed", query.hasFailed);
+  if (query.hasCritical) params.set("hasCritical", query.hasCritical);
+  const qs = params.toString();
+
+  const res = await fetch(`/api/admin/xml-analysis-batches${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al consultar lotes ZIP");
+  }
+
+  return res.json();
+}
+
+export async function exportXmlAnalysisBatches(
+  token: string,
+  query: XmlAnalysisBatchQuery = {},
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (query.batchId) params.set("batchId", query.batchId);
+  if (query.zipFilename) params.set("zipFilename", query.zipFilename);
+  if (query.userEmail) params.set("userEmail", query.userEmail);
+  if (query.organizationName) params.set("organizationName", query.organizationName);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.hasFailed) params.set("hasFailed", query.hasFailed);
+  if (query.hasCritical) params.set("hasCritical", query.hasCritical);
+  const qs = params.toString();
+
+  const res = await fetch(`/api/admin/xml-analysis-batches/export${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("No fue posible exportar los lotes. Intenta nuevamente.");
+  }
+
+  return res.blob();
+}
+
+export async function exportXmlAnalysisBatchDetail(token: string, batchId: string): Promise<Blob> {
+  const res = await fetch(`/api/admin/xml-analysis-batches/${encodeURIComponent(batchId)}/export`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (res.status === 404) {
+    throw new Error("El lote seleccionado ya no existe o expiró.");
+  }
+
+  if (!res.ok) {
+    throw new Error("No fue posible exportar el lote. Intenta nuevamente.");
+  }
+
+  return res.blob();
+}
+
+export interface XmlAnalyticsQuery {
+  from?: string;
+  to?: string;
+  organizationId?: string;
+  userId?: string;
+  sourceType?: string;
+  analysisStatus?: string;
+}
+
+export interface XmlAnalyticsSummary {
+  range: { from: string | null; to: string | null };
+  totals: {
+    records: number;
+    analyzed: number;
+    failed: number;
+    individual: number;
+    zip: number;
+    uniqueBatches: number;
+    uniqueUsers: number;
+    uniqueOrganizations: number;
+  };
+  risk: { critical: number; warning: number; ok: number; nullRisk: number };
+  findings: { total: number; critical: number; warnings: number; info: number };
+  technical: { withBom: number; withTechnicalNormalization: number; withNormalizedXml: number };
+  byTipoComprobante: { tipoComprobante: string; count: number }[];
+  bySourceType: { sourceType: string; count: number }[];
+  byAnalysisStatus: { analysisStatus: string; count: number }[];
+  topOrganizations: {
+    organizationId: string;
+    organizationName: string;
+    records: number;
+    failed: number;
+    critical: number;
+    withBom: number;
+  }[];
+  topUsers: {
+    userId: string;
+    userEmail: string;
+    records: number;
+    failed: number;
+    critical: number;
+    withBom: number;
+  }[];
+  recentBatches: {
+    batchId: string;
+    zipFilename: string;
+    createdAt: string;
+    organizationName: string | null;
+    userEmail: string;
+    totalRecords: number;
+    failed: number;
+    critical: number;
+  }[];
+}
+
+export async function getXmlAnalyticsSummary(
+  token: string,
+  query: XmlAnalyticsQuery = {},
+): Promise<XmlAnalyticsSummary> {
+  const params = new URLSearchParams();
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.organizationId) params.set("organizationId", query.organizationId);
+  if (query.userId) params.set("userId", query.userId);
+  if (query.sourceType) params.set("sourceType", query.sourceType);
+  if (query.analysisStatus) params.set("analysisStatus", query.analysisStatus);
+  const qs = params.toString();
+
+  const res = await fetch(`/api/admin/xml-analytics/summary${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al consultar analítica XML");
+  }
+
+  return res.json();
+}
+
+export async function getXmlAnalysisBatchDetail(token: string, batchId: string): Promise<XmlAnalysisBatchDetailResponse> {
+  const res = await fetch(`/api/admin/xml-analysis-batches/${encodeURIComponent(batchId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 403) {
+    throw new Error("No tienes permisos de administrador");
+  }
+
+  if (res.status === 404) {
+    throw new Error("Lote ZIP no encontrado.");
+  }
+
+  if (!res.ok) {
+    throw new Error("Error al consultar detalle del lote ZIP");
   }
 
   return res.json();

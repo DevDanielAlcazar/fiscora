@@ -788,6 +788,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         tipoComprobante?: string;
         from?: string;
         to?: string;
+        analysisStatus?: string;
       };
 
       const page = Math.max(1, parseInt(query.page ?? "1", 10) || 1);
@@ -801,6 +802,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
       if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
       if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
+      if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
       if (query.from || query.to) {
         const createdAt: Record<string, Date> = {};
         if (query.from) createdAt.gte = new Date(query.from);
@@ -821,6 +823,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
             expiresAt: true,
             userId: true,
             organizationId: true,
+            analysisStatus: true,
+            errorCode: true,
+            errorMessage: true,
             uuid: true,
             tipoComprobante: true,
             rfcEmisor: true,
@@ -868,6 +873,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
           userEmail: r.user.email,
           organizationId: r.organizationId,
           organizationName: r.organization?.name ?? null,
+          analysisStatus: r.analysisStatus,
+          errorCode: r.errorCode,
+          errorMessage: r.errorMessage,
           uuid: r.uuid,
           tipoComprobante: r.tipoComprobante,
           rfcEmisor: r.rfcEmisor,
@@ -921,6 +929,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         tipoComprobante?: string;
         from?: string;
         to?: string;
+        analysisStatus?: string;
       };
 
       const where: Record<string, unknown> = {};
@@ -929,6 +938,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
       if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
       if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
+      if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
       if (query.from || query.to) {
         const createdAt: Record<string, Date> = {};
         if (query.from) createdAt.gte = new Date(query.from);
@@ -945,6 +955,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
           createdAt: true,
           expiresAt: true,
           userId: true,
+          analysisStatus: true,
+          errorCode: true,
+          errorMessage: true,
           uuid: true,
           tipoComprobante: true,
           rfcEmisor: true,
@@ -988,7 +1001,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const header = [
         "ID", "Fecha analisis", "Expira", "Usuario ID", "Usuario email",
-        "Organizacion ID", "Organizacion", "UUID", "Tipo comprobante",
+        "Organizacion ID", "Organizacion", "Estado analisis",
+        "Codigo error", "Mensaje error",
+        "UUID", "Tipo comprobante",
         "RFC emisor", "Nombre emisor", "RFC receptor", "Nombre receptor",
         "Fecha CFDI", "Subtotal", "Total", "Moneda", "Version", "Serie",
         "Folio", "Riesgo", "Hallazgos", "Criticos", "Advertencias",
@@ -1007,6 +1022,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
           esc(r.user.email),
           esc(r.organization?.id ?? null),
           esc(r.organization?.name ?? null),
+          esc(r.analysisStatus),
+          esc(r.errorCode),
+          esc(r.errorMessage),
           esc(r.uuid),
           esc(r.tipoComprobante),
           esc(r.rfcEmisor),
@@ -1068,6 +1086,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
           expiresAt: true,
           userId: true,
           organizationId: true,
+          analysisStatus: true,
+          errorCode: true,
+          errorMessage: true,
           uuid: true,
           tipoComprobante: true,
           rfcEmisor: true,
@@ -1118,6 +1139,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
         userEmail: record.user.email,
         organizationId: record.organizationId,
         organizationName: record.organization?.name ?? null,
+        analysisStatus: record.analysisStatus,
+        errorCode: record.errorCode,
+        errorMessage: record.errorMessage,
         uuid: record.uuid,
         tipoComprobante: record.tipoComprobante,
         rfcEmisor: record.rfcEmisor,
@@ -1149,6 +1173,847 @@ export async function adminRoutes(fastify: FastifyInstance) {
         zipEntryName: record.zipEntryName,
         zipEntryIndex: record.zipEntryIndex,
         analysisJson: record.analysisJson,
+      });
+    },
+  });
+
+  fastify.get("/api/admin/xml-analysis-batches", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const query = request.query as {
+        page?: string;
+        pageSize?: string;
+        batchId?: string;
+        zipFilename?: string;
+        userEmail?: string;
+        organizationName?: string;
+        from?: string;
+        to?: string;
+        hasFailed?: string;
+        hasCritical?: string;
+      };
+
+      const page = Math.max(1, parseInt(query.page ?? "1", 10) || 1);
+      const pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize ?? "25", 10) || 25));
+      const skip = (page - 1) * pageSize;
+
+      // Build base WHERE for individual records; we'll filter after grouping
+      const recordWhere: Record<string, unknown> = {
+        sourceType: "ZIP",
+        batchId: { not: null },
+      };
+
+      if (query.batchId) recordWhere.batchId = query.batchId;
+      if (query.zipFilename) recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
+      if (query.from || query.to) {
+        const createdAt: Record<string, Date> = {};
+        if (query.from) createdAt.gte = new Date(query.from);
+        if (query.to) createdAt.lte = new Date(query.to);
+        recordWhere.createdAt = createdAt;
+      }
+
+      // Fetch all matching records within retention window
+      // Apply a generous limit as safety since we group in memory
+      const matchedRecords = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: recordWhere as any,
+        orderBy: { createdAt: "desc" },
+        take: 20000,
+        select: {
+          id: true,
+          batchId: true,
+          zipFilename: true,
+          createdAt: true,
+          expiresAt: true,
+          userId: true,
+          organizationId: true,
+          analysisStatus: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          tipoComprobante: true,
+          zipEntryName: true,
+          zipEntryIndex: true,
+          uuid: true,
+          rfcEmisor: true,
+          nombreEmisor: true,
+          rfcReceptor: true,
+          nombreReceptor: true,
+          errorCode: true,
+          errorMessage: true,
+          normalizedFilename: true,
+          originalSha256: true,
+          normalizedSha256: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      // Group by batchId
+      const groups = new Map<string, typeof matchedRecords>();
+      for (const rec of matchedRecords) {
+        const bid = rec.batchId!;
+        const g = groups.get(bid);
+        if (g) g.push(rec);
+        else groups.set(bid, [rec]);
+      }
+
+      // Build batch summary items
+      const allBatches = Array.from(groups.entries()).map(([batchId, records]) => {
+        const first = records.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
+        const last = records.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+        const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
+
+        const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
+        const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+        const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
+        const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
+        const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
+        const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
+        const recordsWithBom = records.filter(r => r.hasBom).length;
+        const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
+        const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+
+        const tiposComprobante: Record<string, number> = {};
+        for (const r of records) {
+          if (r.tipoComprobante) {
+            tiposComprobante[r.tipoComprobante] = (tiposComprobante[r.tipoComprobante] ?? 0) + 1;
+          }
+        }
+
+        return {
+          batchId,
+          zipFilename: first.zipFilename ?? "—",
+          createdAtFirst: first.createdAt,
+          createdAtLast: last.createdAt,
+          expiresAt,
+          userId: first.userId,
+          userEmail: first.user.email,
+          organizationId: first.organizationId,
+          organizationName: first.organization?.name ?? null,
+          totalRecords: records.length,
+          analyzedCount,
+          failedCount,
+          criticalCount,
+          warningCount,
+          infoCount,
+          okCount,
+          recordsWithBom,
+          recordsWithNormalization,
+          recordsWithNormalizedXml,
+          tiposComprobante,
+        };
+      });
+
+      // Apply post-group filters
+      let filtered = allBatches;
+      if (query.userEmail) {
+        const q = query.userEmail.toLowerCase();
+        filtered = filtered.filter(b => b.userEmail.toLowerCase().includes(q));
+      }
+      if (query.organizationName) {
+        const q = query.organizationName.toLowerCase();
+        filtered = filtered.filter(b => b.organizationName?.toLowerCase().includes(q) ?? false);
+      }
+      if (query.hasFailed === "true") filtered = filtered.filter(b => b.failedCount > 0);
+      if (query.hasCritical === "true") filtered = filtered.filter(b => b.criticalCount > 0);
+
+      // Sort by most recent first
+      filtered.sort((a, b) => b.createdAtFirst.getTime() - a.createdAtFirst.getTime());
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / pageSize);
+      const items = filtered.slice(skip, skip + pageSize);
+
+      return reply.send({
+        items: items.map((b) => ({
+          ...b,
+          createdAtFirst: b.createdAtFirst.toISOString(),
+          createdAtLast: b.createdAtLast.toISOString(),
+          expiresAt: b.expiresAt.toISOString(),
+        })),
+        pagination: { page, pageSize, total, totalPages },
+      });
+    },
+  });
+
+  fastify.get("/api/admin/xml-analysis-batches/export", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const query = request.query as {
+        batchId?: string;
+        zipFilename?: string;
+        userEmail?: string;
+        organizationName?: string;
+        from?: string;
+        to?: string;
+        hasFailed?: string;
+        hasCritical?: string;
+      };
+
+      const recordWhere: Record<string, unknown> = {
+        sourceType: "ZIP",
+        batchId: { not: null },
+      };
+
+      if (query.batchId) recordWhere.batchId = query.batchId;
+      if (query.zipFilename) recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
+      if (query.from || query.to) {
+        const createdAt: Record<string, Date> = {};
+        if (query.from) createdAt.gte = new Date(query.from);
+        if (query.to) createdAt.lte = new Date(query.to);
+        recordWhere.createdAt = createdAt;
+      }
+
+      const matchedRecords = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: recordWhere as any,
+        orderBy: { createdAt: "desc" },
+        take: 20000,
+        select: {
+          batchId: true,
+          zipFilename: true,
+          createdAt: true,
+          expiresAt: true,
+          userId: true,
+          organizationId: true,
+          analysisStatus: true,
+          riskLevel: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          tipoComprobante: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      const groups = new Map<string, typeof matchedRecords>();
+      for (const rec of matchedRecords) {
+        const bid = rec.batchId!;
+        const g = groups.get(bid);
+        if (g) g.push(rec);
+        else groups.set(bid, [rec]);
+      }
+
+      const allBatches = Array.from(groups.entries()).map(([batchId, records]) => {
+        const first = records.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
+        const last = records.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+        const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
+        const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
+        const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+        const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
+        const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
+        const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
+        const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
+        const recordsWithBom = records.filter(r => r.hasBom).length;
+        const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
+        const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+        const tipos: Record<string, number> = {};
+        for (const r of records) if (r.tipoComprobante) tipos[r.tipoComprobante] = (tipos[r.tipoComprobante] ?? 0) + 1;
+
+        return {
+          batchId, zipFilename: first.zipFilename ?? "—",
+          createdAtFirst: first.createdAt, createdAtLast: last.createdAt, expiresAt,
+          userId: first.userId, userEmail: first.user.email,
+          organizationId: first.organizationId, organizationName: first.organization?.name ?? null,
+          totalRecords: records.length, analyzedCount, failedCount, criticalCount, warningCount, infoCount, okCount,
+          recordsWithBom, recordsWithNormalization, recordsWithNormalizedXml,
+          tiposComprobante: Object.entries(tipos).map(([k, v]) => `${k}: ${v}`).join(" | "),
+          hasFailed: failedCount > 0 ? "Sí" : "No",
+          hasCritical: criticalCount > 0 ? "Sí" : "No",
+        };
+      });
+
+      let filtered = allBatches;
+      if (query.userEmail) {
+        const q = query.userEmail.toLowerCase();
+        filtered = filtered.filter(b => b.userEmail.toLowerCase().includes(q));
+      }
+      if (query.organizationName) {
+        const q = query.organizationName.toLowerCase();
+        filtered = filtered.filter(b => b.organizationName?.toLowerCase().includes(q) ?? false);
+      }
+      if (query.hasFailed === "true") filtered = filtered.filter(b => b.failedCount > 0);
+      if (query.hasCritical === "true") filtered = filtered.filter(b => b.criticalCount > 0);
+
+      filtered.sort((a, b) => b.createdAtFirst.getTime() - a.createdAtFirst.getTime());
+      const exportItems = filtered.slice(0, 5000);
+
+      function esc(val: string | null | undefined): string {
+        if (val === null || val === undefined) return "";
+        const v = String(val).replace(/"/g, '""');
+        return /[",\n\r]/.test(v) ? `"${v}"` : v;
+      }
+
+      const header = [
+        "Batch ID", "ZIP", "Fecha inicio", "Fecha fin", "Expira",
+        "Usuario ID", "Usuario email", "Organizacion ID", "Organizacion",
+        "Total registros", "Analizados", "Fallidos",
+        "Criticos", "Advertencias", "Informativos", "OK",
+        "XMLs con BOM", "XMLs con normalizacion tecnica", "XMLs normalizados",
+        "Tipos de comprobante", "Tiene fallidos", "Tiene criticos",
+      ].join(",");
+
+      const rows = exportItems.map((b) =>
+        [
+          esc(b.batchId), esc(b.zipFilename),
+          esc(b.createdAtFirst.toISOString()), esc(b.createdAtLast.toISOString()), esc(b.expiresAt.toISOString()),
+          esc(b.userId), esc(b.userEmail), esc(b.organizationId), esc(b.organizationName),
+          String(b.totalRecords), String(b.analyzedCount), String(b.failedCount),
+          String(b.criticalCount), String(b.warningCount), String(b.infoCount), String(b.okCount),
+          String(b.recordsWithBom), String(b.recordsWithNormalization), String(b.recordsWithNormalizedXml),
+          esc(b.tiposComprobante), esc(b.hasFailed), esc(b.hasCritical),
+        ].join(","),
+      );
+
+      const bom = "\uFEFF";
+      const csv = bom + header + "\r\n" + rows.join("\r\n");
+
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header("Content-Disposition", 'attachment; filename="fiscora-lotes-xml-zip.csv"');
+      return reply.send(csv);
+    },
+  });
+
+  fastify.get("/api/admin/xml-analysis-batches/:batchId", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const { batchId } = request.params as { batchId: string };
+
+      const records = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: { batchId, sourceType: "ZIP" },
+        orderBy: { zipEntryIndex: "asc" },
+        select: {
+          id: true,
+          createdAt: true,
+          expiresAt: true,
+          analysisStatus: true,
+          errorCode: true,
+          errorMessage: true,
+          zipEntryName: true,
+          zipEntryIndex: true,
+          uuid: true,
+          tipoComprobante: true,
+          rfcEmisor: true,
+          nombreEmisor: true,
+          rfcReceptor: true,
+          nombreReceptor: true,
+          fecha: true,
+          subtotal: true,
+          total: true,
+          moneda: true,
+          version: true,
+          serie: true,
+          folio: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          normalizedFilename: true,
+          originalSha256: true,
+          normalizedSha256: true,
+          zipFilename: true,
+          userId: true,
+          organizationId: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      if (records.length === 0) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Lote ZIP no encontrado." },
+        });
+      }
+
+      const first = records[0];
+      const last = records[records.length - 1];
+      const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
+
+      const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
+      const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+      const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
+      const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
+      const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
+      const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
+      const recordsWithBom = records.filter(r => r.hasBom).length;
+      const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
+      const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+
+      const tiposComprobante: Record<string, number> = {};
+      for (const r of records) {
+        if (r.tipoComprobante) {
+          tiposComprobante[r.tipoComprobante] = (tiposComprobante[r.tipoComprobante] ?? 0) + 1;
+        }
+      }
+
+      return reply.send({
+        batch: {
+          batchId,
+          zipFilename: first.zipFilename ?? "—",
+          createdAtFirst: first.createdAt.toISOString(),
+          createdAtLast: last.createdAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          userId: first.userId,
+          userEmail: first.user.email,
+          organizationId: first.organizationId,
+          organizationName: first.organization?.name ?? null,
+          totalRecords: records.length,
+          analyzedCount,
+          failedCount,
+          criticalCount,
+          warningCount,
+          infoCount,
+          okCount,
+          recordsWithBom,
+          recordsWithNormalization,
+          recordsWithNormalizedXml,
+          tiposComprobante,
+        },
+        records: records.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt.toISOString(),
+          analysisStatus: r.analysisStatus,
+          errorCode: r.errorCode,
+          errorMessage: r.errorMessage,
+          zipEntryName: r.zipEntryName,
+          zipEntryIndex: r.zipEntryIndex,
+          uuid: r.uuid,
+          tipoComprobante: r.tipoComprobante,
+          rfcEmisor: r.rfcEmisor,
+          nombreEmisor: r.nombreEmisor,
+          rfcReceptor: r.rfcReceptor,
+          nombreReceptor: r.nombreReceptor,
+          fecha: r.fecha,
+          subtotal: r.subtotal,
+          total: r.total,
+          moneda: r.moneda,
+          version: r.version,
+          serie: r.serie,
+          folio: r.folio,
+          riskLevel: r.riskLevel,
+          findingsCount: r.findingsCount,
+          criticalCount: r.criticalCount,
+          warningCount: r.warningCount,
+          infoCount: r.infoCount,
+          hasBom: r.hasBom,
+          hasTechnicalNormalization: r.hasTechnicalNormalization,
+          hasNormalizedXml: r.hasNormalizedXml,
+          normalizedFilename: r.normalizedFilename,
+          originalSha256: r.originalSha256,
+          normalizedSha256: r.normalizedSha256,
+        })),
+      });
+    },
+  });
+
+  fastify.get("/api/admin/xml-analysis-batches/:batchId/export", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const { batchId } = request.params as { batchId: string };
+
+      const records = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: { batchId, sourceType: "ZIP" },
+        orderBy: { zipEntryIndex: "asc" },
+        select: {
+          id: true,
+          createdAt: true,
+          expiresAt: true,
+          analysisStatus: true,
+          errorCode: true,
+          errorMessage: true,
+          zipEntryName: true,
+          zipEntryIndex: true,
+          uuid: true,
+          tipoComprobante: true,
+          rfcEmisor: true,
+          nombreEmisor: true,
+          rfcReceptor: true,
+          nombreReceptor: true,
+          fecha: true,
+          subtotal: true,
+          total: true,
+          moneda: true,
+          version: true,
+          serie: true,
+          folio: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          normalizedFilename: true,
+          originalSha256: true,
+          normalizedSha256: true,
+          zipFilename: true,
+          userId: true,
+          organizationId: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      if (records.length === 0) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Lote ZIP no encontrado." },
+        });
+      }
+
+      const first = records[0];
+
+      function esc(val: string | null | undefined): string {
+        if (val === null || val === undefined) return "";
+        const v = String(val).replace(/"/g, '""');
+        return /[",\n\r]/.test(v) ? `"${v}"` : v;
+      }
+
+      const header = [
+        "Batch ID", "ZIP", "Indice ZIP", "Entrada ZIP",
+        "Estado analisis", "Codigo error", "Mensaje error",
+        "Fecha analisis", "Expira",
+        "Usuario ID", "Usuario email", "Organizacion ID", "Organizacion",
+        "UUID", "Tipo comprobante", "RFC emisor", "Nombre emisor",
+        "RFC receptor", "Nombre receptor", "Fecha CFDI",
+        "Subtotal", "Total", "Moneda", "Version", "Serie", "Folio",
+        "Riesgo", "Hallazgos", "Criticos", "Advertencias", "Informativos",
+        "BOM", "Normalizacion tecnica", "XML normalizado",
+        "Archivo normalizado", "Hash original SHA-256", "Hash normalizado SHA-256",
+      ].join(",");
+
+      const rows = records.map((r) =>
+        [
+          esc(batchId),
+          esc(first.zipFilename),
+          r.zipEntryIndex != null ? String(r.zipEntryIndex) : "",
+          esc(r.zipEntryName),
+          esc(r.analysisStatus),
+          esc(r.errorCode),
+          esc(r.errorMessage),
+          esc(r.createdAt.toISOString()),
+          esc(r.expiresAt.toISOString()),
+          esc(r.userId),
+          esc(r.user.email),
+          esc(r.organizationId),
+          esc(r.organization?.name ?? null),
+          esc(r.uuid),
+          esc(r.tipoComprobante),
+          esc(r.rfcEmisor),
+          esc(r.nombreEmisor),
+          esc(r.rfcReceptor),
+          esc(r.nombreReceptor),
+          esc(r.fecha),
+          esc(r.subtotal),
+          esc(r.total),
+          esc(r.moneda),
+          esc(r.version),
+          esc(r.serie),
+          esc(r.folio),
+          esc(r.riskLevel),
+          String(r.findingsCount),
+          String(r.criticalCount),
+          String(r.warningCount),
+          String(r.infoCount),
+          r.hasBom ? "Sí" : "No",
+          r.hasTechnicalNormalization ? "Sí" : "No",
+          r.hasNormalizedXml ? "Sí" : "No",
+          esc(r.normalizedFilename),
+          esc(r.originalSha256),
+          esc(r.normalizedSha256),
+        ].join(","),
+      );
+
+      const bom = "\uFEFF";
+      const csv = bom + header + "\r\n" + rows.join("\r\n");
+
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header("Content-Disposition", `attachment; filename="fiscora-lote-xml-zip-${batchId}.csv"`);
+      return reply.send(csv);
+    },
+  });
+
+  fastify.get("/api/admin/xml-analytics/summary", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      if (request.user.role !== "SUPER_ADMIN") {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "Acceso denegado. Se requiere rol SUPER_ADMIN." },
+        });
+      }
+
+      const query = request.query as {
+        from?: string;
+        to?: string;
+        organizationId?: string;
+        userId?: string;
+        sourceType?: string;
+        analysisStatus?: string;
+      };
+
+      // Validate dates if provided
+      if (query.from && isNaN(new Date(query.from).getTime())) {
+        return reply.code(400).send({
+          error: { code: "INVALID_DATE_RANGE", message: "La fecha 'desde' no es válida." },
+        });
+      }
+      if (query.to && isNaN(new Date(query.to).getTime())) {
+        return reply.code(400).send({
+          error: { code: "INVALID_DATE_RANGE", message: "La fecha 'hasta' no es válida." },
+        });
+      }
+
+      const where: Record<string, unknown> = {};
+
+      if (query.from || query.to) {
+        const createdAt: Record<string, Date> = {};
+        if (query.from) createdAt.gte = new Date(query.from);
+        if (query.to) createdAt.lte = new Date(query.to);
+        where.createdAt = createdAt;
+      }
+      if (query.organizationId) where.organizationId = query.organizationId;
+      if (query.userId) where.userId = query.userId;
+      if (query.sourceType) where.sourceType = query.sourceType;
+      if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
+
+      const records = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: where as any,
+        orderBy: { createdAt: "desc" },
+        take: 50000,
+        select: {
+          id: true,
+          createdAt: true,
+          userId: true,
+          organizationId: true,
+          analysisStatus: true,
+          sourceType: true,
+          riskLevel: true,
+          findingsCount: true,
+          criticalCount: true,
+          warningCount: true,
+          infoCount: true,
+          hasBom: true,
+          hasTechnicalNormalization: true,
+          hasNormalizedXml: true,
+          tipoComprobante: true,
+          batchId: true,
+          zipFilename: true,
+          user: { select: { email: true } },
+          organization: { select: { name: true } },
+        },
+      });
+
+      const rangeFrom = records.length > 0
+        ? records.reduce((a, b) => a.createdAt < b.createdAt ? a : b).createdAt.toISOString()
+        : null;
+      const rangeTo = records.length > 0
+        ? records.reduce((a, b) => a.createdAt > b.createdAt ? a : b).createdAt.toISOString()
+        : null;
+
+      const analyzed = records.filter(r => r.analysisStatus === "ANALYZED").length;
+      const failed = records.filter(r => r.analysisStatus === "FAILED").length;
+      const individual = records.filter(r => r.sourceType === "INDIVIDUAL").length;
+      const zip = records.filter(r => r.sourceType === "ZIP").length;
+
+      const batchIds = new Set(records.filter(r => r.batchId).map(r => r.batchId!));
+      const userIds = new Set(records.map(r => r.userId));
+      const orgIds = new Set(records.filter(r => r.organizationId).map(r => r.organizationId!));
+
+      const riskCritical = records.filter(r => r.riskLevel === "CRITICAL").length;
+      const riskWarning = records.filter(r => r.riskLevel === "WARNING").length;
+      const riskOk = records.filter(r => r.riskLevel === "OK").length;
+      const riskNull = records.filter(r => !r.riskLevel).length;
+
+      const totalFindings = records.reduce((s, r) => s + r.findingsCount, 0);
+      const totalCritical = records.reduce((s, r) => s + r.criticalCount, 0);
+      const totalWarnings = records.reduce((s, r) => s + r.warningCount, 0);
+      const totalInfo = records.reduce((s, r) => s + r.infoCount, 0);
+
+      const withBom = records.filter(r => r.hasBom).length;
+      const withTechnicalNormalization = records.filter(r => r.hasTechnicalNormalization).length;
+      const withNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+
+      // Group by tipoComprobante
+      const tipoMap = new Map<string, number>();
+      for (const r of records) {
+        if (r.tipoComprobante) {
+          tipoMap.set(r.tipoComprobante, (tipoMap.get(r.tipoComprobante) ?? 0) + 1);
+        }
+      }
+      const byTipoComprobante = Array.from(tipoMap.entries())
+        .map(([tipoComprobante, count]) => ({ tipoComprobante, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Group by sourceType
+      const sourceMap = new Map<string, number>();
+      for (const r of records) {
+        const st = r.sourceType ?? "UNKNOWN";
+        sourceMap.set(st, (sourceMap.get(st) ?? 0) + 1);
+      }
+      const bySourceType = Array.from(sourceMap.entries())
+        .map(([sourceType, count]) => ({ sourceType, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Group by analysisStatus
+      const statusMap = new Map<string, number>();
+      for (const r of records) {
+        statusMap.set(r.analysisStatus, (statusMap.get(r.analysisStatus) ?? 0) + 1);
+      }
+      const byAnalysisStatus = Array.from(statusMap.entries())
+        .map(([analysisStatus, count]) => ({ analysisStatus, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Top organizations
+      const orgMap = new Map<string, { organizationName: string; records: number; failed: number; critical: number; withBom: number }>();
+      for (const r of records) {
+        if (!r.organizationId) continue;
+        const key = r.organizationId;
+        const entry = orgMap.get(key);
+        if (entry) {
+          entry.records++;
+          if (r.analysisStatus === "FAILED") entry.failed++;
+          entry.critical += r.criticalCount;
+          if (r.hasBom) entry.withBom++;
+        } else {
+          orgMap.set(key, {
+            organizationName: r.organization?.name ?? "—",
+            records: 1,
+            failed: r.analysisStatus === "FAILED" ? 1 : 0,
+            critical: r.criticalCount,
+            withBom: r.hasBom ? 1 : 0,
+          });
+        }
+      }
+      const topOrganizations = Array.from(orgMap.entries())
+        .map(([organizationId, data]) => ({ organizationId, ...data }))
+        .sort((a, b) => b.records - a.records)
+        .slice(0, 10);
+
+      // Top users
+      const userMap = new Map<string, { userEmail: string; records: number; failed: number; critical: number; withBom: number }>();
+      for (const r of records) {
+        const key = r.userId;
+        const entry = userMap.get(key);
+        if (entry) {
+          entry.records++;
+          if (r.analysisStatus === "FAILED") entry.failed++;
+          entry.critical += r.criticalCount;
+          if (r.hasBom) entry.withBom++;
+        } else {
+          userMap.set(key, {
+            userEmail: r.user.email,
+            records: 1,
+            failed: r.analysisStatus === "FAILED" ? 1 : 0,
+            critical: r.criticalCount,
+            withBom: r.hasBom ? 1 : 0,
+          });
+        }
+      }
+      const topUsers = Array.from(userMap.entries())
+        .map(([userId, data]) => ({ userId, ...data }))
+        .sort((a, b) => b.records - a.records)
+        .slice(0, 10);
+
+      // Recent batches (deduplicate by batchId, keep first occurrence sorted by createdAt desc)
+      const batchMap = new Map<string, { batchId: string; zipFilename: string; createdAt: Date; organizationName: string | null; userEmail: string; totalRecords: number; failed: number; critical: number }>();
+      for (const r of records) {
+        if (!r.batchId) continue;
+        const key = r.batchId;
+        const entry = batchMap.get(key);
+        if (entry) {
+          entry.totalRecords++;
+          if (r.analysisStatus === "FAILED") entry.failed++;
+          entry.critical += r.criticalCount;
+        } else {
+          batchMap.set(key, {
+            batchId: r.batchId,
+            zipFilename: r.zipFilename ?? "—",
+            createdAt: r.createdAt,
+            organizationName: r.organization?.name ?? null,
+            userEmail: r.user.email,
+            totalRecords: 1,
+            failed: r.analysisStatus === "FAILED" ? 1 : 0,
+            critical: r.criticalCount,
+          });
+        }
+      }
+      const recentBatches = Array.from(batchMap.values())
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 10)
+        .map(b => ({ ...b, createdAt: b.createdAt.toISOString() }));
+
+      return reply.send({
+        range: { from: rangeFrom, to: rangeTo },
+        totals: {
+          records: records.length,
+          analyzed,
+          failed,
+          individual,
+          zip,
+          uniqueBatches: batchIds.size,
+          uniqueUsers: userIds.size,
+          uniqueOrganizations: orgIds.size,
+        },
+        risk: {
+          critical: riskCritical,
+          warning: riskWarning,
+          ok: riskOk,
+          nullRisk: riskNull,
+        },
+        findings: {
+          total: totalFindings,
+          critical: totalCritical,
+          warnings: totalWarnings,
+          info: totalInfo,
+        },
+        technical: {
+          withBom,
+          withTechnicalNormalization,
+          withNormalizedXml,
+        },
+        byTipoComprobante,
+        bySourceType,
+        byAnalysisStatus,
+        topOrganizations,
+        topUsers,
+        recentBatches,
       });
     },
   });

@@ -285,6 +285,8 @@ export interface ZipFullAnalysisResult {
     recordsSaved: number;
     recordsFailed: number;
     retentionHours: 24;
+    analyzedRecordsAttempted?: number;
+    failedRecordsAttempted?: number;
   };
 }
 

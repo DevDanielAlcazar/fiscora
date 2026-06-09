@@ -23,6 +23,7 @@ export default function XmlAuditPage() {
   const [fullAnalysisError, setFullAnalysisError] = useState("");
   const [normalizedZipLoading, setNormalizedZipLoading] = useState(false);
   const [normalizedZipError, setNormalizedZipError] = useState("");
+  const [normalizedZipSuccess, setNormalizedZipSuccess] = useState("");
   const [selectedMassiveDetail, setSelectedMassiveDetail] = useState<ZipFullAnalysisFileResult | null>(null);
 
   useEffect(() => {
@@ -124,6 +125,8 @@ export default function XmlAuditPage() {
 
     setZipError("");
     setZipResult(null);
+    setNormalizedZipSuccess("");
+    setSelectedMassiveDetail(null);
     setZipValidating(true);
 
     try {
@@ -280,6 +283,7 @@ export default function XmlAuditPage() {
     }
 
     setNormalizedZipError("");
+    setNormalizedZipSuccess("");
     setNormalizedZipLoading(true);
 
     try {
@@ -294,8 +298,16 @@ export default function XmlAuditPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setNormalizedZipSuccess("ZIP de XMLs normalizados generado correctamente.");
     } catch (err) {
-      setNormalizedZipError(err instanceof Error ? err.message : "Error al generar ZIP de XMLs normalizados.");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("No hay XMLs con normalización técnica")) {
+        setNormalizedZipError("No hay XMLs con normalización técnica disponible para descargar.");
+      } else if (msg.includes("ZIP_NOT_ALLOWED") || msg.includes("no permite auditoría XML masiva")) {
+        setNormalizedZipError("Tu plan actual no permite auditoría XML masiva con ZIP.");
+      } else {
+        setNormalizedZipError("No fue posible generar el ZIP de XMLs normalizados. Intenta nuevamente.");
+      }
     } finally {
       setNormalizedZipLoading(false);
     }
@@ -315,6 +327,8 @@ export default function XmlAuditPage() {
 
     setFullAnalysisError("");
     setFullAnalysisResult(null);
+    setNormalizedZipSuccess("");
+    setSelectedMassiveDetail(null);
     setFullAnalysisLoading(true);
 
     try {
@@ -330,9 +344,34 @@ export default function XmlAuditPage() {
   function handleZipFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setZipError("");
     setZipResult(null);
+    setFullAnalysisResult(null);
+    setFullAnalysisError("");
+    setNormalizedZipError("");
+    setNormalizedZipSuccess("");
+    setSelectedMassiveDetail(null);
     const file = e.target.files?.[0] ?? null;
     setZipFile(file);
   }
+
+  const normalizedZipStats = (() => {
+    if (fullAnalysisResult) {
+      return {
+        filesWithTechnicalNormalization: fullAnalysisResult.summary.filesWithTechnicalNormalization,
+        filesWithBom: fullAnalysisResult.summary.filesWithBom,
+        filesWithLeadingContent: null as number | null,
+        sourceLabel: "Análisis completo",
+      };
+    }
+    if (zipResult) {
+      return {
+        filesWithTechnicalNormalization: zipResult.technicalSummary.filesWithSafeNormalizationAvailable,
+        filesWithBom: zipResult.technicalSummary.filesWithBom,
+        filesWithLeadingContent: zipResult.technicalSummary.filesWithLeadingContent,
+        sourceLabel: "Inventario técnico",
+      };
+    }
+    return null;
+  })();
 
   if (loading) {
     return (
@@ -446,12 +485,6 @@ export default function XmlAuditPage() {
                 </div>
               )}
 
-              {(zipResult.technicalSummary.filesWithBom > 0 || zipResult.technicalSummary.filesWithLeadingContent > 0) && (
-                <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                  Se detectaron XMLs con problemas técnicos reparables. En una fase posterior se podrá generar descarga normalizada masiva.
-                </p>
-              )}
-
               {zipResult.xmlFilesFound > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground">XMLs encontrados</p>
@@ -550,10 +583,18 @@ export default function XmlAuditPage() {
                   </div>
                 )}
                 {fullAnalysisResult.persistence && (
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Persistencia temporal</span>
-                    <span className="font-medium text-xs">{fullAnalysisResult.persistence.recordsSaved} de {fullAnalysisResult.persistence.recordsAttempted} registros guardados por {fullAnalysisResult.persistence.retentionHours}h</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between py-1 border-b border-border/50">
+                      <span className="text-muted-foreground">Persistencia temporal</span>
+                      <span className="font-medium text-xs">{fullAnalysisResult.persistence.recordsSaved} de {fullAnalysisResult.persistence.recordsAttempted} registros guardados por {fullAnalysisResult.persistence.retentionHours}h</span>
+                    </div>
+                    {fullAnalysisResult.persistence.failedRecordsAttempted != null && fullAnalysisResult.persistence.failedRecordsAttempted > 0 && (
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Incluye XMLs fallidos</span>
+                        <span className="font-medium text-xs">{fullAnalysisResult.persistence.failedRecordsAttempted} registros FAILED</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -652,50 +693,42 @@ export default function XmlAuditPage() {
             </div>
           )}
 
-          {zipFile && ((zipResult && zipResult.technicalSummary.filesWithSafeNormalizationAvailable > 0) || (fullAnalysisResult && fullAnalysisResult.summary.filesWithTechnicalNormalization > 0)) && (
+          {zipFile && normalizedZipStats && normalizedZipStats.filesWithTechnicalNormalization > 0 && (
             <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
               <p className="text-sm font-semibold text-blue-800">XMLs normalizables detectados</p>
-              <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-sm">
-                {zipResult && (
-                  <>
-                    <div className="flex justify-between py-1 border-b border-blue-200/50">
-                      <span className="text-blue-600">XMLs con BOM</span>
-                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithBom}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-blue-200/50">
-                      <span className="text-blue-600">XMLs con contenido previo</span>
-                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithLeadingContent}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-blue-200/50">
-                      <span className="text-blue-600">Normalización segura disponible</span>
-                      <span className="font-medium text-blue-800">{zipResult.technicalSummary.filesWithSafeNormalizationAvailable}</span>
-                    </div>
-                  </>
-                )}
-                {fullAnalysisResult && (
-                  <>
-                    <div className="flex justify-between py-1 border-b border-blue-200/50 col-span-3">
-                      <span className="text-blue-600">XMLs con normalización técnica (análisis completo)</span>
-                      <span className="font-medium text-blue-800">{fullAnalysisResult.summary.filesWithTechnicalNormalization}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              <p className="text-sm text-blue-700">
-                Estos XMLs presentan problemas técnicos reparables. Fiscora puede generar una versión normalizada sin modificar contenido fiscal ni timbre/sello.
-              </p>
-              {fullAnalysisResult && Object.keys(fullAnalysisResult.summary.byTipoComprobante).length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-blue-700">Tipos de comprobante detectados</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(fullAnalysisResult.summary.byTipoComprobante).map(([tipo, count]) => (
-                      <span key={tipo} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">{tipo}: {count}</span>
-                    ))}
-                  </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                <div className="flex justify-between py-1 border-b border-blue-200/50">
+                  <span className="text-blue-600">XMLs con normalización técnica disponible</span>
+                  <span className="font-medium text-blue-800">{normalizedZipStats.filesWithTechnicalNormalization}</span>
                 </div>
-              )}
+                <div className="flex justify-between py-1 border-b border-blue-200/50">
+                  <span className="text-blue-600">XMLs con BOM</span>
+                  <span className="font-medium text-blue-800">{normalizedZipStats.filesWithBom}</span>
+                </div>
+                {normalizedZipStats.filesWithLeadingContent !== null && (
+                  <div className="flex justify-between py-1 border-b border-blue-200/50">
+                    <span className="text-blue-600">XMLs con contenido previo al XML</span>
+                    <span className="font-medium text-blue-800">{normalizedZipStats.filesWithLeadingContent}</span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1 border-b border-blue-200/50">
+                  <span className="text-blue-600">Fuente del cálculo</span>
+                  <span className="font-medium text-blue-800">{normalizedZipStats.sourceLabel}</span>
+                </div>
+              </div>
+              <p className="text-sm text-blue-700 leading-relaxed">
+                Fiscora puede generar un ZIP con los XMLs que requieren únicamente normalización técnica segura, como remover BOM UTF-8 o contenido previo al inicio del XML. No se modifican datos fiscales, importes, RFCs, nodos del CFDI ni sellos.
+              </p>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-blue-700">El ZIP descargado incluye:</p>
+                <ul className="text-xs text-blue-600 space-y-0.5 list-disc list-inside">
+                  <li>Carpeta <span className="font-mono">normalized/</span> con los XMLs normalizados disponibles.</li>
+                  <li><span className="font-mono">manifest/manifest.csv</span> con trazabilidad para Excel.</li>
+                  <li><span className="font-mono">manifest/manifest.json</span> con trazabilidad técnica estructurada.</li>
+                </ul>
+              </div>
               <p className="text-xs text-blue-600">
-                La descarga incluirá únicamente XMLs cuya normalización sea técnica segura. Los XMLs sin ajustes o con reparaciones fiscales no seguras quedarán solo en el manifiesto.
+                Los XMLs que no requieren normalización o que no sean seguros para normalizar se omiten del ZIP y quedan documentados en el manifiesto.
               </p>
               <button
                 onClick={handleDownloadNormalized}
@@ -704,9 +737,12 @@ export default function XmlAuditPage() {
               >
                 {normalizedZipLoading ? "Generando ZIP de XMLs normalizados..." : "Descargar ZIP de XMLs normalizados"}
               </button>
-              <p className="text-xs text-blue-500">
-                El ZIP incluirá una carpeta normalized/ y un manifiesto con trazabilidad por archivo.
-              </p>
+              {normalizedZipLoading && (
+                <p className="text-xs text-blue-500">Generando ZIP, esto puede tomar unos segundos...</p>
+              )}
+              {normalizedZipSuccess && (
+                <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{normalizedZipSuccess}</p>
+              )}
               {normalizedZipError && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{normalizedZipError}</p>
               )}
@@ -984,7 +1020,9 @@ export default function XmlAuditPage() {
 
               {(result.technicalDiagnostics.bomDetected || result.technicalDiagnostics.leadingContentBeforeXml) && (
                 <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                  Se aplicó una normalización técnica segura solo en memoria para poder leer el archivo. No se modificó el contenido fiscal del XML.
+                  {result.normalizedXml?.available
+                    ? "Puedes descargar el XML normalizado desde el botón disponible en el diagnóstico técnico."
+                    : "Se aplicó una normalización técnica segura solo en memoria para poder leer el archivo. No se modificó el contenido fiscal del XML."}
                 </p>
               )}
 

@@ -393,6 +393,18 @@ export default function DashboardPage() {
               Análisis XML recientes
             </button>
             <button
+              onClick={() => navigate("/admin/xml-analysis-batches")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Lotes XML ZIP
+            </button>
+            <button
+              onClick={() => navigate("/admin/analytics")}
+              className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+            >
+              Analítica XML
+            </button>
+            <button
               onClick={() => navigate("/admin/stripe-webhook")}
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >

@@ -19,6 +19,7 @@ export default function AdminXmlAnalysesPage() {
   const [fRfcReceptor, setFRfcReceptor] = useState("");
   const [fTipo, setFTipo] = useState("");
   const [fRiesgo, setFRiesgo] = useState("");
+  const [fAnalysisStatus, setFAnalysisStatus] = useState("");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -36,6 +37,7 @@ export default function AdminXmlAnalysesPage() {
         rfcReceptor: fRfcReceptor || undefined,
         tipoComprobante: fTipo || undefined,
         riskLevel: fRiesgo || undefined,
+        analysisStatus: fAnalysisStatus || undefined,
         from: fFrom || undefined,
         to: fTo || undefined,
       });
@@ -54,7 +56,7 @@ export default function AdminXmlAnalysesPage() {
 
   function handleSearch() { fetchData(1); }
   function handleClear() {
-    setFUuid(""); setFRfcEmisor(""); setFRfcReceptor(""); setFTipo(""); setFRiesgo(""); setFFrom(""); setFTo("");
+    setFUuid(""); setFRfcEmisor(""); setFRfcReceptor(""); setFTipo(""); setFRiesgo(""); setFAnalysisStatus(""); setFFrom(""); setFTo("");
     fetchData(1);
   }
 
@@ -68,6 +70,7 @@ export default function AdminXmlAnalysesPage() {
         rfcReceptor: fRfcReceptor || undefined,
         tipoComprobante: fTipo || undefined,
         riskLevel: fRiesgo || undefined,
+        analysisStatus: fAnalysisStatus || undefined,
         from: fFrom || undefined,
         to: fTo || undefined,
       };
@@ -125,7 +128,7 @@ export default function AdminXmlAnalysesPage() {
         {error && <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{error}</p>}
 
         <div className="p-4 rounded-xl border border-border bg-card space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <input placeholder="UUID" value={fUuid} onChange={e => setFUuid(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground" />
             <input placeholder="RFC emisor" value={fRfcEmisor} onChange={e => setFRfcEmisor(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground" />
             <input placeholder="RFC receptor" value={fRfcReceptor} onChange={e => setFRfcReceptor(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground" />
@@ -135,6 +138,11 @@ export default function AdminXmlAnalysesPage() {
               <option value="CRITICAL">Crítico</option>
               <option value="WARNING">Advertencia</option>
               <option value="OK">Sin riesgo</option>
+            </select>
+            <select value={fAnalysisStatus} onChange={e => setFAnalysisStatus(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground">
+              <option value="">Todos los estados</option>
+              <option value="ANALYZED">ANALYZED</option>
+              <option value="FAILED">FAILED</option>
             </select>
             <input type="date" value={fFrom} onChange={e => setFFrom(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground" />
             <input type="date" value={fTo} onChange={e => setFTo(e.target.value)} className="text-sm px-3 py-1.5 rounded border border-border bg-background text-foreground" />
@@ -165,6 +173,7 @@ export default function AdminXmlAnalysesPage() {
                   <th className="text-left py-2 px-3 whitespace-nowrap">Organización</th>
                   <th className="text-left py-2 px-3 whitespace-nowrap">UUID</th>
                   <th className="text-center py-2 px-3 whitespace-nowrap">Origen</th>
+                  <th className="text-center py-2 px-3 whitespace-nowrap">Estado análisis</th>
                   <th className="text-left py-2 px-3 whitespace-nowrap">Archivo fuente</th>
                   <th className="text-left py-2 px-3 whitespace-nowrap">Tipo</th>
                   <th className="text-left py-2 px-3 whitespace-nowrap">RFC emisor</th>
@@ -189,6 +198,13 @@ export default function AdminXmlAnalysesPage() {
                     <td className="py-1.5 px-3 max-w-[120px] truncate" title={r.organizationName ?? ""}>{r.organizationName ?? "—"}</td>
                     <td className="py-1.5 px-3 font-mono max-w-[100px] truncate" title={r.uuid ?? ""}>{r.uuid ?? "—"}</td>
                     <td className="py-1.5 px-3 text-center">{r.sourceType ? (r.sourceType === "ZIP" ? "ZIP" : "Individual") : "—"}</td>
+                    <td className="py-1.5 px-3 text-center">
+                      {r.analysisStatus === "FAILED" ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border text-red-700 bg-red-50 border-red-200">FAILED</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-200">ANALYZED</span>
+                      )}
+                    </td>
                     <td className="py-1.5 px-3 max-w-[150px] truncate font-mono" title={r.sourceFilename ?? ""}>{r.sourceFilename ?? "—"}</td>
                     <td className="py-1.5 px-3">{r.tipoComprobante ?? "—"}</td>
                     <td className="py-1.5 px-3 font-mono">{r.rfcEmisor ?? "—"}</td>
@@ -225,6 +241,9 @@ export default function AdminXmlAnalysesPage() {
               <>
                 <h3 className="font-semibold text-sm">Detalle del análisis</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Estado análisis</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${detail.analysisStatus === "FAILED" ? "text-red-700 bg-red-50 border-red-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>{detail.analysisStatus}</span>
+                  </div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">UUID</span><span className="font-mono">{detail.uuid ?? "—"}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Tipo</span><span>{detail.tipoComprobante ?? "—"}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">RFC emisor</span><span className="font-mono">{detail.rfcEmisor ?? "—"}</span></div>
@@ -239,17 +258,19 @@ export default function AdminXmlAnalysesPage() {
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Serie</span><span>{detail.serie ?? "—"}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Folio</span><span>{detail.folio ?? "—"}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Riesgo</span><span>{detail.riskLevel ?? "—"}</span></div>
-                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Hallazgos</span><span>{detail.findingsCount}</span></div>
-                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Críticos / Advertencias / Informativos</span><span>{detail.criticalCount} / {detail.warningCount} / {detail.infoCount}</span></div>
-                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">BOM</span><span>{detail.hasBom ? "Sí" : "No"}</span></div>
-                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Normalización técnica</span><span>{detail.hasTechnicalNormalization ? "Sí" : "No"}</span></div>
-                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">XML normalizado</span><span>{detail.hasNormalizedXml ? detail.normalizedFilename ?? "Sí" : "No"}</span></div>
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Hallazgos</span><span>{detail.analysisStatus === "FAILED" ? "—" : detail.findingsCount}</span></div>
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Críticos / Advertencias / Informativos</span><span>{detail.analysisStatus === "FAILED" ? "—" : `${detail.criticalCount} / ${detail.warningCount} / ${detail.infoCount}`}</span></div>
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">BOM</span><span>{detail.analysisStatus === "FAILED" ? "—" : detail.hasBom ? "Sí" : "No"}</span></div>
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Normalización técnica</span><span>{detail.analysisStatus === "FAILED" ? "—" : detail.hasTechnicalNormalization ? "Sí" : "No"}</span></div>
+                  <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">XML normalizado</span><span>{detail.analysisStatus === "FAILED" ? "—" : detail.hasNormalizedXml ? detail.normalizedFilename ?? "Sí" : "No"}</span></div>
                   {detail.originalSha256 && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Hash original</span><span className="font-mono text-[10px] break-all">{detail.originalSha256}</span></div>}
                   {detail.normalizedSha256 && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Hash normalizado</span><span className="font-mono text-[10px] break-all">{detail.normalizedSha256}</span></div>}
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Usuario</span><span>{detail.userEmail}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Organización</span><span>{detail.organizationName ?? "—"}</span></div>
                   <div className="flex justify-between py-1 border-b border-border/30"><span className="text-muted-foreground">Origen</span><span>{detail.sourceType ? (detail.sourceType === "ZIP" ? "ZIP" : "Individual") : "—"}</span></div>
                   {detail.sourceFilename && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Archivo fuente</span><span className="font-mono">{detail.sourceFilename}</span></div>}
+                  {detail.errorCode && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Código error</span><span className="font-mono text-red-600">{detail.errorCode}</span></div>}
+                  {detail.errorMessage && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Mensaje error</span><span className="text-red-600">{detail.errorMessage}</span></div>}
                   {detail.batchId && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Batch ID</span><span className="font-mono text-[10px] break-all">{detail.batchId}</span></div>}
                   {detail.zipFilename && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">ZIP filename</span><span className="font-mono">{detail.zipFilename}</span></div>}
                   {detail.zipEntryName && <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">ZIP entry</span><span className="font-mono">{detail.zipEntryName}</span></div>}
@@ -258,93 +279,104 @@ export default function AdminXmlAnalysesPage() {
                   <div className="flex justify-between py-1 border-b border-border/30 col-span-2"><span className="text-muted-foreground">Expira</span><span>{fmt(detail.expiresAt)}</span></div>
                 </div>
 
-                {detail.analysisJson?.executiveSummary && (
-                  <div className="space-y-1 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground">Resumen ejecutivo</p>
-                    <p className="text-xs text-foreground/80">{(detail.analysisJson.executiveSummary as Record<string, unknown>)?.title as string}</p>
-                    <p className="text-xs text-muted-foreground">{(detail.analysisJson.executiveSummary as Record<string, unknown>)?.message as string}</p>
-                    <p className="text-xs text-muted-foreground"><span className="font-semibold">Acción:</span> {(detail.analysisJson.executiveSummary as Record<string, unknown>)?.recommendedAction as string}</p>
+                {detail.analysisStatus === "FAILED" ? (
+                  <div className="p-4 rounded-lg border border-red-200 bg-red-50 space-y-2">
+                    <p className="text-sm font-semibold text-red-800">Error en análisis de XML</p>
+                    <p className="text-xs text-red-700">
+                      Revisar si el XML está corrupto o tiene estructura inválida. Si el archivo puede abrirse individualmente, ejecutar análisis individual para aislar la causa.
+                    </p>
                   </div>
-                )}
-
-                {detail.analysisJson?.findings && Array.isArray(detail.analysisJson.findings) && (detail.analysisJson.findings as Record<string, unknown>[]).length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground">Hallazgos ({detail.findingsCount})</p>
-                    {(detail.analysisJson.findings as Record<string, unknown>[]).slice(0, 20).map((f: Record<string, unknown>, i: number) => (
-                      <div key={i} className="p-2 rounded border border-border/50 bg-muted/20 space-y-1">
-                        <div className="flex gap-2 text-[10px] text-muted-foreground">
-                          <span className="font-semibold">{f.severity as string}</span>
-                          <span>{f.category as string}</span>
-                          <span className="font-mono">{f.code as string}</span>
-                        </div>
-                        <p className="text-xs font-medium">{f.title as string}</p>
-                        <p className="text-xs text-muted-foreground">{f.message as string}</p>
-                        {(() => {
-                          const ev = f.evidence as Record<string, unknown>[] | undefined;
-                          if (!ev || ev.length === 0) return null;
-                          return (
-                            <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
-                              {ev.map((e: Record<string, unknown>, ei: number) => (
-                                <div key={ei} className="contents">
-                                  <span className="text-muted-foreground">{String(e.label ?? "")}:</span>
-                                  <span className="font-mono break-all">{e.value != null ? String(e.value) : "—"}</span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                ) : (
+                  <>
+                    {detail.analysisJson?.executiveSummary && (
+                      <div className="space-y-1 pt-2 border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground">Resumen ejecutivo</p>
+                        <p className="text-xs text-foreground/80">{(detail.analysisJson.executiveSummary as Record<string, unknown>)?.title as string}</p>
+                        <p className="text-xs text-muted-foreground">{(detail.analysisJson.executiveSummary as Record<string, unknown>)?.message as string}</p>
+                        <p className="text-xs text-muted-foreground"><span className="font-semibold">Acción:</span> {(detail.analysisJson.executiveSummary as Record<string, unknown>)?.recommendedAction as string}</p>
                       </div>
-                    ))}
-                    {(detail.analysisJson.findings as Record<string, unknown>[]).length > 20 && (
-                      <p className="text-[10px] text-muted-foreground">... y {(detail.analysisJson.findings as Record<string, unknown>[]).length - 20} hallazgos más</p>
                     )}
-                  </div>
-                )}
 
-                {detail.analysisJson?.technicalDiagnostics && (
-                  <div className="space-y-1 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground">Diagnóstico técnico</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
-                      <span className="text-muted-foreground">XML timbrado:</span>
-                      <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.isStamped ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">Timbre Fiscal Digital:</span>
-                      <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.hasTimbreFiscalDigital ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">BOM detectado:</span>
-                      <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.bomDetected ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">Normalización segura:</span>
-                      <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.safeNormalizationApplied ? "Sí" : "No"}</span>
-                    </div>
-                  </div>
-                )}
+                    {detail.analysisJson?.findings && Array.isArray(detail.analysisJson.findings) && (detail.analysisJson.findings as Record<string, unknown>[]).length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground">Hallazgos ({detail.findingsCount})</p>
+                        {(detail.analysisJson.findings as Record<string, unknown>[]).slice(0, 20).map((f: Record<string, unknown>, i: number) => (
+                          <div key={i} className="p-2 rounded border border-border/50 bg-muted/20 space-y-1">
+                            <div className="flex gap-2 text-[10px] text-muted-foreground">
+                              <span className="font-semibold">{f.severity as string}</span>
+                              <span>{f.category as string}</span>
+                              <span className="font-mono">{f.code as string}</span>
+                            </div>
+                            <p className="text-xs font-medium">{f.title as string}</p>
+                            <p className="text-xs text-muted-foreground">{f.message as string}</p>
+                            {(() => {
+                              const ev = f.evidence as Record<string, unknown>[] | undefined;
+                              if (!ev || ev.length === 0) return null;
+                              return (
+                                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
+                                  {ev.map((e: Record<string, unknown>, ei: number) => (
+                                    <div key={ei} className="contents">
+                                      <span className="text-muted-foreground">{String(e.label ?? "")}:</span>
+                                      <span className="font-mono break-all">{e.value != null ? String(e.value) : "—"}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ))}
+                        {(detail.analysisJson.findings as Record<string, unknown>[]).length > 20 && (
+                          <p className="text-[10px] text-muted-foreground">... y {(detail.analysisJson.findings as Record<string, unknown>[]).length - 20} hallazgos más</p>
+                        )}
+                      </div>
+                    )}
 
-                {detail.analysisJson?.structureDiagnostics && (
-                  <div className="space-y-1 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground">Diagnóstico estructural</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
-                      <span className="text-muted-foreground">Complemento:</span>
-                      <span>{(detail.analysisJson.structureDiagnostics as Record<string, unknown>)?.hasComplemento ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">Addenda:</span>
-                      <span>{(detail.analysisJson.structureDiagnostics as Record<string, unknown>)?.hasAddenda ? "Sí" : "No"}</span>
-                    </div>
-                  </div>
-                )}
+                    {detail.analysisJson?.technicalDiagnostics && (
+                      <div className="space-y-1 pt-2 border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground">Diagnóstico técnico</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
+                          <span className="text-muted-foreground">XML timbrado:</span>
+                          <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.isStamped ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">Timbre Fiscal Digital:</span>
+                          <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.hasTimbreFiscalDigital ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">BOM detectado:</span>
+                          <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.bomDetected ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">Normalización segura:</span>
+                          <span>{(detail.analysisJson.technicalDiagnostics as Record<string, unknown>)?.safeNormalizationApplied ? "Sí" : "No"}</span>
+                        </div>
+                      </div>
+                    )}
 
-                {detail.analysisJson?.normalizedXml && (
-                  <div className="space-y-1 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground">Normalización técnica</p>
-                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
-                      <span className="text-muted-foreground">Disponible:</span>
-                      <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.available ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">Archivo:</span>
-                      <span className="font-mono">{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.filename as string ?? "—"}</span>
-                      <span className="text-muted-foreground">Tipo:</span>
-                      <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.normalizationType as string}</span>
-                      <span className="text-muted-foreground">Contenido fiscal modificado:</span>
-                      <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.fiscalContentModified ? "Sí" : "No"}</span>
-                      <span className="text-muted-foreground">Riesgo timbre/sello:</span>
-                      <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.stampRisk as string ?? "—"}</span>
-                    </div>
-                  </div>
+                    {detail.analysisJson?.structureDiagnostics && (
+                      <div className="space-y-1 pt-2 border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground">Diagnóstico estructural</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
+                          <span className="text-muted-foreground">Complemento:</span>
+                          <span>{(detail.analysisJson.structureDiagnostics as Record<string, unknown>)?.hasComplemento ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">Addenda:</span>
+                          <span>{(detail.analysisJson.structureDiagnostics as Record<string, unknown>)?.hasAddenda ? "Sí" : "No"}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {detail.analysisJson?.normalizedXml && (
+                      <div className="space-y-1 pt-2 border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground">Normalización técnica</p>
+                        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
+                          <span className="text-muted-foreground">Disponible:</span>
+                          <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.available ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">Archivo:</span>
+                          <span className="font-mono">{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.filename as string ?? "—"}</span>
+                          <span className="text-muted-foreground">Tipo:</span>
+                          <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.normalizationType as string}</span>
+                          <span className="text-muted-foreground">Contenido fiscal modificado:</span>
+                          <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.fiscalContentModified ? "Sí" : "No"}</span>
+                          <span className="text-muted-foreground">Riesgo timbre/sello:</span>
+                          <span>{(detail.analysisJson.normalizedXml as Record<string, unknown>)?.stampRisk as string ?? "—"}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : (

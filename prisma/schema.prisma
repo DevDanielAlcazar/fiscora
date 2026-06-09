@@ -169,6 +169,9 @@ model XmlAnalysisRecord {
   id                        String    @id @default(uuid())
   organizationId            String?
   userId                    String
+  analysisStatus            String    @default("ANALYZED")
+  errorCode                 String?
+  errorMessage              String?
   uuid                      String?
   tipoComprobante           String?
   rfcEmisor                 String?
@@ -212,6 +215,7 @@ model XmlAnalysisRecord {
   @@index([createdAt])
   @@index([expiresAt])
   @@index([riskLevel])
+  @@index([analysisStatus])
   @@index([sourceType])
   @@index([batchId])
   @@index([zipFilename])
