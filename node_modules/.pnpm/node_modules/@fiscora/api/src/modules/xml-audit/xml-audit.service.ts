@@ -139,6 +139,63 @@ function sha256Text(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
+export interface RelatedCfdi {
+  uuid?: string | null;
+}
+
+export interface CfdiRelationGroup {
+  tipoRelacion?: string | null;
+  relatedCfdis: RelatedCfdi[];
+}
+
+export interface CfdiRelations {
+  totalRelationGroups: number;
+  totalRelatedCfdis: number;
+  groups: CfdiRelationGroup[];
+}
+
+export interface CartaPorteUbicacion {
+  tipoUbicacion?: string | null;
+  idUbicacion?: string | null;
+  rfcRemitenteDestinatario?: string | null;
+  nombreRemitenteDestinatario?: string | null;
+  fechaHoraSalidaLlegada?: string | null;
+  distanciaRecorrida?: string | null;
+}
+
+export interface CartaPorteMercancia {
+  bienesTransp?: string | null;
+  descripcion?: string | null;
+  cantidad?: string | null;
+  claveUnidad?: string | null;
+  pesoEnKg?: string | null;
+  valorMercancia?: string | null;
+  moneda?: string | null;
+}
+
+export interface CartaPorteTransportFigure {
+  tipoFigura?: string | null;
+  rfcFigura?: string | null;
+  nombreFigura?: string | null;
+  numLicencia?: string | null;
+}
+
+export interface CartaPorteInfo {
+  version?: string | null;
+  idCCP?: string | null;
+  transpInternac?: string | null;
+  totalDistRec?: string | null;
+  hasUbicaciones: boolean;
+  hasMercancias: boolean;
+  ubicaciones: CartaPorteUbicacion[];
+  mercancias: CartaPorteMercancia[];
+  figurasTransporte: CartaPorteTransportFigure[];
+  hasAutotransporte: boolean;
+  hasTransporteMaritimo: boolean;
+  hasTransporteAereo: boolean;
+  hasTransporteFerroviario: boolean;
+}
+
 export interface CfdiAnalysisResult {
   uuid: string | null;
   version: string | null;
@@ -165,6 +222,8 @@ export interface CfdiAnalysisResult {
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement | null;
+  cfdiRelations?: CfdiRelations;
+  cartaPorte?: CartaPorteInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -209,6 +268,8 @@ export interface AnalysisResponse {
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement | null;
+  cfdiRelations?: CfdiRelations;
+  cartaPorte?: CartaPorteInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -282,6 +343,85 @@ function parseCfdiDate(value: string | null | undefined): Date | null {
 function isDateBefore(a: Date | null, b: Date | null): boolean {
   if (!a || !b) return false;
   return a.getTime() < b.getTime();
+}
+
+function normalizeCurrency(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim().toUpperCase();
+}
+
+function moneyDiff(a: number, b: number): number {
+  return Math.round(Math.abs(a - b) * 100) / 100;
+}
+
+function isPositiveMoney(value: number): boolean {
+  return value > 0;
+}
+
+function isZeroOrPositiveMoney(value: number): boolean {
+  return value >= 0;
+}
+
+function isIntegerLike(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^\d+$/.test(value.trim());
+}
+
+function normalizeUuid(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim().toUpperCase();
+}
+
+function isStandardUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return UUID_REGEX.test(value.trim());
+}
+
+function normalizeTipoRelacion(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function isTipoComprobanteEgreso(tipo: string | null | undefined): boolean {
+  return normalizeTipoRelacion(tipo) === "E" || normalizeTipoRelacion(tipo) === "Egreso";
+}
+
+function isTipoComprobantePago(tipo: string | null | undefined): boolean {
+  return normalizeTipoRelacion(tipo) === "P" || normalizeTipoRelacion(tipo) === "Pago";
+}
+
+function isTipoComprobanteIngreso(tipo: string | null | undefined): boolean {
+  return normalizeTipoRelacion(tipo) === "I" || normalizeTipoRelacion(tipo) === "Ingreso";
+}
+
+function isTipoComprobanteTraslado(tipo: string | null | undefined): boolean {
+  return normalizeTipoRelacion(tipo) === "T" || normalizeTipoRelacion(tipo) === "Traslado";
+}
+
+function isPositiveNumberLike(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const n = parseFloat(value.trim());
+  return !isNaN(n) && n > 0;
+}
+
+function isZeroOrPositiveNumberLike(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const n = parseFloat(value.trim());
+  return !isNaN(n) && n >= 0;
+}
+
+function normalizeCartaPorteVersion(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function hasChildNode(parent: Record<string, unknown>, ...names: string[]): boolean {
+  return names.some(n => n in parent);
+}
+
+function isCartaPorteComplementName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.includes("cartaporte") || lower.includes("carta porte") || lower.includes("carta_porte");
 }
 
 function normalizeRfc(value: string | null | undefined): string | null {
@@ -751,6 +891,180 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     if (moneda !== "XXX") {
       warnings.push("En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX.");
     }
+  }
+
+  // ── CFDI Relacionados ──
+  let cfdiRelations: CfdiRelations | undefined;
+
+  const rawRelationGroups = get(comprobante, "cfdi:CfdiRelacionados") as unknown ??
+    get(comprobante, "CfdiRelacionados") as unknown;
+
+  if (rawRelationGroups) {
+    const groupArray = Array.isArray(rawRelationGroups)
+      ? rawRelationGroups
+      : [rawRelationGroups];
+
+    const groups: CfdiRelationGroup[] = [];
+
+    for (const group of groupArray) {
+      if (!group || typeof group !== "object") continue;
+
+      const tipoRelacion = str(get(group, "@_TipoRelacion")) ?? null;
+      const rawRelated = get(group, "cfdi:CfdiRelacionado") as unknown ??
+        get(group, "CfdiRelacionado") as unknown;
+
+      const relatedArray = Array.isArray(rawRelated)
+        ? rawRelated
+        : rawRelated
+          ? [rawRelated]
+          : [];
+
+      const relatedCfdis: RelatedCfdi[] = relatedArray.map((r: Record<string, unknown>) => ({
+        uuid: str(get(r, "@_UUID")) ?? undefined,
+      }));
+
+      groups.push({ tipoRelacion, relatedCfdis });
+    }
+
+    if (groups.length > 0) {
+      const totalRelatedCfdis = groups.reduce((acc, g) => acc + g.relatedCfdis.length, 0);
+      cfdiRelations = {
+        totalRelationGroups: groups.length,
+        totalRelatedCfdis,
+        groups,
+      };
+    }
+  }
+
+  // ── Carta Porte ──
+  let cartaPorte: CartaPorteInfo | undefined;
+
+  const cartaPorteNode = get(complemento, "cartaporte31:CartaPorte") as Record<string, unknown> ??
+    get(complemento, "cartaporte30:CartaPorte") as Record<string, unknown> ??
+    get(complemento, "cartaporte20:CartaPorte") as Record<string, unknown> ??
+    get(complemento, "CartaPorte") as Record<string, unknown> ?? null;
+
+  if (cartaPorteNode && typeof cartaPorteNode === "object" && Object.keys(cartaPorteNode).length > 0) {
+    const version = str(get(cartaPorteNode, "@_Version")) ?? null;
+    const idCCP = str(get(cartaPorteNode, "@_IdCCP")) ?? null;
+    const transpInternac = str(get(cartaPorteNode, "@_TranspInternac")) ?? null;
+    const totalDistRec = str(get(cartaPorteNode, "@_TotalDistRec")) ?? null;
+
+    // Ubicaciones
+    const rawUbics = get(cartaPorteNode, "cartaporte31:Ubicaciones") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte30:Ubicaciones") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte20:Ubicaciones") as Record<string, unknown> ??
+      get(cartaPorteNode, "Ubicaciones") as Record<string, unknown> ?? null;
+
+    let ubicacionesNodes: unknown[] = [];
+    if (rawUbics && typeof rawUbics === "object") {
+      const rawUbi = get(rawUbics, "cartaporte31:Ubicacion") as unknown ??
+        get(rawUbics, "cartaporte30:Ubicacion") as unknown ??
+        get(rawUbics, "cartaporte20:Ubicacion") as unknown ??
+        get(rawUbics, "Ubicacion") as unknown;
+      ubicacionesNodes = Array.isArray(rawUbi) ? rawUbi : rawUbi ? [rawUbi] : [];
+    }
+
+    const ubicaciones: CartaPorteUbicacion[] = (ubicacionesNodes as Record<string, unknown>[]).map((u) => ({
+      tipoUbicacion: str(get(u, "@_TipoUbicacion")) ?? null,
+      idUbicacion: str(get(u, "@_IDUbicacion")) ?? null,
+      rfcRemitenteDestinatario: str(get(u, "@_RFCRemitenteDestinatario")) ?? null,
+      nombreRemitenteDestinatario: str(get(u, "@_NombreRemitenteDestinatario")) ?? null,
+      fechaHoraSalidaLlegada: str(get(u, "@_FechaHoraSalidaLlegada")) ?? null,
+      distanciaRecorrida: str(get(u, "@_DistanciaRecorrida")) ?? null,
+    }));
+
+    // Mercancias
+    const rawMercs = get(cartaPorteNode, "cartaporte31:Mercancias") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte30:Mercancias") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte20:Mercancias") as Record<string, unknown> ??
+      get(cartaPorteNode, "Mercancias") as Record<string, unknown> ?? null;
+
+    let mercanciasNodes: unknown[] = [];
+    if (rawMercs && typeof rawMercs === "object") {
+      const rawMer = get(rawMercs, "cartaporte31:Mercancia") as unknown ??
+        get(rawMercs, "cartaporte30:Mercancia") as unknown ??
+        get(rawMercs, "cartaporte20:Mercancia") as unknown ??
+        get(rawMercs, "Mercancia") as unknown;
+      mercanciasNodes = Array.isArray(rawMer) ? rawMer : rawMer ? [rawMer] : [];
+    }
+
+    const mercancias: CartaPorteMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map((m) => ({
+      bienesTransp: str(get(m, "@_BienesTransp")) ?? null,
+      descripcion: str(get(m, "@_Descripcion")) ?? null,
+      cantidad: str(get(m, "@_Cantidad")) ?? null,
+      claveUnidad: str(get(m, "@_ClaveUnidad")) ?? null,
+      pesoEnKg: str(get(m, "@_PesoEnKg")) ?? null,
+      valorMercancia: str(get(m, "@_ValorMercancia")) ?? null,
+      moneda: str(get(m, "@_Moneda")) ?? null,
+    }));
+
+    // Figuras Transporte
+    const rawFigs = get(cartaPorteNode, "cartaporte31:FiguraTransporte") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte30:FiguraTransporte") as Record<string, unknown> ??
+      get(cartaPorteNode, "cartaporte20:FiguraTransporte") as Record<string, unknown> ??
+      get(cartaPorteNode, "FiguraTransporte") as Record<string, unknown> ?? null;
+
+    const figurasNodes: unknown[] = [];
+    if (rawFigs && typeof rawFigs === "object") {
+      const rawTiposFig = get(rawFigs, "cartaporte31:TiposFigura") as unknown ??
+        get(rawFigs, "cartaporte30:TiposFigura") as unknown ??
+        get(rawFigs, "cartaporte20:TiposFigura") as unknown ??
+        get(rawFigs, "TiposFigura") as unknown;
+      const tiposFigArray = Array.isArray(rawTiposFig) ? rawTiposFig : rawTiposFig ? [rawTiposFig] : [];
+      tiposFigArray.forEach((tf: Record<string, unknown>) => {
+        const rawFig = get(tf, "cartaporte31:PartesTransporte") as unknown ??
+          get(tf, "cartaporte30:PartesTransporte") as unknown ??
+          get(tf, "cartaporte20:PartesTransporte") as unknown ??
+          get(tf, "PartesTransporte") as unknown;
+        const partesArray = Array.isArray(rawFig) ? rawFig : rawFig ? [rawFig] : [];
+        partesArray.forEach((p: Record<string, unknown>) => {
+          figurasNodes.push({
+            tipoFigura: str(get(tf, "@_TipoFigura")) ?? null,
+            rfcFigura: str(get(p, "@_RFCFigura")) ?? null,
+            nombreFigura: str(get(p, "@_NombreFigura")) ?? null,
+            numLicencia: str(get(p, "@_NumLicencia")) ?? null,
+          });
+        });
+      });
+    }
+
+    const figurasTransporte: CartaPorteTransportFigure[] = (figurasNodes as Record<string, unknown>[]).map((f) => ({
+      tipoFigura: str(get(f, "tipoFigura")) ?? null,
+      rfcFigura: str(get(f, "rfcFigura")) ?? null,
+      nombreFigura: str(get(f, "nombreFigura")) ?? null,
+      numLicencia: str(get(f, "numLicencia")) ?? null,
+    }));
+
+    // Detect medio transporte
+    const hasAutotransporte = hasChildNode(cartaPorteNode,
+      "cartaporte31:Autotransporte", "cartaporte30:Autotransporte", "cartaporte20:Autotransporte", "Autotransporte",
+    );
+    const hasTransporteMaritimo = hasChildNode(cartaPorteNode,
+      "cartaporte31:TransporteMaritimo", "cartaporte30:TransporteMaritimo", "cartaporte20:TransporteMaritimo", "TransporteMaritimo",
+    );
+    const hasTransporteAereo = hasChildNode(cartaPorteNode,
+      "cartaporte31:TransporteAereo", "cartaporte30:TransporteAereo", "cartaporte20:TransporteAereo", "TransporteAereo",
+    );
+    const hasTransporteFerroviario = hasChildNode(cartaPorteNode,
+      "cartaporte31:TransporteFerroviario", "cartaporte30:TransporteFerroviario", "cartaporte20:TransporteFerroviario", "TransporteFerroviario",
+    );
+
+    cartaPorte = {
+      version,
+      idCCP,
+      transpInternac,
+      totalDistRec,
+      hasUbicaciones: ubicaciones.length > 0,
+      hasMercancias: mercancias.length > 0,
+      ubicaciones,
+      mercancias,
+      figurasTransporte,
+      hasAutotransporte,
+      hasTransporteMaritimo,
+      hasTransporteAereo,
+      hasTransporteFerroviario,
+    };
   }
 
   // ── Totals validation (Ingreso/Egreso only) ──
@@ -2056,6 +2370,931 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
+  // ── Payment Complement Findings (only for tipo Pago/P) ──
+  const isPago = tipoComprobante === "P";
+
+  if (isPago) {
+
+    // A) PAYMENT_COMPLEMENT_MISSING
+    if (!paymentComplement || paymentComplement.pagos.length === 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "PAYMENT_COMPLEMENT_MISSING",
+        title: "Complemento de pago no detectado",
+        message: "El comprobante es de tipo Pago, pero no se detectó información válida del complemento de pagos.",
+        recommendedAction: "Verifica que el XML corresponda a un REP válido y que incluya el complemento Pagos 2.0.",
+        evidence: [
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Complementos detectados", value: complemento ? Object.keys(complemento).join(", ") : "Ninguno" },
+        ],
+      });
+    }
+
+    if (paymentComplement && paymentComplement.pagos.length > 0) {
+      paymentComplement.pagos.forEach((pago, pagoIdx) => {
+        const pagoNum = pagoIdx + 1;
+
+        // B) PAYMENT_WITHOUT_RELATED_DOCUMENTS
+        if (pago.documentosRelacionados.length === 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_WITHOUT_RELATED_DOCUMENTS",
+            title: "Pago sin documentos relacionados",
+            message: "Se detectó un pago dentro del complemento, pero no contiene documentos relacionados.",
+            recommendedAction: "Revisa que el REP incluya los CFDI relacionados al pago.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "Fecha pago", value: pago.fechaPago ?? "—" },
+              { label: "Moneda pago", value: pago.monedaP ?? "—" },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // C) PAYMENT_MISSING_FECHA_PAGO
+        if (!isNonEmptyString(pago.fechaPago)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_MISSING_FECHA_PAGO",
+            title: "Fecha de pago faltante",
+            message: "Un pago del complemento no contiene FechaPago.",
+            recommendedAction: "Verifica la información del pago capturada en el REP.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "Moneda pago", value: pago.monedaP ?? "—" },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // D) PAYMENT_MISSING_FORMA_PAGO
+        if (!isNonEmptyString(pago.formaDePagoP)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_MISSING_FORMA_PAGO",
+            title: "Forma de pago faltante en pago",
+            message: "Un pago del complemento no contiene FormaDePagoP.",
+            recommendedAction: "Valida que la forma de pago del REP haya sido capturada correctamente.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "Fecha pago", value: pago.fechaPago ?? "—" },
+              { label: "Moneda pago", value: pago.monedaP ?? "—" },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // E) PAYMENT_MISSING_MONEDA
+        if (!isNonEmptyString(pago.monedaP)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_MISSING_MONEDA",
+            title: "Moneda del pago faltante",
+            message: "Un pago del complemento no contiene MonedaP.",
+            recommendedAction: "Valida la moneda del pago capturada en el complemento.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "Fecha pago", value: pago.fechaPago ?? "—" },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // F) PAYMENT_AMOUNT_NON_POSITIVE
+        const monto = toMoneyNumber(pago.monto);
+        if (isNonEmptyString(pago.monto) && monto <= 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_AMOUNT_NON_POSITIVE",
+            title: "Monto del pago no positivo",
+            message: "El monto del pago debe ser mayor a cero.",
+            recommendedAction: "Revisa el importe del pago capturado en el REP.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+              { label: "Moneda pago", value: pago.monedaP ?? "—" },
+            ],
+          });
+        }
+
+        // G) PAYMENT_CURRENCY_XXX
+        const monedaP = normalizeCurrency(pago.monedaP);
+        if (monedaP === "XXX") {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_CURRENCY_XXX",
+            title: "MonedaP no debe ser XXX",
+            message: "En el detalle del pago, MonedaP normalmente debe indicar la moneda real del pago y no XXX.",
+            recommendedAction: "Valida la moneda del pago en el complemento Pagos.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "MonedaP", value: monedaP },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // H) PAYMENT_EXCHANGE_RATE_REQUIRED
+        if (isNonEmptyString(pago.monedaP) && monedaP !== "MXN" && !isNonEmptyString(pago.tipoCambioP)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "PAYMENT_EXCHANGE_RATE_REQUIRED",
+            title: "Tipo de cambio del pago requerido",
+            message: "El pago está en moneda distinta de MXN, pero no se detectó TipoCambioP.",
+            recommendedAction: "Revisa si el REP debe incluir el tipo de cambio del pago.",
+            evidence: [
+              { label: "Número de pago", value: String(pagoNum) },
+              { label: "MonedaP", value: monedaP },
+              { label: "TipoCambioP", value: pago.tipoCambioP ?? "—" },
+              { label: "Monto pago", value: pago.monto ?? "—" },
+            ],
+          });
+        }
+
+        // ── Document-level findings ──
+        pago.documentosRelacionados.forEach((doc, docIdx) => {
+          const docNum = docIdx + 1;
+
+          // I) RELATED_DOCUMENT_MISSING_UUID
+          if (!isNonEmptyString(doc.idDocumento)) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_MISSING_UUID",
+              title: "Documento relacionado sin UUID",
+              message: "Un documento relacionado del REP no contiene IdDocumento.",
+              recommendedAction: "Verifica que cada documento relacionado incluya el UUID del CFDI pagado.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "Serie", value: doc.serie ?? "—" },
+                { label: "Folio", value: doc.folio ?? "—" },
+                { label: "MonedaDR", value: doc.monedaDR ?? "—" },
+              ],
+            });
+          }
+
+          // J) RELATED_DOCUMENT_MISSING_MONEDA
+          if (!isNonEmptyString(doc.monedaDR)) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_MISSING_MONEDA",
+              title: "Moneda del documento relacionado faltante",
+              message: "Un documento relacionado no contiene MonedaDR.",
+              recommendedAction: "Valida la moneda del documento relacionado dentro del REP.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                { label: "Serie", value: doc.serie ?? "—" },
+                { label: "Folio", value: doc.folio ?? "—" },
+              ],
+            });
+          }
+
+          // K) RELATED_DOCUMENT_PARTIALITY_INVALID
+          if (isNonEmptyString(doc.numParcialidad) && !isIntegerLike(doc.numParcialidad)) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_PARTIALITY_INVALID",
+              title: "Parcialidad inválida en documento relacionado",
+              message: "El número de parcialidad del documento relacionado no tiene un formato válido.",
+              recommendedAction: "Revisa NumParcialidad en el documento relacionado.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                { label: "NumParcialidad", value: doc.numParcialidad },
+              ],
+            });
+          }
+
+          // L) RELATED_DOCUMENT_PAID_AMOUNT_NON_POSITIVE
+          const impPagado = toMoneyNumber(doc.impPagado);
+          if (isNonEmptyString(doc.impPagado) && impPagado <= 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_PAID_AMOUNT_NON_POSITIVE",
+              title: "Importe pagado no positivo",
+              message: "El importe pagado del documento relacionado debe ser mayor a cero.",
+              recommendedAction: "Revisa ImpPagado del documento relacionado.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                { label: "ImpPagado", value: doc.impPagado ?? "—" },
+              ],
+            });
+          }
+
+          // M) RELATED_DOCUMENT_BALANCE_NEGATIVE
+          const impSaldoAnt = toMoneyNumber(doc.impSaldoAnt);
+          const impSaldoInsoluto = toMoneyNumber(doc.impSaldoInsoluto);
+          if (
+            (isNonEmptyString(doc.impSaldoAnt) && impSaldoAnt < 0) ||
+            (isNonEmptyString(doc.impSaldoInsoluto) && impSaldoInsoluto < 0)
+          ) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_BALANCE_NEGATIVE",
+              title: "Saldo negativo en documento relacionado",
+              message: "El documento relacionado contiene saldo anterior o saldo insoluto negativo.",
+              recommendedAction: "Verifica los saldos del documento relacionado dentro del REP.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                { label: "ImpSaldoAnt", value: doc.impSaldoAnt ?? "—" },
+                { label: "ImpSaldoInsoluto", value: doc.impSaldoInsoluto ?? "—" },
+              ],
+            });
+          }
+
+          // N) RELATED_DOCUMENT_BALANCE_MISMATCH
+          if (
+            isNonEmptyString(doc.impSaldoAnt) &&
+            isNonEmptyString(doc.impPagado) &&
+            isNonEmptyString(doc.impSaldoInsoluto)
+          ) {
+            const expectedBalance = Math.round((impSaldoAnt - impPagado) * 100) / 100;
+            const diff = moneyDiff(impSaldoInsoluto, expectedBalance);
+            if (diff > 0.01) {
+              addFindingOnce({
+                severity: "CRITICAL",
+                category: "COMPLEMENT",
+                code: "RELATED_DOCUMENT_BALANCE_MISMATCH",
+                title: "Saldo insoluto no coincide",
+                message: "El saldo insoluto del documento relacionado no coincide con saldo anterior menos importe pagado.",
+                recommendedAction: "Revisa los importes ImpSaldoAnt, ImpPagado e ImpSaldoInsoluto del documento relacionado antes de usar este REP.",
+                evidence: [
+                  { label: "Número de pago", value: String(pagoNum) },
+                  { label: "Documento relacionado #", value: String(docNum) },
+                  { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                  { label: "ImpSaldoAnt", value: doc.impSaldoAnt ?? "—" },
+                  { label: "ImpPagado", value: doc.impPagado ?? "—" },
+                  { label: "ImpSaldoInsoluto", value: doc.impSaldoInsoluto ?? "—" },
+                  { label: "Saldo calculado", value: String(expectedBalance) },
+                  { label: "Diferencia", value: String(diff) },
+                  { label: "Tolerancia", value: "0.01" },
+                ],
+              });
+            }
+          }
+
+          // O) RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE
+          if (
+            isNonEmptyString(doc.impSaldoAnt) &&
+            isNonEmptyString(doc.impPagado) &&
+            impPagado > impSaldoAnt + 0.01
+          ) {
+            addFindingOnce({
+              severity: "CRITICAL",
+              category: "COMPLEMENT",
+              code: "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE",
+              title: "Importe pagado mayor al saldo anterior",
+              message: "El importe pagado del documento relacionado es mayor al saldo anterior.",
+              recommendedAction: "Valida los importes del REP; puede existir un error en parcialidad, saldo anterior o pago aplicado.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "Documento relacionado #", value: String(docNum) },
+                { label: "IdDocumento", value: doc.idDocumento ?? "—" },
+                { label: "ImpSaldoAnt", value: doc.impSaldoAnt ?? "—" },
+                { label: "ImpPagado", value: doc.impPagado ?? "—" },
+                { label: "Diferencia", value: String(Math.round((impPagado - impSaldoAnt) * 100) / 100) },
+              ],
+            });
+          }
+        });
+
+        // P) PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT
+        // Q) PAYMENT_TOTAL_RELATED_PAID_REVIEW
+        if (pago.documentosRelacionados.length > 0 && isNonEmptyString(pago.monto)) {
+          const pagoMonto = toMoneyNumber(pago.monto);
+          const monedaPago = normalizeCurrency(pago.monedaP);
+
+          const allDocsComparable = pago.documentosRelacionados.every((doc) => {
+            const docMoneda = normalizeCurrency(doc.monedaDR);
+            const docEquivalencia = normalizeCurrency(doc.equivalenciaDR);
+            return (
+              isNonEmptyString(doc.impPagado) &&
+              docMoneda === monedaPago &&
+              (docEquivalencia === "" || docEquivalencia === "1")
+            );
+          });
+
+          if (allDocsComparable) {
+            const sumPagado = pago.documentosRelacionados.reduce(
+              (acc, doc) => acc + toMoneyNumber(doc.impPagado),
+              0,
+            );
+            if (sumPagado > pagoMonto + 0.01) {
+              addFindingOnce({
+                severity: "CRITICAL",
+                category: "COMPLEMENT",
+                code: "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT",
+                title: "Importes relacionados exceden el monto del pago",
+                message: "La suma de importes pagados en documentos relacionados excede el monto del pago.",
+                recommendedAction: "Revisa el monto del pago y los importes aplicados a documentos relacionados.",
+                evidence: [
+                  { label: "Número de pago", value: String(pagoNum) },
+                  { label: "Monto pago", value: pago.monto ?? "—" },
+                  { label: "MonedaP", value: monedaPago },
+                  { label: "Suma ImpPagado comparable", value: String(sumPagado) },
+                  { label: "Diferencia", value: String(Math.round((sumPagado - pagoMonto) * 100) / 100) },
+                  { label: "Criterio comparación", value: "MonedaP = MonedaDR y EquivalenciaDR = 1 o vacío" },
+                ],
+              });
+            }
+          } else {
+            addFindingOnce({
+              severity: "INFO",
+              category: "COMPLEMENT",
+              code: "PAYMENT_TOTAL_RELATED_PAID_REVIEW",
+              title: "Importes relacionados requieren revisión por moneda/equivalencia",
+              message: "El pago contiene documentos relacionados con moneda o equivalencia que requieren revisión antes de comparar importes de forma directa.",
+              recommendedAction: "Valida manualmente la equivalencia y el tipo de cambio aplicado en el REP.",
+              evidence: [
+                { label: "Número de pago", value: String(pagoNum) },
+                { label: "MonedaP", value: monedaPago },
+                { label: "Monedas DR detectadas", value: [...new Set(pago.documentosRelacionados.map((d) => normalizeCurrency(d.monedaDR) || "—"))].join(", ") },
+                { label: "Equivalencias DR detectadas", value: [...new Set(pago.documentosRelacionados.map((d) => normalizeCurrency(d.equivalenciaDR) || "—"))].join(", ") },
+                { label: "Monto pago", value: pago.monto ?? "—" },
+              ],
+            });
+          }
+        }
+      });
+    }
+  }
+
+  // ── CFDI Relations Findings ──
+  const isEgreso = isTipoComprobanteEgreso(tipoComprobante);
+  const isPagoType = isTipoComprobantePago(tipoComprobante);
+
+  if (cfdiRelations && cfdiRelations.groups.length > 0) {
+    const seenRelatedUuids = new Map<string, number>();
+
+    cfdiRelations.groups.forEach((group, groupIdx) => {
+      const groupNum = groupIdx + 1;
+
+      // B) CFDI_RELATION_GROUP_WITHOUT_TIPO_RELACION
+      if (!isNonEmptyString(group.tipoRelacion)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "FISCAL",
+          code: "CFDI_RELATION_GROUP_WITHOUT_TIPO_RELACION",
+          title: "Tipo de relación faltante",
+          message: "Se detectó un grupo de CFDI relacionados sin TipoRelacion.",
+          recommendedAction: "Verifica que el nodo CfdiRelacionados incluya el TipoRelacion correspondiente.",
+          evidence: [
+            { label: "Grupo #", value: String(groupNum) },
+            { label: "Total CFDI relacionados en el grupo", value: String(group.relatedCfdis.length) },
+            { label: "UUID comprobante", value: uuid ?? "—" },
+          ],
+        });
+      }
+
+      // C) CFDI_RELATION_GROUP_WITHOUT_RELATED_UUIDS
+      if (group.relatedCfdis.length === 0) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "FISCAL",
+          code: "CFDI_RELATION_GROUP_WITHOUT_RELATED_UUIDS",
+          title: "Grupo de relación sin CFDI relacionados",
+          message: "Se detectó un nodo CfdiRelacionados, pero no contiene CFDI relacionados.",
+          recommendedAction: "Revisa que el XML incluya al menos un nodo CfdiRelacionado con UUID.",
+          evidence: [
+            { label: "Grupo #", value: String(groupNum) },
+            { label: "TipoRelacion", value: group.tipoRelacion ?? "—" },
+            { label: "UUID comprobante", value: uuid ?? "—" },
+          ],
+        });
+        return;
+      }
+
+      // I) SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW
+      if (group.tipoRelacion === "04" && group.relatedCfdis.length > 1) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "FISCAL",
+          code: "SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW",
+          title: "Sustitución con múltiples CFDI relacionados",
+          message: "Se detectó TipoRelacion 04 con múltiples CFDI relacionados. Puede ser válido según el caso, pero requiere revisión operativa.",
+          recommendedAction: "Confirma que la sustitución se haya generado contra los CFDI origen correctos.",
+          evidence: [
+            { label: "Grupo #", value: String(groupNum) },
+            { label: "TipoRelacion", value: group.tipoRelacion },
+            { label: "Total relacionados", value: String(group.relatedCfdis.length) },
+            { label: "UUIDs relacionados", value: group.relatedCfdis.map(r => r.uuid ?? "—").join(", ") },
+          ],
+        });
+      }
+
+      group.relatedCfdis.forEach((rel, relIdx) => {
+        const relNum = relIdx + 1;
+        const relatedUuid = normalizeUuid(rel.uuid);
+
+        // D) CFDI_RELATED_MISSING_UUID
+        if (!isNonEmptyString(rel.uuid)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "FISCAL",
+            code: "CFDI_RELATED_MISSING_UUID",
+            title: "CFDI relacionado sin UUID",
+            message: "Un CFDI relacionado no contiene UUID.",
+            recommendedAction: "Verifica que cada CFDI relacionado tenga el UUID del comprobante origen.",
+            evidence: [
+              { label: "Grupo #", value: String(groupNum) },
+              { label: "Relacionado #", value: String(relNum) },
+              { label: "TipoRelacion", value: group.tipoRelacion ?? "—" },
+              { label: "UUID comprobante", value: uuid ?? "—" },
+            ],
+          });
+        }
+
+        // E) CFDI_RELATED_UUID_NON_STANDARD
+        if (isNonEmptyString(rel.uuid) && !isStandardUuid(rel.uuid)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "FISCAL",
+            code: "CFDI_RELATED_UUID_NON_STANDARD",
+            title: "UUID relacionado con formato no estándar",
+            message: "El UUID de un CFDI relacionado no tiene el formato estándar esperado.",
+            recommendedAction: "Revisa el UUID relacionado capturado en el XML.",
+            evidence: [
+              { label: "Grupo #", value: String(groupNum) },
+              { label: "Relacionado #", value: String(relNum) },
+              { label: "TipoRelacion", value: group.tipoRelacion ?? "—" },
+              { label: "UUID relacionado", value: relatedUuid },
+              { label: "UUID comprobante", value: uuid ?? "—" },
+            ],
+          });
+        }
+
+        // G) CFDI_SELF_RELATION
+        const compUuid = normalizeUuid(uuid);
+        if (isNonEmptyString(rel.uuid) && isNonEmptyString(uuid) && relatedUuid === compUuid) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "FISCAL",
+            code: "CFDI_SELF_RELATION",
+            title: "CFDI relacionado apunta al mismo comprobante",
+            message: "El comprobante se relaciona a sí mismo como CFDI relacionado. Esto es inusual y puede indicar un error de generación.",
+            recommendedAction: "Verifica que el UUID relacionado corresponda al comprobante origen correcto.",
+            evidence: [
+              { label: "UUID comprobante", value: compUuid },
+              { label: "UUID relacionado", value: relatedUuid },
+              { label: "TipoRelacion", value: group.tipoRelacion ?? "—" },
+            ],
+          });
+        }
+
+        // F) CFDI_RELATED_DUPLICATE_UUID (track per group)
+        const relUuidVal = rel.uuid;
+        if (relUuidVal && relUuidVal.trim().length > 0) {
+          const lowerUuid = relUuidVal.trim().toLowerCase();
+          const count = (seenRelatedUuids.get(lowerUuid) ?? 0) + 1;
+          seenRelatedUuids.set(lowerUuid, count);
+        }
+      });
+    });
+
+    // F) CFDI_RELATED_DUPLICATE_UUID - emit after counting
+    for (const [lowerUuid, count] of seenRelatedUuids.entries()) {
+      if (count > 1) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "FISCAL",
+          code: "CFDI_RELATED_DUPLICATE_UUID",
+          title: "UUID relacionado duplicado",
+          message: "El mismo UUID relacionado aparece más de una vez en el XML. Puede ser válido en estructuras específicas, pero conviene revisarlo.",
+          recommendedAction: "Confirma si la duplicidad del UUID relacionado es intencional.",
+          evidence: [
+            { label: "UUID relacionado", value: lowerUuid.toUpperCase() },
+            { label: "Apariciones", value: String(count) },
+            { label: "UUID comprobante", value: uuid ?? "—" },
+          ],
+        });
+      }
+    }
+  }
+
+  // A) EGRESO_WITHOUT_CFDI_RELACIONADOS
+  if (isEgreso && (!cfdiRelations || cfdiRelations.totalRelatedCfdis === 0)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "EGRESO_WITHOUT_CFDI_RELACIONADOS",
+      title: "Egreso sin CFDI relacionado",
+      message: "El comprobante es de tipo Egreso, pero no se detectaron CFDI relacionados. En notas de crédito o devoluciones normalmente debe existir una relación con el CFDI origen.",
+      recommendedAction: "Revisa si el CFDI de egreso debe relacionarse con la factura original o documento que corrige.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Serie", value: serie ?? "—" },
+        { label: "Folio", value: folio ?? "—" },
+        { label: "Total", value: total ?? "—" },
+      ],
+    });
+  }
+
+  // H) EGRESO_RELATION_TYPE_REVIEW
+  if (isEgreso && cfdiRelations && cfdiRelations.groups.length > 0) {
+    const expectedEgresoTypes = ["01", "03", "04", "07"];
+    cfdiRelations.groups.forEach((group) => {
+      const grupoTipoRel = group.tipoRelacion;
+      if (grupoTipoRel && grupoTipoRel.trim().length > 0 && !expectedEgresoTypes.includes(grupoTipoRel.trim())) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "FISCAL",
+          code: "EGRESO_RELATION_TYPE_REVIEW",
+          title: "Tipo de relación en egreso requiere revisión",
+          message: "El comprobante de egreso usa un TipoRelacion que puede ser válido, pero no corresponde al patrón más común para notas de crédito, devoluciones o sustituciones.",
+          recommendedAction: "Revisa que el TipoRelacion sea correcto para el escenario fiscal del egreso.",
+          evidence: [
+            { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+            { label: "TipoRelacion", value: grupoTipoRel },
+            { label: "Valores de referencia", value: expectedEgresoTypes.join(", ") },
+            { label: "UUID comprobante", value: uuid ?? "—" },
+          ],
+        });
+      }
+    });
+  }
+
+  // J) PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW
+  if (isPagoType && cfdiRelations && cfdiRelations.totalRelatedCfdis > 0) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW",
+      title: "Comprobante de pago con CFDI relacionados",
+      message: "El comprobante de pago incluye CfdiRelacionados además del complemento de pagos. Puede ser válido en escenarios específicos, pero normalmente la relación principal de documentos se controla dentro del complemento Pagos.",
+      recommendedAction: "Revisa si la relación adicional es necesaria o si la trazabilidad debe estar únicamente en DoctoRelacionado del complemento de pago.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Total CFDI relacionados", value: String(cfdiRelations.totalRelatedCfdis) },
+        { label: "Total documentos relacionados en Pagos", value: String(paymentComplement?.pagos.reduce((acc, p) => acc + p.documentosRelacionados.length, 0) ?? 0) },
+        { label: "UUID comprobante", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // ── Carta Porte Findings ──
+  if (cartaPorte) {
+
+    // A) CARTA_PORTE_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "CARTA_PORTE_DETECTED",
+      title: "Complemento Carta Porte detectado",
+      message: "El XML contiene complemento Carta Porte. Se realizará una revisión estructural base de ubicaciones, mercancías y transporte.",
+      recommendedAction: "Revisa que los datos logísticos y fiscales del traslado correspondan al escenario real de la operación.",
+      evidence: [
+        { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+        { label: "IdCCP", value: cartaPorte.idCCP ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Transporte internacional", value: cartaPorte.transpInternac ?? "—" },
+        { label: "Total distancia recorrida", value: cartaPorte.totalDistRec ?? "—" },
+      ],
+    });
+
+    // C) CARTA_PORTE_MISSING_VERSION
+    if (!isNonEmptyString(cartaPorte.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_MISSING_VERSION",
+        title: "Versión de Carta Porte faltante",
+        message: "No se detectó la versión del complemento Carta Porte.",
+        recommendedAction: "Verifica que el complemento Carta Porte del XML esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "Complementos detectados", value: complemento ? Object.keys(complemento).join(", ") : "Ninguno" },
+        ],
+      });
+    }
+
+    // B) CARTA_PORTE_VERSION_REVIEW
+    const cpVersionReview = normalizeCartaPorteVersion(cartaPorte.version);
+    if (cpVersionReview && !["2.0", "3.0", "3.1"].includes(cpVersionReview)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_VERSION_REVIEW",
+        title: "Versión de Carta Porte no reconocida",
+        message: "El complemento Carta Porte tiene una versión no reconocida por el motor actual. El XML puede requerir revisión especializada.",
+        recommendedAction: "Confirma que la versión del complemento Carta Porte sea compatible con el CFDI y con las reglas vigentes aplicables.",
+        evidence: [
+          { label: "Versión detectada", value: cpVersionReview },
+          { label: "Complemento detectado", value: "CartaPorte" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // D) CARTA_PORTE_MISSING_IDCCP
+    const cpVersion = normalizeCartaPorteVersion(cartaPorte.version);
+    if ((cpVersion === "3.0" || cpVersion === "3.1") && !isNonEmptyString(cartaPorte.idCCP)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_MISSING_IDCCP",
+        title: "IdCCP faltante en Carta Porte",
+        message: "No se detectó IdCCP en Carta Porte. Este identificador es relevante para la trazabilidad del complemento.",
+        recommendedAction: "Revisa que el XML de Carta Porte incluya el identificador del complemento cuando aplique.",
+        evidence: [
+          { label: "Versión Carta Porte", value: cpVersion },
+          { label: "IdCCP", value: cartaPorte.idCCP ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // E) CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE
+    if (!isTipoComprobanteIngreso(tipoComprobante) && !isTipoComprobanteTraslado(tipoComprobante)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE",
+        title: "Carta Porte en tipo de comprobante no esperado",
+        message: "Se detectó Carta Porte en un tipo de comprobante distinto de Ingreso o Traslado. Esto es inusual y requiere revisión.",
+        recommendedAction: "Confirma que el tipo de comprobante sea correcto para el traslado o servicio de transporte documentado.",
+        evidence: [
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // F) CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO
+    const totalNum = toMoneyNumber(total);
+    if (isTipoComprobanteTraslado(tipoComprobante) && isNonEmptyString(total) && totalNum !== 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO",
+        title: "CFDI de traslado con Carta Porte tiene total distinto de cero",
+        message: "El CFDI de tipo Traslado con Carta Porte normalmente debe manejar subtotal y total en cero.",
+        recommendedAction: "Revisa si el CFDI debe ser de tipo Ingreso o si los importes del traslado fueron capturados correctamente.",
+        evidence: [
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "Subtotal", value: subtotal ?? "—" },
+          { label: "Total", value: total ?? "—" },
+          { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+        ],
+      });
+    }
+
+    // G) CARTA_PORTE_MISSING_UBICACIONES
+    if (!cartaPorte.hasUbicaciones) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_MISSING_UBICACIONES",
+        title: "Carta Porte sin ubicaciones",
+        message: "No se detectaron ubicaciones dentro del complemento Carta Porte.",
+        recommendedAction: "Verifica que el complemento incluya las ubicaciones de origen, destino y, si aplica, puntos intermedios.",
+        evidence: [
+          { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Total ubicaciones", value: String(cartaPorte.ubicaciones.length) },
+        ],
+      });
+    }
+
+    // H) CARTA_PORTE_MISSING_MERCANCIAS
+    if (!cartaPorte.hasMercancias) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_MISSING_MERCANCIAS",
+        title: "Carta Porte sin mercancías",
+        message: "No se detectaron mercancías dentro del complemento Carta Porte.",
+        recommendedAction: "Verifica que el complemento incluya el detalle de bienes o mercancías trasladadas.",
+        evidence: [
+          { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Total mercancías", value: String(cartaPorte.mercancias.length) },
+        ],
+      });
+    }
+
+    // I) CARTA_PORTE_ORIGIN_DESTINATION_REVIEW
+    if (cartaPorte.hasUbicaciones) {
+      const tiposUbicacion = cartaPorte.ubicaciones.map(u => u.tipoUbicacion).filter(Boolean);
+      const hasOrigen = tiposUbicacion.some(t => t && t.toLowerCase() === "origen");
+      const hasDestino = tiposUbicacion.some(t => t && t.toLowerCase() === "destino");
+      if (!hasOrigen || !hasDestino) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "CARTA_PORTE_ORIGIN_DESTINATION_REVIEW",
+          title: "Ubicaciones de origen/destino incompletas",
+          message: "No se detectó la combinación mínima de ubicación origen y destino dentro de Carta Porte.",
+          recommendedAction: "Revisa que el complemento incluya una ubicación de origen y una de destino.",
+          evidence: [
+            { label: "Total ubicaciones", value: String(cartaPorte.ubicaciones.length) },
+            { label: "Tipos de ubicación detectados", value: tiposUbicacion.join(", ") || "—" },
+            { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+          ],
+        });
+      }
+    }
+
+    // J) CARTA_PORTE_UBICACION_MISSING_RFC (per ubicacion)
+    cartaPorte.ubicaciones.forEach((ubi, uIdx) => {
+      const ubiNum = uIdx + 1;
+      if (!isNonEmptyString(ubi.rfcRemitenteDestinatario)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "CARTA_PORTE_UBICACION_MISSING_RFC",
+          title: "Ubicación sin RFC de remitente/destinatario",
+          message: "Una ubicación de Carta Porte no contiene RFCRemitenteDestinatario.",
+          recommendedAction: "Revisa la información fiscal de la ubicación correspondiente.",
+          evidence: [
+            { label: "Ubicación #", value: String(ubiNum) },
+            { label: "Tipo ubicación", value: ubi.tipoUbicacion ?? "—" },
+            { label: "ID ubicación", value: ubi.idUbicacion ?? "—" },
+            { label: "Nombre remitente/destinatario", value: ubi.nombreRemitenteDestinatario ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // K) CARTA_PORTE_UBICACION_INVALID_DISTANCE (per ubicacion)
+    cartaPorte.ubicaciones.forEach((ubi, uIdx) => {
+      const ubiNum = uIdx + 1;
+      const distStr = ubi.distanciaRecorrida;
+      if (distStr != null && distStr.trim().length > 0) {
+        const dist = parseFloat(distStr.trim());
+        if (isNaN(dist) || dist < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "CARTA_PORTE_UBICACION_INVALID_DISTANCE",
+            title: "Distancia recorrida inválida",
+            message: "Una ubicación contiene DistanciaRecorrida con formato inválido o valor negativo.",
+            recommendedAction: "Revisa la distancia recorrida capturada para la ubicación.",
+            evidence: [
+              { label: "Ubicación #", value: String(ubiNum) },
+              { label: "Tipo ubicación", value: ubi.tipoUbicacion ?? "—" },
+              { label: "Distancia recorrida", value: distStr ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // L) CARTA_PORTE_MERCANCIA_MISSING_BIENES_TRANSP (per mercancia)
+    cartaPorte.mercancias.forEach((mer, mIdx) => {
+      const merNum = mIdx + 1;
+      if (!isNonEmptyString(mer.bienesTransp)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "CARTA_PORTE_MERCANCIA_MISSING_BIENES_TRANSP",
+          title: "Mercancía sin clave de bienes transportados",
+          message: "Una mercancía de Carta Porte no contiene BienesTransp.",
+          recommendedAction: "Revisa la clave de bienes transportados capturada en la mercancía.",
+          evidence: [
+            { label: "Mercancía #", value: String(merNum) },
+            { label: "Descripción", value: mer.descripcion ?? "—" },
+            { label: "Cantidad", value: mer.cantidad ?? "—" },
+            { label: "Clave unidad", value: mer.claveUnidad ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // M) CARTA_PORTE_MERCANCIA_MISSING_DESCRIPTION (per mercancia)
+    cartaPorte.mercancias.forEach((mer, mIdx) => {
+      const merNum = mIdx + 1;
+      if (!isNonEmptyString(mer.descripcion)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "CARTA_PORTE_MERCANCIA_MISSING_DESCRIPTION",
+          title: "Mercancía sin descripción",
+          message: "Una mercancía de Carta Porte no contiene descripción.",
+          recommendedAction: "Revisa el detalle descriptivo de la mercancía transportada.",
+          evidence: [
+            { label: "Mercancía #", value: String(merNum) },
+            { label: "BienesTransp", value: mer.bienesTransp ?? "—" },
+            { label: "Cantidad", value: mer.cantidad ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // N) CARTA_PORTE_MERCANCIA_INVALID_QUANTITY (per mercancia)
+    cartaPorte.mercancias.forEach((mer, mIdx) => {
+      const merNum = mIdx + 1;
+      const cantidadStr = mer.cantidad;
+      if (cantidadStr != null && cantidadStr.trim().length > 0) {
+        const qty = parseFloat(cantidadStr.trim());
+        if (isNaN(qty) || qty <= 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "CARTA_PORTE_MERCANCIA_INVALID_QUANTITY",
+            title: "Cantidad de mercancía inválida",
+            message: "Una mercancía de Carta Porte contiene cantidad no válida.",
+            recommendedAction: "Revisa la cantidad capturada para la mercancía.",
+            evidence: [
+              { label: "Mercancía #", value: String(merNum) },
+              { label: "BienesTransp", value: mer.bienesTransp ?? "—" },
+              { label: "Descripción", value: mer.descripcion ?? "—" },
+              { label: "Cantidad", value: cantidadStr ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // O) CARTA_PORTE_MERCANCIA_INVALID_WEIGHT (per mercancia)
+    cartaPorte.mercancias.forEach((mer, mIdx) => {
+      const merNum = mIdx + 1;
+      const pesoStr = mer.pesoEnKg;
+      if (pesoStr != null && pesoStr.trim().length > 0) {
+        const peso = parseFloat(pesoStr.trim());
+        if (isNaN(peso) || peso <= 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "CARTA_PORTE_MERCANCIA_INVALID_WEIGHT",
+            title: "Peso de mercancía inválido",
+            message: "Una mercancía de Carta Porte contiene PesoEnKg no válido.",
+            recommendedAction: "Revisa el peso capturado para la mercancía.",
+            evidence: [
+              { label: "Mercancía #", value: String(merNum) },
+              { label: "BienesTransp", value: mer.bienesTransp ?? "—" },
+              { label: "Descripción", value: mer.descripcion ?? "—" },
+              { label: "PesoEnKg", value: pesoStr ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // P) CARTA_PORTE_NO_TRANSPORT_MODE_DETECTED
+    if (!cartaPorte.hasAutotransporte && !cartaPorte.hasTransporteMaritimo && !cartaPorte.hasTransporteAereo && !cartaPorte.hasTransporteFerroviario) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "CARTA_PORTE_NO_TRANSPORT_MODE_DETECTED",
+        title: "Medio de transporte no detectado",
+        message: "No se detectó un nodo de medio de transporte específico dentro de Carta Porte. Puede ser válido según estructura, pero requiere revisión.",
+        recommendedAction: "Revisa si el complemento debe incluir información de autotransporte, transporte marítimo, aéreo o ferroviario.",
+        evidence: [
+          { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
+          { label: "Autotransporte detectado", value: cartaPorte.hasAutotransporte ? "Sí" : "No" },
+          { label: "Transporte marítimo detectado", value: cartaPorte.hasTransporteMaritimo ? "Sí" : "No" },
+          { label: "Transporte aéreo detectado", value: cartaPorte.hasTransporteAereo ? "Sí" : "No" },
+          { label: "Transporte ferroviario detectado", value: cartaPorte.hasTransporteFerroviario ? "Sí" : "No" },
+        ],
+      });
+    }
+
+    // Q) CARTA_PORTE_FIGURA_MISSING_RFC_REVIEW (per figura)
+    cartaPorte.figurasTransporte.forEach((fig, fIdx) => {
+      const figNum = fIdx + 1;
+      if (!isNonEmptyString(fig.rfcFigura) && isNonEmptyString(fig.nombreFigura)) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "COMPLEMENT",
+          code: "CARTA_PORTE_FIGURA_MISSING_RFC_REVIEW",
+          title: "Figura de transporte sin RFC",
+          message: "Una figura de transporte contiene nombre, pero no RFCFigura. Puede ser válido según el caso, pero conviene revisarlo.",
+          recommendedAction: "Confirma si la figura de transporte debe incluir RFC.",
+          evidence: [
+            { label: "Figura #", value: String(figNum) },
+            { label: "Tipo figura", value: fig.tipoFigura ?? "—" },
+            { label: "Nombre figura", value: fig.nombreFigura ?? "—" },
+            { label: "Número licencia", value: fig.numLicencia ?? "—" },
+          ],
+        });
+      }
+    });
+  }
+
   // ── Executive Summary ──
   let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
   let summaryTitle: string;
@@ -2160,6 +3399,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     technicalDiagnostics: diag,
     executiveSummary,
     paymentComplement: paymentComplement ?? undefined,
+    cfdiRelations,
+    cartaPorte,
     structureDiagnostics,
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,
@@ -2206,6 +3447,8 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     technicalDiagnostics: result.technicalDiagnostics,
     executiveSummary: result.executiveSummary,
     paymentComplement: result.paymentComplement,
+    cfdiRelations: result.cfdiRelations,
+    cartaPorte: result.cartaPorte,
     structureDiagnostics: result.structureDiagnostics,
     concepts: result.concepts,
     totalsValidation: result.totalsValidation,

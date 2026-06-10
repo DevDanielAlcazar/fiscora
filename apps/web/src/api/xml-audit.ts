@@ -42,6 +42,63 @@ export interface PaymentComplement {
   pagos: PaymentInfo[];
 }
 
+export interface RelatedCfdi {
+  uuid?: string | null;
+}
+
+export interface CfdiRelationGroup {
+  tipoRelacion?: string | null;
+  relatedCfdis: RelatedCfdi[];
+}
+
+export interface CfdiRelations {
+  totalRelationGroups: number;
+  totalRelatedCfdis: number;
+  groups: CfdiRelationGroup[];
+}
+
+export interface CartaPorteUbicacion {
+  tipoUbicacion?: string | null;
+  idUbicacion?: string | null;
+  rfcRemitenteDestinatario?: string | null;
+  nombreRemitenteDestinatario?: string | null;
+  fechaHoraSalidaLlegada?: string | null;
+  distanciaRecorrida?: string | null;
+}
+
+export interface CartaPorteMercancia {
+  bienesTransp?: string | null;
+  descripcion?: string | null;
+  cantidad?: string | null;
+  claveUnidad?: string | null;
+  pesoEnKg?: string | null;
+  valorMercancia?: string | null;
+  moneda?: string | null;
+}
+
+export interface CartaPorteTransportFigure {
+  tipoFigura?: string | null;
+  rfcFigura?: string | null;
+  nombreFigura?: string | null;
+  numLicencia?: string | null;
+}
+
+export interface CartaPorteInfo {
+  version?: string | null;
+  idCCP?: string | null;
+  transpInternac?: string | null;
+  totalDistRec?: string | null;
+  hasUbicaciones: boolean;
+  hasMercancias: boolean;
+  ubicaciones: CartaPorteUbicacion[];
+  mercancias: CartaPorteMercancia[];
+  figurasTransporte: CartaPorteTransportFigure[];
+  hasAutotransporte: boolean;
+  hasTransporteMaritimo: boolean;
+  hasTransporteAereo: boolean;
+  hasTransporteFerroviario: boolean;
+}
+
 export interface StructureDiagnostics {
   namespaces: string[];
   hasComplemento: boolean;
@@ -158,6 +215,8 @@ export interface AnalysisResult {
   technicalDiagnostics: TechnicalDiagnostics;
   executiveSummary: ExecutiveSummary;
   paymentComplement?: PaymentComplement;
+  cfdiRelations?: CfdiRelations;
+  cartaPorte?: CartaPorteInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;

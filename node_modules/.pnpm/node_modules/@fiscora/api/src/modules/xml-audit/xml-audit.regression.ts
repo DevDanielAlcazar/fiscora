@@ -663,6 +663,485 @@ async function testFechaTimbradoAnterior(): Promise<void> {
   assertEqual(dateFinding.severity, "WARNING", "TIMBRADO_DATE_BEFORE_CFDI_DATE debe ser WARNING");
 }
 
+function buildRepXml(opts?: {
+  monedaP?: string;
+  monto?: string;
+  docs?: Array<{
+    idDocumento?: string;
+    monedaDR?: string;
+    equivalenciaDR?: string;
+    numParcialidad?: string;
+    impSaldoAnt?: string;
+    impPagado?: string;
+    impSaldoInsoluto?: string;
+  }>;
+  includeTimbre?: boolean;
+}): string {
+  const monedaP = opts?.monedaP ?? "MXN";
+  const monto = opts?.monto ?? "1000.00";
+  const docs = opts?.docs ?? [{
+    idDocumento: "a1111111-1111-4111-8111-111111111111",
+    monedaDR: "MXN",
+    equivalenciaDR: "1",
+    numParcialidad: "1",
+    impSaldoAnt: "1000.00",
+    impPagado: "400.00",
+    impSaldoInsoluto: "600.00",
+  }];
+  const includeTimbre = opts?.includeTimbre ?? true;
+
+  const docsXml = docs.map((d) =>
+    `        <pago20:DoctoRelacionado${d.idDocumento ? ` IdDocumento="${d.idDocumento}"` : ""} Serie="A" Folio="1"${d.monedaDR ? ` MonedaDR="${d.monedaDR}"` : ""}${d.equivalenciaDR ? ` EquivalenciaDR="${d.equivalenciaDR}"` : ""}${d.numParcialidad ? ` NumParcialidad="${d.numParcialidad}"` : ""}${d.impSaldoAnt ? ` ImpSaldoAnt="${d.impSaldoAnt}"` : ""}${d.impPagado ? ` ImpPagado="${d.impPagado}"` : ""}${d.impSaldoInsoluto ? ` ImpSaldoInsoluto="${d.impSaldoInsoluto}"` : ""} ObjetoImpDR="01"/>`
+  ).join("\n");
+
+  const timbre = includeTimbre
+    ? `    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ffffffff-gggg-hhhh-iiii-jjjjjjjjjjjj" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${PAGO20_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="${monedaP}" Monto="${monto}" NumOperacion="OP001">
+${docsXml}
+      </pago20:Pago>
+    </pago20:Pagos>
+${timbre}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// Q) REP saldo consistente
+async function testRepSaldoConsistente(): Promise<void> {
+  const xml = buildRepXml({
+    monto: "1000.00",
+    monedaP: "MXN",
+    docs: [{
+      idDocumento: "a1111111-1111-4111-8111-111111111111",
+      monedaDR: "MXN",
+      equivalenciaDR: "1",
+      numParcialidad: "1",
+      impSaldoAnt: "1000.00",
+      impPagado: "400.00",
+      impSaldoInsoluto: "600.00",
+    }],
+  });
+
+  const result = analyzeCfdi(xml, "rep-saldo-consistente.xml");
+
+  assertTruthy(
+    !result.findings.some(f => f.code === "RELATED_DOCUMENT_BALANCE_MISMATCH"),
+    "No debe existir RELATED_DOCUMENT_BALANCE_MISMATCH",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE"),
+    "No debe existir RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT"),
+    "No debe existir PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT",
+  );
+}
+
+// R) REP saldo inconsistente
+async function testRepSaldoInconsistente(): Promise<void> {
+  const xml = buildRepXml({
+    monto: "1000.00",
+    monedaP: "MXN",
+    docs: [{
+      idDocumento: "b2222222-2222-4222-8222-222222222222",
+      monedaDR: "MXN",
+      equivalenciaDR: "1",
+      numParcialidad: "1",
+      impSaldoAnt: "1000.00",
+      impPagado: "400.00",
+      impSaldoInsoluto: "700.00",
+    }],
+  });
+
+  const result = analyzeCfdi(xml, "rep-saldo-inconsistente.xml");
+
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_BALANCE_MISMATCH");
+  const mismatch = result.findings.find(f => f.code === "RELATED_DOCUMENT_BALANCE_MISMATCH")!;
+  assertEqual(mismatch.severity, "CRITICAL", "RELATED_DOCUMENT_BALANCE_MISMATCH debe ser CRITICAL");
+  assertEqual(result.executiveSummary.riskLevel, "CRITICAL", "riskLevel debe ser CRITICAL");
+}
+
+// S) REP pagado mayor a saldo anterior
+async function testRepPagadoMayorSaldoAnterior(): Promise<void> {
+  const xml = buildRepXml({
+    monto: "1200.00",
+    monedaP: "MXN",
+    docs: [{
+      idDocumento: "c3333333-3333-4333-8333-333333333333",
+      monedaDR: "MXN",
+      equivalenciaDR: "1",
+      numParcialidad: "2",
+      impSaldoAnt: "1000.00",
+      impPagado: "1200.00",
+      impSaldoInsoluto: "0.00",
+    }],
+  });
+
+  const result = analyzeCfdi(xml, "rep-pagado-mayor.xml");
+
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE");
+  const exceed = result.findings.find(f => f.code === "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE")!;
+  assertEqual(exceed.severity, "CRITICAL", "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE debe ser CRITICAL");
+}
+
+// T) REP suma documentos excede monto pago
+async function testRepSumaExcedeMonto(): Promise<void> {
+  const xml = buildRepXml({
+    monto: "1000.00",
+    monedaP: "MXN",
+    docs: [
+      {
+        idDocumento: "d4444444-4444-4444-8444-444444444444",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "600.00",
+        impSaldoInsoluto: "400.00",
+      },
+      {
+        idDocumento: "e5555555-5555-4555-8555-555555555555",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "600.00",
+        impPagado: "500.00",
+        impSaldoInsoluto: "100.00",
+      },
+    ],
+  });
+
+  const result = analyzeCfdi(xml, "rep-suma-excede.xml");
+
+  assertIncludesFinding(result.findings, "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT");
+  const exceed = result.findings.find(f => f.code === "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT")!;
+  assertEqual(exceed.severity, "CRITICAL", "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT debe ser CRITICAL");
+}
+
+// U) REP revisión por moneda/equivalencia
+async function testRepRevisionMoneda(): Promise<void> {
+  const xml = buildRepXml({
+    monto: "1000.00",
+    monedaP: "USD",
+    docs: [{
+      idDocumento: "f6666666-6666-4666-8666-666666666666",
+      monedaDR: "MXN",
+      equivalenciaDR: "17.50",
+      numParcialidad: "1",
+      impSaldoAnt: "1000.00",
+      impPagado: "600.00",
+      impSaldoInsoluto: "400.00",
+    }],
+  });
+
+  const result = analyzeCfdi(xml, "rep-revision-moneda.xml");
+
+  assertIncludesFinding(result.findings, "PAYMENT_TOTAL_RELATED_PAID_REVIEW");
+  const review = result.findings.find(f => f.code === "PAYMENT_TOTAL_RELATED_PAID_REVIEW")!;
+  assertEqual(review.severity, "INFO", "PAYMENT_TOTAL_RELATED_PAID_REVIEW debe ser INFO");
+  assertTruthy(
+    !result.findings.some(f => f.code === "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT"),
+    "No debe existir PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT cuando hay moneda/equivalencia no comparable",
+  );
+}
+
+function buildEgresoCfdiRelacionadosXml(uuidRel?: string, tipoRel?: string, extraRelUuids?: string[]): string {
+  const relatedUuids = extraRelUuids ?? [];
+  const allRels = uuidRel ? [uuidRel, ...relatedUuids] : relatedUuids;
+  const relsXml = allRels.length > 0
+    ? allRels.map(u => `      <cfdi:CfdiRelacionado UUID="${u}"/>`).join("\n")
+    : "";
+  const relacionesXml = relsXml
+    ? `  <cfdi:CfdiRelacionados${tipoRel ? ` TipoRelacion="${tipoRel}"` : ""}>\n${relsXml}\n  </cfdi:CfdiRelacionados>`
+    : "";
+  const timbreRel = '<tfd:TimbreFiscalDigital ' + TFD_NS + ' Version="1.1" UUID="aaaaaa00-0000-4000-8000-000000000000" FechaTimbrado="2024-05-01T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="E" Folio="1" Fecha="2024-05-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="500.00" Moneda="MXN" Total="435.00" TipoDeComprobante="E" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+${relacionesXml}
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Descuento" ValorUnitario="500.00" Importe="500.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="500.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="80.00"/>
+        </cfdi:Traslados>
+        <cfdi:Retenciones>
+          <cfdi:Retencion Base="500.00" Impuesto="001" TipoFactor="Tasa" TasaOCuota="0.100000" Importe="50.00"/>
+          <cfdi:Retencion Base="500.00" Impuesto="003" TipoFactor="Tasa" TasaOCuota="0.050000" Importe="25.00"/>
+        </cfdi:Retenciones>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="80.00" TotalImpuestosRetenidos="75.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="500.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="80.00"/>
+    </cfdi:Traslados>
+    <cfdi:Retenciones>
+      <cfdi:Retencion Base="500.00" Impuesto="001" TipoFactor="Tasa" TasaOCuota="0.100000" Importe="50.00"/>
+      <cfdi:Retencion Base="500.00" Impuesto="003" TipoFactor="Tasa" TasaOCuota="0.050000" Importe="25.00"/>
+    </cfdi:Retenciones>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    ${timbreRel}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildPagoConCfdiRelacionadosXml(): string {
+  const timbre = '<tfd:TimbreFiscalDigital ' + TFD_NS + ' Version="1.1" UUID="zzzzzz00-0000-4000-8000-000000000000" FechaTimbrado="2024-06-01T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${PAGO20_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="P" Folio="1" Fecha="2024-06-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:CfdiRelacionados TipoRelacion="01">
+    <cfdi:CfdiRelacionado UUID="aaaaaa00-0000-4000-8000-000000000001"/>
+  </cfdi:CfdiRelacionados>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-06-01T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001">
+        <pago20:DoctoRelacionado IdDocumento="dddddddd-dddd-4ddd-8ddd-dddddddddddd" Serie="A" Folio="123" MonedaDR="MXN" EquivalenciaDR="1" NumParcialidad="1" ImpSaldoAnt="5000.00" ImpPagado="5000.00" ImpSaldoInsoluto="0.00" ObjetoImpDR="01"/>
+      </pago20:Pago>
+    </pago20:Pagos>
+    ${timbre}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// V) Egreso con CFDI relacionado válido
+async function testEgresoRelacionadoValido(): Promise<void> {
+  const xml = buildEgresoCfdiRelacionadosXml("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "01");
+  const result = analyzeCfdi(xml, "egreso-relacionado-valido.xml");
+
+  assertEqual(result.cfdiRelations!.totalRelatedCfdis, 1, "totalRelatedCfdis debe ser 1");
+  assertTruthy(
+    !result.findings.some(f => f.code === "EGRESO_WITHOUT_CFDI_RELACIONADOS"),
+    "No debe existir EGRESO_WITHOUT_CFDI_RELACIONADOS",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "CFDI_RELATED_UUID_NON_STANDARD"),
+    "No debe existir CFDI_RELATED_UUID_NON_STANDARD",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "CFDI_SELF_RELATION"),
+    "No debe existir CFDI_SELF_RELATION",
+  );
+}
+
+// W) Egreso sin CFDI relacionado
+async function testEgresoSinRelacion(): Promise<void> {
+  const xml = buildEgresoCfdiRelacionadosXml(undefined);
+  const result = analyzeCfdi(xml, "egreso-sin-relacion.xml");
+
+  assertIncludesFinding(result.findings, "EGRESO_WITHOUT_CFDI_RELACIONADOS");
+  const finding = result.findings.find(f => f.code === "EGRESO_WITHOUT_CFDI_RELACIONADOS")!;
+  assertEqual(finding.severity, "WARNING", "EGRESO_WITHOUT_CFDI_RELACIONADOS debe ser WARNING");
+}
+
+// X) CFDI relacionado con UUID inválido
+async function testCfdiRelacionadoUuidInvalido(): Promise<void> {
+  const xml = buildEgresoCfdiRelacionadosXml("ABC123", "01");
+  const result = analyzeCfdi(xml, "cfdi-relacionado-uuid-invalido.xml");
+
+  assertIncludesFinding(result.findings, "CFDI_RELATED_UUID_NON_STANDARD");
+  const finding = result.findings.find(f => f.code === "CFDI_RELATED_UUID_NON_STANDARD")!;
+  assertEqual(finding.severity, "WARNING", "CFDI_RELATED_UUID_NON_STANDARD debe ser WARNING");
+}
+
+// Y) CFDI relacionado duplicado y self relation
+async function testCfdiRelacionadoDuplicadoSelf(): Promise<void> {
+  const compUuid = "aaaaaa00-0000-4000-8000-000000000000";
+  const xml = buildEgresoCfdiRelacionadosXml(compUuid, "01", [compUuid]);
+  const result = analyzeCfdi(xml, "cfdi-relacionado-duplicado-self.xml");
+
+  assertIncludesFinding(result.findings, "CFDI_SELF_RELATION");
+  assertIncludesFinding(result.findings, "CFDI_RELATED_DUPLICATE_UUID");
+}
+
+// Z) Pago con CfdiRelacionados adicional
+async function testPagoConCfdiRelacionados(): Promise<void> {
+  const xml = buildPagoConCfdiRelacionadosXml();
+  const result = analyzeCfdi(xml, "pago-con-cfdi-relacionados.xml");
+
+  assertIncludesFinding(result.findings, "PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW");
+  const finding = result.findings.find(f => f.code === "PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW")!;
+  assertEqual(finding.severity, "INFO", "PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW debe ser INFO");
+}
+
+// ─── Carta Porte fixtures ────────────────────────────────────────────────────
+
+function buildCartaPorteXml(opts?: {
+  tipoComprobante?: string;
+  total?: string;
+  subtotal?: string;
+  cpVersion?: string;
+  idCCP?: string;
+  transpInternac?: string;
+  totalDistRec?: string;
+  ubicaciones?: Array<{ tipo: string; id?: string; rfc?: string; nombre?: string; fecha?: string; distancia?: string }>;
+  mercancias?: Array<{ bienesTransp?: string; descripcion?: string; cantidad?: string; claveUnidad?: string; pesoEnKg?: string; valor?: string; moneda?: string }>;
+  hasAutotransporte?: boolean;
+}): string {
+  const tipo = opts?.tipoComprobante ?? "T";
+  const total = opts?.total ?? "0.00";
+  const subtotal = opts?.subtotal ?? "0.00";
+  const cpVersion = opts?.cpVersion ?? "3.1";
+  const idCCP = opts?.idCCP ?? "CCP123456";
+  const transpInternac = opts?.transpInternac ?? "No";
+  const totalDistRec = opts?.totalDistRec ?? "500.00";
+  const ubicaciones = opts?.ubicaciones ?? [
+    { tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00" },
+    { tipo: "Destino", id: "DE001", rfc: "EKU9003173C9", nombre: "DESTINO SA", fecha: "2024-06-01T18:00:00", distancia: "500.00" },
+  ];
+  const mercancias = opts?.mercancias ?? [
+    { bienesTransp: "12101500", descripcion: "Material de construcción", cantidad: "10", claveUnidad: "KGM", pesoEnKg: "5000.00", valor: "50000.00", moneda: "MXN" },
+  ];
+  const hasAutotransporte = opts?.hasAutotransporte ?? true;
+
+  const typeLabel = tipo === "T" ? "Traslado" : tipo === "I" ? "Ingreso" : tipo === "P" ? "Pago" : tipo === "E" ? "Egreso" : tipo;
+  const cpNs = cpVersion === "3.1" ? "cartaporte31" : cpVersion === "3.0" ? "cartaporte30" : "cartaporte20";
+  const cpNsUrl = cpVersion === "3.1" ? "http://www.sat.gob.mx/CartaPorte31" :
+    cpVersion === "3.0" ? "http://www.sat.gob.mx/CartaPorte30" :
+    "http://www.sat.gob.mx/CartaPorte20";
+
+  const ubiXml = ubicaciones.map(u => {
+    const idAttr = u.id ? ` IDUbicacion="${u.id}"` : "";
+    const rfcAttr = u.rfc ? ` RFCRemitenteDestinatario="${u.rfc}"` : "";
+    const nomAttr = u.nombre ? ` NombreRemitenteDestinatario="${u.nombre}"` : "";
+    const fechaAttr = u.fecha ? ` FechaHoraSalidaLlegada="${u.fecha}"` : "";
+    const distAttr = u.distancia ? ` DistanciaRecorrida="${u.distancia}"` : "";
+    return `          <${cpNs}:Ubicacion TipoUbicacion="${u.tipo}"${idAttr}${rfcAttr}${nomAttr}${fechaAttr}${distAttr}/>`;
+  }).join("\n");
+
+  const merXml = mercancias.map(m => {
+    const bt = m.bienesTransp ? ` BienesTransp="${m.bienesTransp}"` : "";
+    const desc = m.descripcion ? ` Descripcion="${m.descripcion}"` : "";
+    const cant = m.cantidad ? ` Cantidad="${m.cantidad}"` : "";
+    const cu = m.claveUnidad ? ` ClaveUnidad="${m.claveUnidad}"` : "";
+    const peso = m.pesoEnKg ? ` PesoEnKg="${m.pesoEnKg}"` : "";
+    const val = m.valor ? ` ValorMercancia="${m.valor}"` : "";
+    const mon = m.moneda ? ` Moneda="${m.moneda}"` : "";
+    return `          <${cpNs}:Mercancia${bt}${desc}${cant}${cu}${peso}${val}${mon}/>`;
+  }).join("\n");
+
+  const cpNsAttr = `xmlns:${cpNs}="${cpNsUrl}"`;
+  const autoXml = hasAutotransporte
+    ? `        <${cpNs}:Autotransporte/>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${cpNsAttr} ${SCHEMA_LOCATION} Version="4.0" Serie="CP" Folio="1" Fecha="2024-06-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="${subtotal}" Moneda="MXN" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="${tipo === "T" ? "S01" : "G03"}"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="78101802" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio de transporte" ValorUnitario="${subtotal}" Importe="${subtotal}" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <${cpNs}:CartaPorte Version="${cpVersion}"${idCCP ? ` IdCCP="${idCCP}"` : ""} TranspInternac="${transpInternac}"${totalDistRec ? ` TotalDistRec="${totalDistRec}"` : ""}>
+${ubicaciones.length > 0 ? `        <${cpNs}:Ubicaciones>\n${ubiXml}\n        </${cpNs}:Ubicaciones>` : ""}
+${mercancias.length > 0 ? `        <${cpNs}:Mercancias>\n${merXml}\n        </${cpNs}:Mercancias>` : ""}
+${autoXml}
+    </${cpNs}:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// AA) Carta Porte válida base
+async function testCartaPorteValida(): Promise<void> {
+  const xml = buildCartaPorteXml({});
+  const result = analyzeCfdi(xml, "carta-porte-valida.xml");
+
+  assertTruthy(result.cartaPorte, "cartaPorte debe existir");
+  assertEqual(result.cartaPorte!.version, "3.1", "version debe ser 3.1");
+  assertTruthy(result.cartaPorte!.ubicaciones.length >= 2, "ubicaciones >= 2");
+  assertTruthy(result.cartaPorte!.mercancias.length >= 1, "mercancias >= 1");
+  assertEqual(result.cartaPorte!.hasAutotransporte, true, "hasAutotransporte true");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_DETECTED");
+  const detected = result.findings.find(f => f.code === "CARTA_PORTE_DETECTED")!;
+  assertEqual(detected.severity, "INFO", "CARTA_PORTE_DETECTED debe ser INFO");
+  assertTruthy(
+    !result.findings.some(f => f.code === "CARTA_PORTE_MISSING_UBICACIONES"),
+    "No debe existir CARTA_PORTE_MISSING_UBICACIONES",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "CARTA_PORTE_MISSING_MERCANCIAS"),
+    "No debe existir CARTA_PORTE_MISSING_MERCANCIAS",
+  );
+  assertTruthy(
+    !result.findings.some(f => f.code === "CARTA_PORTE_ORIGIN_DESTINATION_REVIEW"),
+    "No debe existir CARTA_PORTE_ORIGIN_DESTINATION_REVIEW",
+  );
+}
+
+// AB) Carta Porte sin ubicaciones/mercancías
+async function testCartaPorteSinUbicacionesMercancias(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    ubicaciones: [],
+    mercancias: [],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-sin-ubi-mer.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MISSING_UBICACIONES");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MISSING_MERCANCIAS");
+  const ubiFinding = result.findings.find(f => f.code === "CARTA_PORTE_MISSING_UBICACIONES")!;
+  assertEqual(ubiFinding.severity, "WARNING", "CARTA_PORTE_MISSING_UBICACIONES debe ser WARNING");
+  const merFinding = result.findings.find(f => f.code === "CARTA_PORTE_MISSING_MERCANCIAS")!;
+  assertEqual(merFinding.severity, "WARNING", "CARTA_PORTE_MISSING_MERCANCIAS debe ser WARNING");
+}
+
+// AC) Carta Porte tipo comprobante inesperado
+async function testCartaPorteTipoInesperado(): Promise<void> {
+  const xml = buildCartaPorteXml({ tipoComprobante: "P" });
+  const result = analyzeCfdi(xml, "carta-porte-tipo-pago.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE");
+  const finding = result.findings.find(f => f.code === "CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE debe ser WARNING");
+}
+
+// AD) Carta Porte traslado con total distinto de cero
+async function testCartaPorteTrasladoTotalNoCero(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    tipoComprobante: "T",
+    total: "100.00",
+    subtotal: "100.00",
+  });
+  const result = analyzeCfdi(xml, "carta-porte-traslado-total-no-cero.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO");
+  const finding = result.findings.find(f => f.code === "CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO debe ser WARNING");
+}
+
+// AE) Carta Porte mercancía inválida
+async function testCartaPorteMercanciaInvalida(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    mercancias: [
+      { cantidad: "0", pesoEnKg: "-5.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-mercancia-invalida.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_MISSING_BIENES_TRANSP");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_INVALID_QUANTITY");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_INVALID_WEIGHT");
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -684,6 +1163,21 @@ async function main() {
   await runCase("N) Timbrado completo sin hallazgos de sellos", testTimbradoCompleto);
   await runCase("O) Timbrado incompleto", testTimbradoIncompleto);
   await runCase("P) Fecha timbrado anterior a fecha CFDI", testFechaTimbradoAnterior);
+  await runCase("Q) REP saldo consistente", testRepSaldoConsistente);
+  await runCase("R) REP saldo inconsistente", testRepSaldoInconsistente);
+  await runCase("S) REP pagado mayor a saldo anterior", testRepPagadoMayorSaldoAnterior);
+  await runCase("T) REP suma documentos excede monto pago", testRepSumaExcedeMonto);
+  await runCase("U) REP revisión por moneda/equivalencia", testRepRevisionMoneda);
+  await runCase("V) Egreso con CFDI relacionado válido", testEgresoRelacionadoValido);
+  await runCase("W) Egreso sin CFDI relacionado", testEgresoSinRelacion);
+  await runCase("X) CFDI relacionado con UUID inválido", testCfdiRelacionadoUuidInvalido);
+  await runCase("Y) CFDI relacionado duplicado y self relation", testCfdiRelacionadoDuplicadoSelf);
+  await runCase("Z) Pago con CfdiRelacionados adicional", testPagoConCfdiRelacionados);
+  await runCase("AA) Carta Porte válida base", testCartaPorteValida);
+  await runCase("AB) Carta Porte sin ubicaciones/mercancías", testCartaPorteSinUbicacionesMercancias);
+  await runCase("AC) Carta Porte tipo comprobante inesperado", testCartaPorteTipoInesperado);
+  await runCase("AD) Carta Porte traslado con total distinto de cero", testCartaPorteTrasladoTotalNoCero);
+  await runCase("AE) Carta Porte mercancía inválida", testCartaPorteMercanciaInvalida);
 
   printSummary();
 

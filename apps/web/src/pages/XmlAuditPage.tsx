@@ -1009,6 +1009,199 @@ export default function XmlAuditPage() {
               </div>
             )}
 
+            {result.cfdiRelations && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">CFDI relacionados</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Grupos de relación</span>
+                    <span className="font-medium">{result.cfdiRelations.totalRelationGroups}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total CFDI relacionados</span>
+                    <span className="font-medium">{result.cfdiRelations.totalRelatedCfdis}</span>
+                  </div>
+                </div>
+                {result.cfdiRelations.groups.map((group, gi) => (
+                  <div key={gi} className="border-t border-border/50 pt-3 space-y-2">
+                    <p className="text-sm font-semibold">
+                      Grupo {gi + 1}
+                      {group.tipoRelacion && <span className="text-muted-foreground font-normal"> — TipoRelacion: {group.tipoRelacion}</span>}
+                    </p>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">#</th>
+                          <th className="text-left py-1 pr-2">UUID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.relatedCfdis.map((rel, ri) => (
+                          <tr key={ri} className="border-b border-border/30">
+                            <td className="py-1 pr-2 align-top">{ri + 1}</td>
+                            <td className="py-1 font-mono">{rel.uuid ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.cartaPorte && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Carta Porte</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Versión</span>
+                    <span className="font-medium">{result.cartaPorte.version ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">IdCCP</span>
+                    <span className="font-medium">{result.cartaPorte.idCCP ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Transporte internacional</span>
+                    <span className="font-medium">{result.cartaPorte.transpInternac ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total distancia recorrida</span>
+                    <span className="font-medium">{result.cartaPorte.totalDistRec ?? "—"}</span>
+                  </div>
+                </div>
+
+                {/* Badges medio transporte */}
+                <div className="flex flex-wrap gap-2">
+                  {result.cartaPorte.hasAutotransporte && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                      Autotransporte
+                    </span>
+                  )}
+                  {result.cartaPorte.hasTransporteMaritimo && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300">
+                      Marítimo
+                    </span>
+                  )}
+                  {result.cartaPorte.hasTransporteAereo && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                      Aéreo
+                    </span>
+                  )}
+                  {result.cartaPorte.hasTransporteFerroviario && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                      Ferroviario
+                    </span>
+                  )}
+                </div>
+
+                {/* Conteos */}
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-lg font-semibold">{result.cartaPorte.ubicaciones.length}</p>
+                    <p className="text-xs text-muted-foreground">Ubicaciones</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-lg font-semibold">{result.cartaPorte.mercancias.length}</p>
+                    <p className="text-xs text-muted-foreground">Mercancías</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-lg font-semibold">{result.cartaPorte.figurasTransporte.length}</p>
+                    <p className="text-xs text-muted-foreground">Figuras transporte</p>
+                  </div>
+                </div>
+
+                {/* Ubicaciones */}
+                {result.cartaPorte.ubicaciones.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Ubicaciones</h3>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">Tipo</th>
+                          <th className="text-left py-1 pr-2">ID</th>
+                          <th className="text-left py-1 pr-2">RFC</th>
+                          <th className="text-left py-1 pr-2">Nombre</th>
+                          <th className="text-left py-1 pr-2">Fecha</th>
+                          <th className="text-right py-1">Distancia</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.cartaPorte.ubicaciones.map((ubi, ui) => (
+                          <tr key={ui} className="border-b border-border/30">
+                            <td className="py-1 pr-2">{ubi.tipoUbicacion ?? "—"}</td>
+                            <td className="py-1 pr-2 font-mono">{ubi.idUbicacion ?? "—"}</td>
+                            <td className="py-1 pr-2 font-mono">{ubi.rfcRemitenteDestinatario ?? "—"}</td>
+                            <td className="py-1 pr-2">{ubi.nombreRemitenteDestinatario ?? "—"}</td>
+                            <td className="py-1 pr-2 text-[10px]">{ubi.fechaHoraSalidaLlegada ?? "—"}</td>
+                            <td className="py-1 text-right">{ubi.distanciaRecorrida ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Mercancías */}
+                {result.cartaPorte.mercancias.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Mercancías</h3>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">BienesTransp</th>
+                          <th className="text-left py-1 pr-2">Descripción</th>
+                          <th className="text-right py-1 pr-2">Cantidad</th>
+                          <th className="text-left py-1 pr-2">Unidad</th>
+                          <th className="text-right py-1 pr-2">Peso KG</th>
+                          <th className="text-right py-1">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.cartaPorte.mercancias.map((mer, mi) => (
+                          <tr key={mi} className="border-b border-border/30">
+                            <td className="py-1 pr-2 font-mono">{mer.bienesTransp ?? "—"}</td>
+                            <td className="py-1 pr-2">{mer.descripcion ?? "—"}</td>
+                            <td className="py-1 pr-2 text-right">{mer.cantidad ?? "—"}</td>
+                            <td className="py-1 pr-2">{mer.claveUnidad ?? "—"}</td>
+                            <td className="py-1 pr-2 text-right">{mer.pesoEnKg ?? "—"}</td>
+                            <td className="py-1 text-right">{mer.valorMercancia ? `${mer.valorMercancia}${mer.moneda ? ` ${mer.moneda}` : ""}` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Figuras transporte */}
+                {result.cartaPorte.figurasTransporte.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Figuras de transporte</h3>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <th className="text-left py-1 pr-2">Tipo</th>
+                          <th className="text-left py-1 pr-2">RFC</th>
+                          <th className="text-left py-1 pr-2">Nombre</th>
+                          <th className="text-left py-1">Licencia</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.cartaPorte.figurasTransporte.map((fig, fi) => (
+                          <tr key={fi} className="border-b border-border/30">
+                            <td className="py-1 pr-2">{fig.tipoFigura ?? "—"}</td>
+                            <td className="py-1 pr-2 font-mono">{fig.rfcFigura ?? "—"}</td>
+                            <td className="py-1 pr-2">{fig.nombreFigura ?? "—"}</td>
+                            <td className="py-1">{fig.numLicencia ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="p-6 rounded-xl border border-border bg-card space-y-4">
               <h2 className="font-semibold text-lg">Diagnóstico técnico del archivo</h2>
 
@@ -1814,6 +2007,53 @@ export default function XmlAuditPage() {
               }
             }
 
+            if (r.cartaPorte) {
+              section("CARTA PORTE - RESUMEN");
+              sub("", {
+                Versión: r.cartaPorte.version ?? "—",
+                IdCCP: r.cartaPorte.idCCP ?? "—",
+                "Transporte internacional": r.cartaPorte.transpInternac ?? "—",
+                "Total distancia recorrida": r.cartaPorte.totalDistRec ?? "—",
+                Autotransporte: r.cartaPorte.hasAutotransporte ? "Sí" : "No",
+                Marítimo: r.cartaPorte.hasTransporteMaritimo ? "Sí" : "No",
+                Aéreo: r.cartaPorte.hasTransporteAereo ? "Sí" : "No",
+                Ferroviario: r.cartaPorte.hasTransporteFerroviario ? "Sí" : "No",
+                "Total ubicaciones": String(r.cartaPorte.ubicaciones.length),
+                "Total mercancías": String(r.cartaPorte.mercancias.length),
+                "Total figuras transporte": String(r.cartaPorte.figurasTransporte.length),
+              });
+
+              if (r.cartaPorte.ubicaciones.length > 0) {
+                section("CARTA PORTE - UBICACIONES");
+                row("#", "TipoUbicacion", "IDUbicacion", "RFCRemitenteDestinatario", "NombreRemitenteDestinatario", "FechaHoraSalidaLlegada", "DistanciaRecorrida");
+                for (let i = 0; i < r.cartaPorte.ubicaciones.length; i++) {
+                  const u = r.cartaPorte.ubicaciones[i];
+                  row(String(i + 1), u.tipoUbicacion, u.idUbicacion, u.rfcRemitenteDestinatario, u.nombreRemitenteDestinatario, u.fechaHoraSalidaLlegada, u.distanciaRecorrida);
+                }
+                lines.push("");
+              }
+
+              if (r.cartaPorte.mercancias.length > 0) {
+                section("CARTA PORTE - MERCANCÍAS");
+                row("#", "BienesTransp", "Descripcion", "Cantidad", "ClaveUnidad", "PesoEnKg", "ValorMercancia", "Moneda");
+                for (let i = 0; i < r.cartaPorte.mercancias.length; i++) {
+                  const m = r.cartaPorte.mercancias[i];
+                  row(String(i + 1), m.bienesTransp, m.descripcion, m.cantidad, m.claveUnidad, m.pesoEnKg, m.valorMercancia, m.moneda);
+                }
+                lines.push("");
+              }
+
+              if (r.cartaPorte.figurasTransporte.length > 0) {
+                section("CARTA PORTE - FIGURAS TRANSPORTE");
+                row("#", "TipoFigura", "RFCFigura", "NombreFigura", "NumLicencia");
+                for (let i = 0; i < r.cartaPorte.figurasTransporte.length; i++) {
+                  const f = r.cartaPorte.figurasTransporte[i];
+                  row(String(i + 1), f.tipoFigura, f.rfcFigura, f.nombreFigura, f.numLicencia);
+                }
+                lines.push("");
+              }
+            }
+
             if (r.concepts && r.concepts.length > 0) {
               section("CONCEPTOS");
               row("ClaveProdServ", "No. identificación", "Cantidad", "Clave unidad", "Unidad", "Descripción", "Valor unitario", "Importe", "Descuento", "Objeto imp.");
@@ -2158,6 +2398,141 @@ export default function XmlAuditPage() {
                       </table>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {r.cfdiRelations && (
+                <div className="avoid-break">
+                  <h2>CFDI relacionados</h2>
+                  <table>
+                    <tbody>
+                      <tr><td style={{ fontWeight: 600, width: "240px" }}>Grupos de relación</td><td>{r.cfdiRelations.totalRelationGroups}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Total CFDI relacionados</td><td>{r.cfdiRelations.totalRelatedCfdis}</td></tr>
+                    </tbody>
+                  </table>
+                  {r.cfdiRelations.groups.map((group, gi) => (
+                    <div key={gi} style={{ marginTop: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "12px", margin: "0 0 4px" }}>
+                        Grupo {gi + 1}{group.tipoRelacion ? ` — TipoRelacion: ${group.tipoRelacion}` : ""}
+                      </p>
+                      <table>
+                        <thead>
+                          <tr style={{ fontSize: "10px", borderBottom: "1px solid #ccc" }}>
+                            <th style={{ textAlign: "left", padding: "2px 8px 2px 0" }}>#</th>
+                            <th style={{ textAlign: "left", padding: "2px 0" }}>UUID</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.relatedCfdis.map((rel, ri) => (
+                            <tr key={ri} style={{ fontSize: "10px" }}>
+                              <td style={{ padding: "2px 8px 2px 0", verticalAlign: "top" }}>{ri + 1}</td>
+                              <td style={{ fontFamily: "monospace", padding: "2px 0" }}>{rel.uuid ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {r.cartaPorte && (
+                <div className="avoid-break">
+                  <h2>Carta Porte</h2>
+                  <table>
+                    <tbody>
+                      <tr><td style={{ fontWeight: 600, width: "240px" }}>Versión</td><td>{r.cartaPorte.version ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>IdCCP</td><td>{r.cartaPorte.idCCP ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Transporte internacional</td><td>{r.cartaPorte.transpInternac ?? "—"}</td></tr>
+                      <tr><td style={{ fontWeight: 600 }}>Total distancia recorrida</td><td>{r.cartaPorte.totalDistRec ?? "—"}</td></tr>
+                    </tbody>
+                  </table>
+                  <p style={{ fontSize: "10px", margin: "4px 0" }}>
+                    Modos:{(r.cartaPorte.hasAutotransporte ? " Autotransporte" : "")}{(r.cartaPorte.hasTransporteMaritimo ? " Marítimo" : "")}{(r.cartaPorte.hasTransporteAereo ? " Aéreo" : "")}{(r.cartaPorte.hasTransporteFerroviario ? " Ferroviario" : "")} | Ubicaciones: {r.cartaPorte.ubicaciones.length} | Mercancías: {r.cartaPorte.mercancias.length} | Figuras: {r.cartaPorte.figurasTransporte.length}
+                  </p>
+                  {r.cartaPorte.ubicaciones.length > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Ubicaciones</p>
+                      <table>
+                        <thead>
+                          <tr style={{ fontSize: "9px", borderBottom: "1px solid #ccc" }}>
+                            <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>Tipo</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>ID</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>RFC</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>Nombre</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>Fecha</th>
+                            <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>Distancia</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.cartaPorte.ubicaciones.map((ubi, ui) => (
+                            <tr key={ui} style={{ fontSize: "9px" }}>
+                              <td style={{ padding: "2px 4px 2px 0" }}>{ubi.tipoUbicacion ?? "—"}</td>
+                              <td style={{ padding: "2px 4px", fontFamily: "monospace" }}>{ubi.idUbicacion ?? "—"}</td>
+                              <td style={{ padding: "2px 4px", fontFamily: "monospace" }}>{ubi.rfcRemitenteDestinatario ?? "—"}</td>
+                              <td style={{ padding: "2px 4px" }}>{ubi.nombreRemitenteDestinatario ?? "—"}</td>
+                              <td style={{ padding: "2px 4px" }}>{ubi.fechaHoraSalidaLlegada ?? "—"}</td>
+                              <td style={{ padding: "2px 0 2px 4px", textAlign: "right" }}>{ubi.distanciaRecorrida ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {r.cartaPorte.mercancias.length > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Mercancías</p>
+                      <table>
+                        <thead>
+                          <tr style={{ fontSize: "9px", borderBottom: "1px solid #ccc" }}>
+                            <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>BienesTransp</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>Descripción</th>
+                            <th style={{ textAlign: "right", padding: "2px 4px" }}>Cantidad</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>Unidad</th>
+                            <th style={{ textAlign: "right", padding: "2px 4px" }}>Peso KG</th>
+                            <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.cartaPorte.mercancias.map((mer, mi) => (
+                            <tr key={mi} style={{ fontSize: "9px" }}>
+                              <td style={{ padding: "2px 4px 2px 0", fontFamily: "monospace" }}>{mer.bienesTransp ?? "—"}</td>
+                              <td style={{ padding: "2px 4px" }}>{mer.descripcion ?? "—"}</td>
+                              <td style={{ padding: "2px 4px", textAlign: "right" }}>{mer.cantidad ?? "—"}</td>
+                              <td style={{ padding: "2px 4px" }}>{mer.claveUnidad ?? "—"}</td>
+                              <td style={{ padding: "2px 4px", textAlign: "right" }}>{mer.pesoEnKg ?? "—"}</td>
+                              <td style={{ padding: "2px 0 2px 4px", textAlign: "right" }}>{mer.valorMercancia ? `${mer.valorMercancia}${mer.moneda ? ` ${mer.moneda}` : ""}` : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {r.cartaPorte.figurasTransporte.length > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Figuras de transporte</p>
+                      <table>
+                        <thead>
+                          <tr style={{ fontSize: "9px", borderBottom: "1px solid #ccc" }}>
+                            <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>Tipo</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>RFC</th>
+                            <th style={{ textAlign: "left", padding: "2px 4px" }}>Nombre</th>
+                            <th style={{ textAlign: "left", padding: "2px 0 2px 4px" }}>Licencia</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.cartaPorte.figurasTransporte.map((fig, fi) => (
+                            <tr key={fi} style={{ fontSize: "9px" }}>
+                              <td style={{ padding: "2px 4px 2px 0" }}>{fig.tipoFigura ?? "—"}</td>
+                              <td style={{ padding: "2px 4px", fontFamily: "monospace" }}>{fig.rfcFigura ?? "—"}</td>
+                              <td style={{ padding: "2px 4px" }}>{fig.nombreFigura ?? "—"}</td>
+                              <td style={{ padding: "2px 0 2px 4px" }}>{fig.numLicencia ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 
