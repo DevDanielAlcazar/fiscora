@@ -312,6 +312,26 @@ export interface ComercioExteriorInfo {
   totalUSD?: string | null;
 }
 
+export interface ImpuestoLocalRetencionInfo {
+  impLocRetenido?: string | null;
+  tasaDeRetencion?: string | null;
+  importe?: string | null;
+}
+
+export interface ImpuestoLocalTrasladoInfo {
+  impLocTrasladado?: string | null;
+  tasaDeTraslado?: string | null;
+  importe?: string | null;
+}
+
+export interface ImpuestosLocalesInfo {
+  version?: string | null;
+  totalDeRetenciones?: string | null;
+  totalDeTraslados?: string | null;
+  retenciones: ImpuestoLocalRetencionInfo[];
+  traslados: ImpuestoLocalTrasladoInfo[];
+}
+
 export interface CfdiAnalysisResult {
   uuid: string | null;
   version: string | null;
@@ -343,6 +363,7 @@ export interface CfdiAnalysisResult {
   cartaPorte?: CartaPorteInfo;
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
+  impuestosLocales?: ImpuestosLocalesInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -395,6 +416,7 @@ export interface AnalysisResponse {
   cartaPorte?: CartaPorteInfo;
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
+  impuestosLocales?: ImpuestosLocalesInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -452,7 +474,7 @@ function formatMoney(value: number): string {
   return roundMoney(value).toFixed(2);
 }
 
-function isNonEmptyString(value: string | null | undefined): boolean {
+function isNonEmptyString(value: string | null | undefined): value is string {
   return value !== null && value !== undefined && value.trim().length > 0;
 }
 
@@ -744,6 +766,14 @@ function extractGlobalTaxLines(
     base: str(get(e, "@_Base")),
     importe: str(get(e, "@_Importe")),
   }));
+}
+
+function strAttr(node: Record<string, unknown>, ...names: string[]): string | null {
+  for (const name of names) {
+    const val = str(get(node, `@_${name}`));
+    if (isNonEmptyString(val)) return val;
+  }
+  return null;
 }
 
 function extractGlobalTaxes(comprobante: Record<string, unknown>): GlobalTaxesInfo | null {
@@ -1636,6 +1666,74 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       observaciones: str(get(comercioExteriorNode, "@_Observaciones")) ?? null,
       tipoCambioUSD: str(get(comercioExteriorNode, "@_TipoCambioUSD")) ?? null,
       totalUSD: str(get(comercioExteriorNode, "@_TotalUSD")) ?? null,
+    };
+  }
+
+  // ── Impuestos Locales 1.0 extraction ──
+  let impuestosLocales: ImpuestosLocalesInfo | undefined;
+
+  const impuestosLocalesNode =
+    (get(complemento, "implocal:ImpuestosLocales") as Record<string, unknown>) ??
+    (get(complemento, "ImpuestosLocales") as Record<string, unknown>) ??
+    null;
+
+  if (
+    impuestosLocalesNode &&
+    typeof impuestosLocalesNode === "object" &&
+    Object.keys(impuestosLocalesNode).length > 0
+  ) {
+    const ilVersion = strAttr(impuestosLocalesNode, "Version");
+    const ilTotalRetenciones = strAttr(impuestosLocalesNode, "TotaldeRetenciones", "TotalDeRetenciones");
+    const ilTotalTraslados = strAttr(impuestosLocalesNode, "TotaldeTraslados", "TotalDeTraslados");
+
+    // RetencionesLocales
+    const rawRetencionesNode =
+      (get(impuestosLocalesNode, "implocal:RetencionesLocales") as Record<string, unknown>) ??
+      (get(impuestosLocalesNode, "RetencionesLocales") as Record<string, unknown>) ??
+      null;
+    let retencionesRaw: unknown[] = [];
+    if (rawRetencionesNode && typeof rawRetencionesNode === "object") {
+      const rawRet =
+        (get(rawRetencionesNode, "implocal:RetencionLocal") as unknown) ??
+        (get(rawRetencionesNode, "RetencionLocal") as unknown);
+      retencionesRaw = Array.isArray(rawRet) ? rawRet : rawRet ? [rawRet] : [];
+    }
+
+    const retenciones: ImpuestoLocalRetencionInfo[] = (
+      retencionesRaw as Record<string, unknown>[]
+    ).map((r) => ({
+      impLocRetenido: str(get(r, "@_ImpLocRetenido")) ?? null,
+      tasaDeRetencion: strAttr(r, "TasadeRetencion", "TasaDeRetencion"),
+      importe: str(get(r, "@_Importe")) ?? null,
+    }));
+
+    // TrasladosLocales
+    const rawTrasladosNode =
+      (get(impuestosLocalesNode, "implocal:TrasladosLocales") as Record<string, unknown>) ??
+      (get(impuestosLocalesNode, "TrasladosLocales") as Record<string, unknown>) ??
+      null;
+    let trasladosRaw: unknown[] = [];
+    if (rawTrasladosNode && typeof rawTrasladosNode === "object") {
+      const rawTr =
+        (get(rawTrasladosNode, "implocal:TrasladoLocal") as unknown) ??
+        (get(rawTrasladosNode, "TrasladoLocal") as unknown);
+      trasladosRaw = Array.isArray(rawTr) ? rawTr : rawTr ? [rawTr] : [];
+    }
+
+    const traslados: ImpuestoLocalTrasladoInfo[] = (
+      trasladosRaw as Record<string, unknown>[]
+    ).map((t) => ({
+      impLocTrasladado: str(get(t, "@_ImpLocTrasladado")) ?? null,
+      tasaDeTraslado: strAttr(t, "TasadeTraslado", "TasaDeTraslado"),
+      importe: str(get(t, "@_Importe")) ?? null,
+    }));
+
+    impuestosLocales = {
+      version: ilVersion,
+      totalDeRetenciones: ilTotalRetenciones,
+      totalDeTraslados: ilTotalTraslados,
+      retenciones,
+      traslados,
     };
   }
 
@@ -4637,7 +4735,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
     // F) COMERCIO_EXTERIOR_TOTAL_USD_MISMATCH
     if (isNonEmptyString(comercioExterior.totalUSD) && isNonEmptyString(total)) {
-      const totalUSDNum = parseFloat(comercioExterior.totalUSD!.trim());
+      const totalUSDNum = parseFloat(comercioExterior.totalUSD.trim());
       const totalNum = parseFloat(total.trim());
       if (!isNaN(totalUSDNum) && !isNaN(totalNum) && Math.abs(totalUSDNum - totalNum) > 0.01) {
         addFindingOnce({
@@ -4656,6 +4754,314 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           ],
         });
       }
+    }
+  }
+
+  // ── Impuestos Locales 1.0 Findings ──
+  if (impuestosLocales) {
+    const ilRetTotal = toMoneyNumber(impuestosLocales.totalDeRetenciones);
+    const ilTrasTotal = toMoneyNumber(impuestosLocales.totalDeTraslados);
+    const sumaRetenciones = impuestosLocales.retenciones.reduce(
+      (acc, r) => acc + toMoneyNumber(r.importe), 0,
+    );
+    const sumaTraslados = impuestosLocales.traslados.reduce(
+      (acc, t) => acc + toMoneyNumber(t.importe), 0,
+    );
+
+    // A) IMPUESTOS_LOCALES_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "IMPUESTOS_LOCALES_DETECTED",
+      title: "Complemento Impuestos Locales detectado",
+      message:
+        "El XML contiene complemento Impuestos Locales. Se realizará una revisión base de retenciones, traslados y totales locales.",
+      recommendedAction:
+        "Revisa que los impuestos locales correspondan al escenario fiscal y territorial aplicable.",
+      evidence: [
+        { label: "Versión", value: impuestosLocales.version ?? "—" },
+        { label: "Total retenciones locales", value: impuestosLocales.totalDeRetenciones ?? "—" },
+        { label: "Total traslados locales", value: impuestosLocales.totalDeTraslados ?? "—" },
+        { label: "Retenciones detectadas", value: String(impuestosLocales.retenciones.length) },
+        { label: "Traslados detectados", value: String(impuestosLocales.traslados.length) },
+      ],
+    });
+
+    // B) IMPUESTOS_LOCALES_MISSING_VERSION
+    if (!isNonEmptyString(impuestosLocales.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "IMPUESTOS_LOCALES_MISSING_VERSION",
+        title: "Versión de Impuestos Locales faltante",
+        message: "No se detectó la versión del complemento Impuestos Locales.",
+        recommendedAction: "Verifica que el complemento Impuestos Locales esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Total retenciones locales", value: impuestosLocales.totalDeRetenciones ?? "—" },
+          { label: "Total traslados locales", value: impuestosLocales.totalDeTraslados ?? "—" },
+        ],
+      });
+    }
+
+    // C) IMPUESTOS_LOCALES_VERSION_REVIEW
+    if (isNonEmptyString(impuestosLocales.version) && impuestosLocales.version !== "1.0") {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "IMPUESTOS_LOCALES_VERSION_REVIEW",
+        title: "Versión de Impuestos Locales requiere revisión",
+        message:
+          "El complemento Impuestos Locales tiene una versión no reconocida por el motor actual.",
+        recommendedAction:
+          "Confirma que la versión del complemento corresponda al XML analizado.",
+        evidence: [
+          { label: "Versión detectada", value: impuestosLocales.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // D) IMPUESTOS_LOCALES_WITHOUT_LINES
+    if (impuestosLocales.retenciones.length === 0 && impuestosLocales.traslados.length === 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "IMPUESTOS_LOCALES_WITHOUT_LINES",
+        title: "Impuestos Locales sin retenciones ni traslados",
+        message:
+          "El complemento Impuestos Locales no contiene retenciones ni traslados locales.",
+        recommendedAction:
+          "Revisa si el complemento fue generado incompleto o si no debía incluirse.",
+        evidence: [
+          { label: "Versión", value: impuestosLocales.version ?? "—" },
+          { label: "Total retenciones locales", value: impuestosLocales.totalDeRetenciones ?? "—" },
+          { label: "Total traslados locales", value: impuestosLocales.totalDeTraslados ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // E) IMPUESTOS_LOCALES_RETENCION_MISSING_NAME
+    impuestosLocales.retenciones.forEach((r, idx) => {
+      const retNum = idx + 1;
+      if (!isNonEmptyString(r.impLocRetenido)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "IMPUESTOS_LOCALES_RETENCION_MISSING_NAME",
+          title: "Retención local sin nombre de impuesto",
+          message: "Una retención local no contiene ImpLocRetenido.",
+          recommendedAction: "Revisa el nombre o clave del impuesto local retenido.",
+          evidence: [
+            { label: "Retención #", value: String(retNum) },
+            { label: "Tasa", value: r.tasaDeRetencion ?? "—" },
+            { label: "Importe", value: r.importe ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // F) IMPUESTOS_LOCALES_TRASLADO_MISSING_NAME
+    impuestosLocales.traslados.forEach((t, idx) => {
+      const trasNum = idx + 1;
+      if (!isNonEmptyString(t.impLocTrasladado)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "IMPUESTOS_LOCALES_TRASLADO_MISSING_NAME",
+          title: "Traslado local sin nombre de impuesto",
+          message: "Un traslado local no contiene ImpLocTrasladado.",
+          recommendedAction: "Revisa el nombre o clave del impuesto local trasladado.",
+          evidence: [
+            { label: "Traslado #", value: String(trasNum) },
+            { label: "Tasa", value: t.tasaDeTraslado ?? "—" },
+            { label: "Importe", value: t.importe ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // G) IMPUESTOS_LOCALES_RETENCION_TASA_INVALID
+    impuestosLocales.retenciones.forEach((r, idx) => {
+      const retNum = idx + 1;
+      if (isNonEmptyString(r.tasaDeRetencion)) {
+        const tasaNum = toMoneyNumber(r.tasaDeRetencion);
+        if (tasaNum < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "IMPUESTOS_LOCALES_RETENCION_TASA_INVALID",
+            title: "Tasa de retención local inválida",
+            message: "Una retención local contiene tasa inválida.",
+            recommendedAction: "Revisa TasadeRetencion de la retención local.",
+            evidence: [
+              { label: "Retención #", value: String(retNum) },
+              { label: "ImpLocRetenido", value: r.impLocRetenido ?? "—" },
+              { label: "Tasa", value: r.tasaDeRetencion ?? "—" },
+              { label: "Importe", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // H) IMPUESTOS_LOCALES_TRASLADO_TASA_INVALID
+    impuestosLocales.traslados.forEach((t, idx) => {
+      const trasNum = idx + 1;
+      if (isNonEmptyString(t.tasaDeTraslado)) {
+        const tasaNum = toMoneyNumber(t.tasaDeTraslado);
+        if (tasaNum < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "IMPUESTOS_LOCALES_TRASLADO_TASA_INVALID",
+            title: "Tasa de traslado local inválida",
+            message: "Un traslado local contiene tasa inválida.",
+            recommendedAction: "Revisa TasadeTraslado del traslado local.",
+            evidence: [
+              { label: "Traslado #", value: String(trasNum) },
+              { label: "ImpLocTrasladado", value: t.impLocTrasladado ?? "—" },
+              { label: "Tasa", value: t.tasaDeTraslado ?? "—" },
+              { label: "Importe", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // I) IMPUESTOS_LOCALES_RETENCION_IMPORTE_INVALID
+    impuestosLocales.retenciones.forEach((r, idx) => {
+      const retNum = idx + 1;
+      if (isNonEmptyString(r.importe)) {
+        const importeNum = toMoneyNumber(r.importe);
+        if (importeNum < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "IMPUESTOS_LOCALES_RETENCION_IMPORTE_INVALID",
+            title: "Importe de retención local inválido",
+            message: "Una retención local contiene importe inválido.",
+            recommendedAction: "Revisa el importe de la retención local.",
+            evidence: [
+              { label: "Retención #", value: String(retNum) },
+              { label: "ImpLocRetenido", value: r.impLocRetenido ?? "—" },
+              { label: "Tasa", value: r.tasaDeRetencion ?? "—" },
+              { label: "Importe", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // J) IMPUESTOS_LOCALES_TRASLADO_IMPORTE_INVALID
+    impuestosLocales.traslados.forEach((t, idx) => {
+      const trasNum = idx + 1;
+      if (isNonEmptyString(t.importe)) {
+        const importeNum = toMoneyNumber(t.importe);
+        if (importeNum < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "COMPLEMENT",
+            code: "IMPUESTOS_LOCALES_TRASLADO_IMPORTE_INVALID",
+            title: "Importe de traslado local inválido",
+            message: "Un traslado local contiene importe inválido.",
+            recommendedAction: "Revisa el importe del traslado local.",
+            evidence: [
+              { label: "Traslado #", value: String(trasNum) },
+              { label: "ImpLocTrasladado", value: t.impLocTrasladado ?? "—" },
+              { label: "Tasa", value: t.tasaDeTraslado ?? "—" },
+              { label: "Importe", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+
+    // K) IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH
+    if (isNonEmptyString(impuestosLocales.totalDeRetenciones)) {
+      const diff = moneyDiff(ilRetTotal, sumaRetenciones);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH",
+          title: "Total de retenciones locales no coincide",
+          message:
+            "TotaldeRetenciones no coincide con la suma de retenciones locales.",
+          recommendedAction:
+            "Revisa TotaldeRetenciones y los importes de RetencionesLocales antes de utilizar este XML.",
+          evidence: [
+            { label: "Total retenciones XML", value: impuestosLocales.totalDeRetenciones ?? "—" },
+            { label: "Suma retenciones", value: formatMoney(sumaRetenciones) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+            { label: "Total líneas retención", value: String(impuestosLocales.retenciones.length) },
+          ],
+        });
+      }
+    }
+
+    // L) IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH
+    if (isNonEmptyString(impuestosLocales.totalDeTraslados)) {
+      const diff = moneyDiff(ilTrasTotal, sumaTraslados);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH",
+          title: "Total de traslados locales no coincide",
+          message:
+            "TotaldeTraslados no coincide con la suma de traslados locales.",
+          recommendedAction:
+            "Revisa TotaldeTraslados y los importes de TrasladosLocales antes de utilizar este XML.",
+          evidence: [
+            { label: "Total traslados XML", value: impuestosLocales.totalDeTraslados ?? "—" },
+            { label: "Suma traslados", value: formatMoney(sumaTraslados) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+            { label: "Total líneas traslado", value: String(impuestosLocales.traslados.length) },
+          ],
+        });
+      }
+    }
+
+    // M) IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISSING_REVIEW
+    if (impuestosLocales.retenciones.length > 0 && !isNonEmptyString(impuestosLocales.totalDeRetenciones)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISSING_REVIEW",
+        title: "Total de retenciones locales no declarado",
+        message:
+          "Se detectaron retenciones locales, pero no se detectó TotaldeRetenciones.",
+        recommendedAction:
+          "Revisa si el complemento debe declarar el total de retenciones locales.",
+        evidence: [
+          { label: "Suma retenciones", value: formatMoney(sumaRetenciones) },
+          { label: "Total líneas retención", value: String(impuestosLocales.retenciones.length) },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // N) IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISSING_REVIEW
+    if (impuestosLocales.traslados.length > 0 && !isNonEmptyString(impuestosLocales.totalDeTraslados)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISSING_REVIEW",
+        title: "Total de traslados locales no declarado",
+        message:
+          "Se detectaron traslados locales, pero no se detectó TotaldeTraslados.",
+        recommendedAction:
+          "Revisa si el complemento debe declarar el total de traslados locales.",
+        evidence: [
+          { label: "Suma traslados", value: formatMoney(sumaTraslados) },
+          { label: "Total líneas traslado", value: String(impuestosLocales.traslados.length) },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
     }
   }
 
@@ -6882,6 +7288,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     cartaPorte,
     nomina,
     comercioExterior,
+    impuestosLocales,
     structureDiagnostics,
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,

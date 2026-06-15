@@ -1808,6 +1808,88 @@ export default function XmlAuditPage() {
               </div>
             )}
 
+            {result.impuestosLocales && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Impuestos Locales</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Versión</span>
+                    <span className="font-medium">{result.impuestosLocales.version ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total retenciones</span>
+                    <span className="font-medium">{result.impuestosLocales.totalDeRetenciones ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total traslados</span>
+                    <span className="font-medium">{result.impuestosLocales.totalDeTraslados ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Retenciones</span>
+                    <span className="font-medium">{result.impuestosLocales.retenciones.length}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Traslados</span>
+                    <span className="font-medium">{result.impuestosLocales.traslados.length}</span>
+                  </div>
+                </div>
+                {result.impuestosLocales.retenciones.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Retenciones locales</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30 text-muted-foreground">
+                            <th className="text-left py-1 pr-2">#</th>
+                            <th className="text-left py-1 pr-2">Impuesto</th>
+                            <th className="text-right py-1 pr-2">Tasa</th>
+                            <th className="text-right py-1">Importe</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.impuestosLocales.retenciones.map((r, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2">{i + 1}</td>
+                              <td className="py-1 pr-2">{r.impLocRetenido ?? "—"}</td>
+                              <td className="py-1 pr-2 text-right">{r.tasaDeRetencion ?? "—"}</td>
+                              <td className="py-1 text-right">{r.importe ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {result.impuestosLocales.traslados.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Traslados locales</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30 text-muted-foreground">
+                            <th className="text-left py-1 pr-2">#</th>
+                            <th className="text-left py-1 pr-2">Impuesto</th>
+                            <th className="text-right py-1 pr-2">Tasa</th>
+                            <th className="text-right py-1">Importe</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.impuestosLocales.traslados.map((t, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2">{i + 1}</td>
+                              <td className="py-1 pr-2">{t.impLocTrasladado ?? "—"}</td>
+                              <td className="py-1 pr-2 text-right">{t.tasaDeTraslado ?? "—"}</td>
+                              <td className="py-1 text-right">{t.importe ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="p-6 rounded-xl border border-border bg-card space-y-4">
               <h2 className="font-semibold text-lg">Diagnóstico técnico del archivo</h2>
 
@@ -2885,6 +2967,35 @@ export default function XmlAuditPage() {
                   TotalUSD: r.comercioExterior.totalUSD ?? "—",
                   Observaciones: r.comercioExterior.observaciones ?? "—",
                 });
+              }
+
+              if (r.impuestosLocales) {
+                section("IMPUESTOS LOCALES - RESUMEN");
+                sub("", {
+                  Versión: r.impuestosLocales.version ?? "—",
+                  "Total retenciones": r.impuestosLocales.totalDeRetenciones ?? "—",
+                  "Total traslados": r.impuestosLocales.totalDeTraslados ?? "—",
+                  Retenciones: String(r.impuestosLocales.retenciones.length),
+                  Traslados: String(r.impuestosLocales.traslados.length),
+                });
+                if (r.impuestosLocales.retenciones.length > 0) {
+                  section("IMPUESTOS LOCALES - RETENCIONES");
+                  row("#", "ImpLocRetenido", "TasaDeRetencion", "Importe");
+                  for (let i = 0; i < r.impuestosLocales.retenciones.length; i++) {
+                    const ret = r.impuestosLocales.retenciones[i];
+                    row(String(i + 1), ret.impLocRetenido, ret.tasaDeRetencion, ret.importe);
+                  }
+                  lines.push("");
+                }
+                if (r.impuestosLocales.traslados.length > 0) {
+                  section("IMPUESTOS LOCALES - TRASLADOS");
+                  row("#", "ImpLocTrasladado", "TasaDeTraslado", "Importe");
+                  for (let i = 0; i < r.impuestosLocales.traslados.length; i++) {
+                    const tras = r.impuestosLocales.traslados[i];
+                    row(String(i + 1), tras.impLocTrasladado, tras.tasaDeTraslado, tras.importe);
+                  }
+                  lines.push("");
+                }
               }
 
               if (r.concepts && r.concepts.length > 0) {
@@ -3997,6 +4108,87 @@ export default function XmlAuditPage() {
                         )}
                       </tbody>
                     </table>
+                  </>
+                )}
+
+                {r.impuestosLocales && (
+                  <>
+                    <div className="print-report-break"></div>
+                    <h3 className="text-lg font-bold mt-4 mb-2">Impuestos Locales</h3>
+                    <table className="w-full text-xs border-collapse mb-3">
+                      <tbody>
+                        <tr>
+                          <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                          <td>{r.impuestosLocales.version ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Total retenciones</td>
+                          <td>{r.impuestosLocales.totalDeRetenciones ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Total traslados</td>
+                          <td>{r.impuestosLocales.totalDeTraslados ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Retenciones</td>
+                          <td>{r.impuestosLocales.retenciones.length}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Traslados</td>
+                          <td>{r.impuestosLocales.traslados.length}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {r.impuestosLocales.retenciones.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold mt-2 mb-1">Retenciones locales</h4>
+                        <table className="w-full text-xs border-collapse mb-2">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left pr-2">#</th>
+                              <th className="text-left pr-2">Impuesto</th>
+                              <th className="text-right pr-2">Tasa</th>
+                              <th className="text-right">Importe</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.impuestosLocales.retenciones.map((ret, i) => (
+                              <tr key={i} className="border-b">
+                                <td>{i + 1}</td>
+                                <td>{ret.impLocRetenido ?? "—"}</td>
+                                <td className="text-right">{ret.tasaDeRetencion ?? "—"}</td>
+                                <td className="text-right">{ret.importe ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                    {r.impuestosLocales.traslados.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold mt-2 mb-1">Traslados locales</h4>
+                        <table className="w-full text-xs border-collapse mb-2">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left pr-2">#</th>
+                              <th className="text-left pr-2">Impuesto</th>
+                              <th className="text-right pr-2">Tasa</th>
+                              <th className="text-right">Importe</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.impuestosLocales.traslados.map((tras, i) => (
+                              <tr key={i} className="border-b">
+                                <td>{i + 1}</td>
+                                <td>{tras.impLocTrasladado ?? "—"}</td>
+                                <td className="text-right">{tras.tasaDeTraslado ?? "—"}</td>
+                                <td className="text-right">{tras.importe ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
                   </>
                 )}
 

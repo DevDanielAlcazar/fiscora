@@ -2891,6 +2891,171 @@ async function testComercioExteriorComplementoVacio(): Promise<void> {
   assertEqual(result.comercioExterior, undefined, "comercioExterior debe ser undefined");
 }
 
+// ─── Impuestos Locales fixtures ─────────────────────────────────────────────
+
+const IMPLOCAL_NS = 'xmlns:implocal="http://www.sat.gob.mx/ImpuestosLocales"';
+
+function buildImpuestosLocalesXml(opts?: {
+  version?: string;
+  totalDeRetenciones?: string;
+  totalDeTraslados?: string;
+  retenciones?: Array<{ impLocRetenido: string; tasa: string; importe: string }>;
+  traslados?: Array<{ impLocTrasladado: string; tasa: string; importe: string }>;
+  omitirComplemento?: boolean;
+}): string {
+  const version = opts?.version ?? "1.0";
+  const totalRet = opts?.totalDeRetenciones;
+  const totalTras = opts?.totalDeTraslados;
+  const retenciones = opts?.retenciones ?? [];
+  const traslados = opts?.traslados ?? [];
+
+  let complementContent = "";
+  if (!opts?.omitirComplemento) {
+    let retXml = "";
+    if (retenciones.length > 0) {
+      retXml = `      <implocal:RetencionesLocales>
+${retenciones.map((r) => `        <implocal:RetencionLocal ImpLocRetenido="${r.impLocRetenido}" TasadeRetencion="${r.tasa}" Importe="${r.importe}"/>`).join("\n")}
+      </implocal:RetencionesLocales>
+`;
+    }
+    let trasXml = "";
+    if (traslados.length > 0) {
+      trasXml = `      <implocal:TrasladosLocales>
+${traslados.map((t) => `        <implocal:TrasladoLocal ImpLocTrasladado="${t.impLocTrasladado}" TasadeTraslado="${t.tasa}" Importe="${t.importe}"/>`).join("\n")}
+      </implocal:TrasladosLocales>
+`;
+    }
+    complementContent = `    <implocal:ImpuestosLocales ${IMPLOCAL_NS} Version="${version}"${totalRet !== undefined ? ` TotaldeRetenciones="${totalRet}"` : ""}${totalTras !== undefined ? ` TotaldeTraslados="${totalTras}"` : ""}>
+${retXml}${trasXml}    </implocal:ImpuestosLocales>`;
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="123" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto de prueba" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ci000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    ${complementContent}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+async function testImpuestosLocalesValidoBase(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    totalDeRetenciones: "20.00",
+    totalDeTraslados: "25.00",
+    retenciones: [{ impLocRetenido: "ISRH", tasa: "0.050000", importe: "20.00" }],
+    traslados: [
+      { impLocTrasladado: "ISHT", tasa: "0.020000", importe: "10.00" },
+      { impLocTrasladado: "ISHT2", tasa: "0.030000", importe: "15.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "il-valido-base.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertEqual(result.impuestosLocales!.version, "1.0", "version debe ser 1.0");
+  assertEqual(result.impuestosLocales!.retenciones.length, 1, "1 retención");
+  assertEqual(result.impuestosLocales!.traslados.length, 2, "2 traslados");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_DETECTED");
+  assertEqual(result.findings.filter((f) => f.code === "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH").length, 0, "no debe haber mismatch retenciones");
+  assertEqual(result.findings.filter((f) => f.code === "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH").length, 0, "no debe haber mismatch traslados");
+}
+
+async function testImpuestosLocalesTotalRetencionesMismatch(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    totalDeRetenciones: "10.00",
+    totalDeTraslados: "25.00",
+    retenciones: [{ impLocRetenido: "ISRH", tasa: "0.050000", importe: "20.00" }],
+    traslados: [
+      { impLocTrasladado: "ISHT", tasa: "0.020000", importe: "10.00" },
+      { impLocTrasladado: "ISHT2", tasa: "0.030000", importe: "15.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "il-total-ret-mismatch.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH")!;
+  assertEqual(finding.severity, "CRITICAL", "severity debe ser CRITICAL");
+  assertEqual(result.executiveSummary.riskLevel, "CRITICAL", "riskLevel debe ser CRITICAL");
+}
+
+async function testImpuestosLocalesTotalTrasladosMismatch(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    totalDeRetenciones: "20.00",
+    totalDeTraslados: "10.00",
+    retenciones: [{ impLocRetenido: "ISRH", tasa: "0.050000", importe: "20.00" }],
+    traslados: [
+      { impLocTrasladado: "ISHT", tasa: "0.020000", importe: "10.00" },
+      { impLocTrasladado: "ISHT2", tasa: "0.030000", importe: "15.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "il-total-tras-mismatch.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH")!;
+  assertEqual(finding.severity, "CRITICAL", "severity debe ser CRITICAL");
+}
+
+async function testImpuestosLocalesSinLineas(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    totalDeRetenciones: "0.00",
+    totalDeTraslados: "0.00",
+  });
+  const result = analyzeCfdi(xml, "il-sin-lineas.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_WITHOUT_LINES");
+  const finding = result.findings.find((f) => f.code === "IMPUESTOS_LOCALES_WITHOUT_LINES")!;
+  assertEqual(finding.severity, "WARNING", "severity debe ser WARNING");
+}
+
+async function testImpuestosLocalesLineaInvalida(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    totalDeRetenciones: "0.00",
+    totalDeTraslados: "0.00",
+    retenciones: [{ impLocRetenido: "", tasa: "-1", importe: "-5" }],
+    traslados: [{ impLocTrasladado: "", tasa: "-1", importe: "-3" }],
+  });
+  const result = analyzeCfdi(xml, "il-linea-invalida.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_RETENCION_MISSING_NAME");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_RETENCION_TASA_INVALID");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_RETENCION_IMPORTE_INVALID");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TRASLADO_MISSING_NAME");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TRASLADO_TASA_INVALID");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TRASLADO_IMPORTE_INVALID");
+}
+
+async function testImpuestosLocalesTotalesFaltantes(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({
+    version: "1.0",
+    retenciones: [{ impLocRetenido: "ISRH", tasa: "0.050000", importe: "20.00" }],
+    traslados: [{ impLocTrasladado: "ISHT", tasa: "0.020000", importe: "10.00" }],
+  });
+  const result = analyzeCfdi(xml, "il-totales-faltantes.xml");
+  assertTruthy(result.impuestosLocales, "impuestosLocales debe existir");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISSING_REVIEW");
+  assertIncludesFinding(result.findings, "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISSING_REVIEW");
+}
+
+async function testImpuestosLocalesComplementoVacio(): Promise<void> {
+  const xml = buildImpuestosLocalesXml({ omitirComplemento: true });
+  const result = analyzeCfdi(xml, "il-vacio.xml");
+  assertEqual(result.impuestosLocales, undefined, "impuestosLocales debe ser undefined");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -2989,6 +3154,13 @@ async function main() {
   await runCase("CF) Comercio Exterior TotalUSD mismatch", testComercioExteriorTotalUSDMismatch);
   await runCase("CG) Comercio Exterior versión faltante", testComercioExteriorVersionFaltante);
   await runCase("CH) Comercio Exterior complemento vacío", testComercioExteriorComplementoVacio);
+  await runCase("CI) Impuestos Locales válido base", testImpuestosLocalesValidoBase);
+  await runCase("CJ) Impuestos Locales total retenciones mismatch", testImpuestosLocalesTotalRetencionesMismatch);
+  await runCase("CK) Impuestos Locales total traslados mismatch", testImpuestosLocalesTotalTrasladosMismatch);
+  await runCase("CL) Impuestos Locales sin líneas", testImpuestosLocalesSinLineas);
+  await runCase("CM) Impuestos Locales línea inválida", testImpuestosLocalesLineaInvalida);
+  await runCase("CN) Impuestos Locales totales faltantes", testImpuestosLocalesTotalesFaltantes);
+  await runCase("CO) Impuestos Locales complemento vacío", testImpuestosLocalesComplementoVacio);
 
   printSummary();
 

@@ -265,6 +265,26 @@ export interface ComercioExteriorInfo {
   totalUSD?: string | null;
 }
 
+export interface ImpuestoLocalRetencionInfo {
+  impLocRetenido?: string | null;
+  tasaDeRetencion?: string | null;
+  importe?: string | null;
+}
+
+export interface ImpuestoLocalTrasladoInfo {
+  impLocTrasladado?: string | null;
+  tasaDeTraslado?: string | null;
+  importe?: string | null;
+}
+
+export interface ImpuestosLocalesInfo {
+  version?: string | null;
+  totalDeRetenciones?: string | null;
+  totalDeTraslados?: string | null;
+  retenciones: ImpuestoLocalRetencionInfo[];
+  traslados: ImpuestoLocalTrasladoInfo[];
+}
+
 export interface NormalizedXml {
   available: boolean;
   reason: string;
@@ -308,6 +328,7 @@ export interface AnalysisResult {
   cartaPorte?: CartaPorteInfo;
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
+  impuestosLocales?: ImpuestosLocalesInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;
