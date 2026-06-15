@@ -170,14 +170,10 @@ export default function DashboardPage() {
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
           <h2 className="font-semibold text-lg">Plan actual</h2>
 
-          {planLoading && (
-            <p className="text-sm text-muted-foreground">Cargando plan...</p>
-          )}
+          {planLoading && <p className="text-sm text-muted-foreground">Cargando plan...</p>}
 
           {planError && (
-            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
-              {planError}
-            </p>
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{planError}</p>
           )}
 
           {!user.organizationId && !planLoading && (
@@ -207,7 +203,9 @@ export default function DashboardPage() {
               {plan.subscription.stripeSubscriptionId && (
                 <div className="flex justify-between py-1 border-b border-border/50">
                   <span className="text-muted-foreground">Suscripción Stripe</span>
-                  <span className="font-mono text-xs">{plan.subscription.stripeSubscriptionId}</span>
+                  <span className="font-mono text-xs">
+                    {plan.subscription.stripeSubscriptionId}
+                  </span>
                 </div>
               )}
               {plan.subscription.currentPeriodEnd && (
@@ -228,9 +226,7 @@ export default function DashboardPage() {
                   >
                     {portalLoading ? "Abriendo portal..." : "Administrar suscripción"}
                   </button>
-                  {portalError && (
-                    <p className="text-xs text-red-500 mt-1">{portalError}</p>
-                  )}
+                  {portalError && <p className="text-xs text-red-500 mt-1">{portalError}</p>}
                 </div>
               )}
             </div>
@@ -258,14 +254,10 @@ export default function DashboardPage() {
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
           <h2 className="font-semibold text-lg">Uso mensual</h2>
 
-          {usageLoading && (
-            <p className="text-sm text-muted-foreground">Cargando uso mensual...</p>
-          )}
+          {usageLoading && <p className="text-sm text-muted-foreground">Cargando uso mensual...</p>}
 
           {usageError && (
-            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
-              {usageError}
-            </p>
+            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{usageError}</p>
           )}
 
           {!user.organizationId && !usageLoading && (
@@ -301,27 +293,28 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {usage && !usageLoading && !usage.usage.unlimited && (usage.usage.remaining ?? 0) <= 3 && (
-            <div
-              className={`text-sm rounded-lg px-4 py-3 ${
-                (usage.usage.remaining ?? 0) === 0
-                  ? "bg-red-500/10 text-red-600"
-                  : "bg-yellow-500/10 text-yellow-600"
-              }`}
-            >
-              {(usage.usage.remaining ?? 0) === 0
-                ? "Has alcanzado tu límite mensual."
-                : "Estás cerca de alcanzar tu límite mensual."}
-            </div>
-          )}
+          {usage &&
+            !usageLoading &&
+            !usage.usage.unlimited &&
+            (usage.usage.remaining ?? 0) <= 3 && (
+              <div
+                className={`text-sm rounded-lg px-4 py-3 ${
+                  (usage.usage.remaining ?? 0) === 0
+                    ? "bg-red-500/10 text-red-600"
+                    : "bg-yellow-500/10 text-yellow-600"
+                }`}
+              >
+                {(usage.usage.remaining ?? 0) === 0
+                  ? "Has alcanzado tu límite mensual."
+                  : "Estás cerca de alcanzar tu límite mensual."}
+              </div>
+            )}
         </div>
 
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
           <h2 className="font-semibold text-lg">Módulos disponibles</h2>
 
-          {modulesLoading && (
-            <p className="text-sm text-muted-foreground">Cargando módulos...</p>
-          )}
+          {modulesLoading && <p className="text-sm text-muted-foreground">Cargando módulos...</p>}
 
           {modulesError && (
             <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">

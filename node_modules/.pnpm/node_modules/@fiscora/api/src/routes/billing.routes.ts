@@ -46,7 +46,8 @@ export async function billingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const priceId = billingCycle === "MONTHLY" ? plan.stripeMonthlyPriceId : plan.stripeYearlyPriceId;
+      const priceId =
+        billingCycle === "MONTHLY" ? plan.stripeMonthlyPriceId : plan.stripeYearlyPriceId;
 
       if (!priceId) {
         return reply.code(400).send({

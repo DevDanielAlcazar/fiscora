@@ -78,9 +78,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     const currentPeriodEnd = sub.current_period_end
       ? new Date((sub.current_period_end as number) * 1000)
       : undefined;
-    const canceledAt = sub.canceled_at
-      ? new Date((sub.canceled_at as number) * 1000)
-      : undefined;
+    const canceledAt = sub.canceled_at ? new Date((sub.canceled_at as number) * 1000) : undefined;
     const currentPeriodStart = sub.current_period_start
       ? new Date((sub.current_period_start as number) * 1000)
       : undefined;
@@ -150,9 +148,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     });
 
     const sub = subscription as unknown as Record<string, unknown>;
-    const canceledAt = sub.canceled_at
-      ? new Date((sub.canceled_at as number) * 1000)
-      : new Date();
+    const canceledAt = sub.canceled_at ? new Date((sub.canceled_at as number) * 1000) : new Date();
 
     await fastify.prisma.subscription.update({
       where: { stripeSubscriptionId },
@@ -222,10 +218,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
     });
 
     if (!existing) {
-      fastify.log.warn(
-        { stripeSubscriptionId },
-        "Subscription not found for invoice.paid",
-      );
+      fastify.log.warn({ stripeSubscriptionId }, "Subscription not found for invoice.paid");
       return;
     }
 
@@ -234,10 +227,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
       data: { status: "active" },
     });
 
-    fastify.log.info(
-      { stripeSubscriptionId },
-      "Subscription set to active from invoice.paid",
-    );
+    fastify.log.info({ stripeSubscriptionId }, "Subscription set to active from invoice.paid");
   }
 
   fastify.post("/api/webhooks/stripe", {
@@ -277,27 +267,19 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
 
         try {
           if (event.type === "checkout.session.completed") {
-            await processCheckoutSessionCompleted(
-              event.data.object as Stripe.Checkout.Session,
-            );
+            await processCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
           }
 
           if (event.type === "customer.subscription.updated") {
-            await processSubscriptionUpdated(
-              event.data.object as Stripe.Subscription,
-            );
+            await processSubscriptionUpdated(event.data.object as Stripe.Subscription);
           }
 
           if (event.type === "customer.subscription.deleted") {
-            await processSubscriptionDeleted(
-              event.data.object as Stripe.Subscription,
-            );
+            await processSubscriptionDeleted(event.data.object as Stripe.Subscription);
           }
 
           if (event.type === "invoice.payment_failed") {
-            await processInvoicePaymentFailed(
-              event.data.object as Stripe.Invoice,
-            );
+            await processInvoicePaymentFailed(event.data.object as Stripe.Invoice);
           }
 
           if (event.type === "invoice.paid") {

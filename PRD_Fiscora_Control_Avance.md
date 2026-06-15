@@ -55,20 +55,20 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ## 4. Stack técnico actual
 
-| Componente | Estado | Descripción |
-|---|---:|---|
-| Monorepo pnpm | [x] | Proyecto con varios workspaces. |
-| API Fastify | [x] | Backend principal. |
-| Frontend React + Vite | [x] | UI actual funcional, todavía no final premium. |
-| TypeScript | [x] | Uso en API/web/packages. |
-| Prisma ORM | [x] | Modelado y migraciones. |
-| PostgreSQL remoto/local LAN | [x] | Base `fiscora_db`. |
-| Stripe SDK | [x] | Checkout, webhooks y Billing Portal. |
-| JWT | [x] | Autenticación por bearer token. |
-| Argon2 | [x] | Hash de contraseñas. |
-| ExcelJS | [x] | Exportación de usuarios a Excel. |
-| Cloudflare Tunnel / exposición temporal | [x] | Usado para pruebas de webhook. |
-| Stripe CLI | [x] | Usado para forwarding local de webhooks. |
+| Componente                              | Estado | Descripción                                    |
+| --------------------------------------- | -----: | ---------------------------------------------- |
+| Monorepo pnpm                           |    [x] | Proyecto con varios workspaces.                |
+| API Fastify                             |    [x] | Backend principal.                             |
+| Frontend React + Vite                   |    [x] | UI actual funcional, todavía no final premium. |
+| TypeScript                              |    [x] | Uso en API/web/packages.                       |
+| Prisma ORM                              |    [x] | Modelado y migraciones.                        |
+| PostgreSQL remoto/local LAN             |    [x] | Base `fiscora_db`.                             |
+| Stripe SDK                              |    [x] | Checkout, webhooks y Billing Portal.           |
+| JWT                                     |    [x] | Autenticación por bearer token.                |
+| Argon2                                  |    [x] | Hash de contraseñas.                           |
+| ExcelJS                                 |    [x] | Exportación de usuarios a Excel.               |
+| Cloudflare Tunnel / exposición temporal |    [x] | Usado para pruebas de webhook.                 |
+| Stripe CLI                              |    [x] | Usado para forwarding local de webhooks.       |
 
 ---
 
@@ -95,10 +95,10 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ## 6. Tipos de cuenta
 
-| Tipo | Estado | Descripción |
-|---|---:|---|
-| `INDIVIDUAL` | [x] | Cuenta individual ligada a una organización técnica tipo individual. |
-| `ORGANIZATION` | [x] | Cuenta de organización/despacho. |
+| Tipo           | Estado | Descripción                                                          |
+| -------------- | -----: | -------------------------------------------------------------------- |
+| `INDIVIDUAL`   |    [x] | Cuenta individual ligada a una organización técnica tipo individual. |
+| `ORGANIZATION` |    [x] | Cuenta de organización/despacho.                                     |
 
 ### Reglas
 
@@ -116,12 +116,12 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ### 7.1 Planes definidos
 
-| Plan | Estado | Descripción operativa |
-|---|---:|---|
-| Essential | [x] | Plan gratuito base. |
-| Professional | [x] | Plan pagado para contadores/despachos pequeños. |
-| Corporation | [x] | Plan pagado para empresas/despachos medianos. |
-| Forensic Auditor | [x] | Plan pagado para auditoría masiva/peritos. |
+| Plan             | Estado | Descripción operativa                           |
+| ---------------- | -----: | ----------------------------------------------- |
+| Essential        |    [x] | Plan gratuito base.                             |
+| Professional     |    [x] | Plan pagado para contadores/despachos pequeños. |
+| Corporation      |    [x] | Plan pagado para empresas/despachos medianos.   |
+| Forensic Auditor |    [x] | Plan pagado para auditoría masiva/peritos.      |
 
 ### 7.2 Reglas comerciales conocidas
 
@@ -172,20 +172,20 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ### 8.1 Entidades implementadas o ampliadas
 
-| Modelo | Estado | Campos / propósito |
-|---|---:|---|
-| `User` | [x] | Usuario del sistema. |
-| `Organization` | [x] | Cuenta/organización vinculada a usuarios. |
-| `Subscription` | [x] | Suscripción local de la organización. |
-| `Plan` | [x] | Plan comercial y técnico. |
-| `Module` | [x] | Módulos funcionales disponibles. |
-| `PlanModuleAccess` | [x] | Matriz de acceso plan-módulo. |
-| `UsageEvent` | [x] | Registro de consumo mensual. |
-| `StripeWebhookEvent` | [x] | Registro idempotente de eventos Stripe. |
-| `AdminAuditLog` | [ ] | Existe referencia visual, pero falta formalizar auditoría integral. |
-| `RfcProfile` | [ ] | Pendiente para administración de RFCs por organización. |
-| `XmlAnalysis` / metadata XML | [ ] | Pendiente para módulo XML real. |
-| `LaborCalculation` | [ ] | Pendiente para módulo laboral. |
+| Modelo                       | Estado | Campos / propósito                                                  |
+| ---------------------------- | -----: | ------------------------------------------------------------------- |
+| `User`                       |    [x] | Usuario del sistema.                                                |
+| `Organization`               |    [x] | Cuenta/organización vinculada a usuarios.                           |
+| `Subscription`               |    [x] | Suscripción local de la organización.                               |
+| `Plan`                       |    [x] | Plan comercial y técnico.                                           |
+| `Module`                     |    [x] | Módulos funcionales disponibles.                                    |
+| `PlanModuleAccess`           |    [x] | Matriz de acceso plan-módulo.                                       |
+| `UsageEvent`                 |    [x] | Registro de consumo mensual.                                        |
+| `StripeWebhookEvent`         |    [x] | Registro idempotente de eventos Stripe.                             |
+| `AdminAuditLog`              |    [ ] | Existe referencia visual, pero falta formalizar auditoría integral. |
+| `RfcProfile`                 |    [ ] | Pendiente para administración de RFCs por organización.             |
+| `XmlAnalysis` / metadata XML |    [ ] | Pendiente para módulo XML real.                                     |
+| `LaborCalculation`           |    [ ] | Pendiente para módulo laboral.                                      |
 
 ### 8.2 Campos relevantes implementados
 
@@ -319,7 +319,7 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ### 10.2 Pendiente inmediato
 
-- [x] Mostrar cancelación programada en dashboard si `cancelAtPeriodEnd = true`. *(Decisión UX: No mostrar cancelación programada cuando sea false para no incentivar cancelación. Solo mostrar información cuando exista cancelación activa.)*
+- [x] Mostrar cancelación programada en dashboard si `cancelAtPeriodEnd = true`. _(Decisión UX: No mostrar cancelación programada cuando sea false para no incentivar cancelación. Solo mostrar información cuando exista cancelación activa.)_
 - [x] Mostrar `currentPeriodEnd` en formato amigable.
 - [x] Mostrar `canceledAt` cuando aplique.
 - [x] Mostrar estado traducido de suscripción en todos los casos.
@@ -557,14 +557,14 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ### 18.1 Módulos definidos
 
-| Módulo | Estado | Descripción |
-|---|---:|---|
-| `AUDITORIA_XML` | [x] | Módulo de auditoría/análisis XML. |
-| `LABORAL` | [x] | Módulo laboral México. |
-| `ADMIN_STRIPE_WEBHOOK` | [x] | Administración webhook Stripe. |
-| `ADMIN_USERS` | [x] | Administración de usuarios. |
-| `ADMIN_MODULES` | [x] | Administración de permisos de módulos. |
-| `ADMIN_ANALYTICS` | [x] | Analítica administrativa. |
+| Módulo                 | Estado | Descripción                            |
+| ---------------------- | -----: | -------------------------------------- |
+| `AUDITORIA_XML`        |    [x] | Módulo de auditoría/análisis XML.      |
+| `LABORAL`              |    [x] | Módulo laboral México.                 |
+| `ADMIN_STRIPE_WEBHOOK` |    [x] | Administración webhook Stripe.         |
+| `ADMIN_USERS`          |    [x] | Administración de usuarios.            |
+| `ADMIN_MODULES`        |    [x] | Administración de permisos de módulos. |
+| `ADMIN_ANALYTICS`      |    [x] | Analítica administrativa.              |
 
 ### 18.2 Matriz plan-módulo
 
@@ -1098,7 +1098,7 @@ La plataforma deberá permitir iniciar con un MVP técnico sólido y evolucionar
 
 ### Inmediato
 
-- [x] 06L — Mostrar cancelación programada en Dashboard. *(Decisión UX: No mostrar cancelación programada cuando sea false para no incentivar cancelación. Solo mostrar información cuando exista cancelación activa.)*
+- [x] 06L — Mostrar cancelación programada en Dashboard. _(Decisión UX: No mostrar cancelación programada cuando sea false para no incentivar cancelación. Solo mostrar información cuando exista cancelación activa.)_
 - [ ] 06M — Probar cancelación desde Billing Portal y validar webhook.
 - [ ] 06N — Reconciliación básica Stripe current subscription si se requiere.
 - [ ] Mejorar estado visual de suscripción en dashboard.

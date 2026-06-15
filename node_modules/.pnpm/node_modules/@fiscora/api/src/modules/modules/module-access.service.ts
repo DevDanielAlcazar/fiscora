@@ -14,9 +14,7 @@ interface AssertModuleAccessParams {
 }
 
 export class ModuleAccessService {
-  static async assertModuleAccess(
-    params: AssertModuleAccessParams,
-  ): Promise<ModulePermissions> {
+  static async assertModuleAccess(params: AssertModuleAccessParams): Promise<ModulePermissions> {
     const { prisma, organizationId, moduleKey } = params;
 
     const mod = await prisma.module.findUnique({

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getXmlAnalyticsSummary, type XmlAnalyticsSummary, type XmlAnalyticsQuery } from "../api/admin";
+import {
+  getXmlAnalyticsSummary,
+  type XmlAnalyticsSummary,
+  type XmlAnalyticsQuery,
+} from "../api/admin";
 
 export default function AdminAnalyticsPage() {
   const navigate = useNavigate();
@@ -15,7 +19,10 @@ export default function AdminAnalyticsPage() {
 
   async function fetchData() {
     const token = localStorage.getItem("accessToken");
-    if (!token) { navigate("/login"); return; }
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -33,18 +40,31 @@ export default function AdminAnalyticsPage() {
     }
   }
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  function handleSearch() { fetchData(); }
+  function handleSearch() {
+    fetchData();
+  }
   function handleClear() {
-    setFFrom(""); setFTo(""); setFSourceType(""); setFAnalysisStatus("");
+    setFFrom("");
+    setFTo("");
+    setFSourceType("");
+    setFAnalysisStatus("");
     fetchData();
   }
 
   function formatDate(dateStr: string) {
     if (!dateStr) return "—";
     const d = new Date(dateStr);
-    return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function card(title: string, value: string | number, accent = "text-blue-400") {
@@ -73,7 +93,10 @@ export default function AdminAnalyticsPage() {
         <div className="text-center max-w-md">
           <p className="text-red-400 text-lg font-semibold mb-2">Error</p>
           <p className="text-gray-400 mb-6">{error}</p>
-          <button onClick={() => fetchData()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all">
+          <button
+            onClick={() => fetchData()}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all"
+          >
             Reintentar
           </button>
         </div>
@@ -111,18 +134,29 @@ export default function AdminAnalyticsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs text-gray-400 mb-1">Desde</label>
-              <input type="datetime-local" value={fFrom} onChange={e => setFFrom(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary" />
+              <input
+                type="datetime-local"
+                value={fFrom}
+                onChange={(e) => setFFrom(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary"
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Hasta</label>
-              <input type="datetime-local" value={fTo} onChange={e => setFTo(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary" />
+              <input
+                type="datetime-local"
+                value={fTo}
+                onChange={(e) => setFTo(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary"
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Source type</label>
-              <select value={fSourceType} onChange={e => setFSourceType(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary">
+              <select
+                value={fSourceType}
+                onChange={(e) => setFSourceType(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary"
+              >
                 <option value="">Todos</option>
                 <option value="INDIVIDUAL">INDIVIDUAL</option>
                 <option value="ZIP">ZIP</option>
@@ -130,8 +164,11 @@ export default function AdminAnalyticsPage() {
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Estado</label>
-              <select value={fAnalysisStatus} onChange={e => setFAnalysisStatus(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary">
+              <select
+                value={fAnalysisStatus}
+                onChange={(e) => setFAnalysisStatus(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary"
+              >
                 <option value="">Todos</option>
                 <option value="ANALYZED">ANALYZED</option>
                 <option value="FAILED">FAILED</option>
@@ -139,12 +176,16 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={handleSearch}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all">
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all"
+            >
               Buscar
             </button>
-            <button onClick={handleClear}
-              className="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 text-sm font-semibold hover:bg-gray-600 transition-all">
+            <button
+              onClick={handleClear}
+              className="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 text-sm font-semibold hover:bg-gray-600 transition-all"
+            >
               Limpiar
             </button>
           </div>
@@ -156,7 +197,11 @@ export default function AdminAnalyticsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 mb-6">
               {card("Total análisis", data.totals.records, "text-blue-400")}
               {card("Analizados", data.totals.analyzed, "text-green-400")}
-              {card("Fallidos", data.totals.failed, data.totals.failed > 0 ? "text-red-400" : "text-gray-300")}
+              {card(
+                "Fallidos",
+                data.totals.failed,
+                data.totals.failed > 0 ? "text-red-400" : "text-gray-300",
+              )}
               {card("Individuales", data.totals.individual, "text-cyan-400")}
               {card("ZIP", data.totals.zip, "text-purple-400")}
               {card("Lotes ZIP", data.totals.uniqueBatches, "text-yellow-400")}
@@ -168,8 +213,16 @@ export default function AdminAnalyticsPage() {
               <div>
                 <h2 className="text-lg font-semibold mb-3">Riesgo</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {card("Críticos", data.risk.critical, data.risk.critical > 0 ? "text-red-400" : "text-gray-300")}
-                  {card("Advertencias", data.risk.warning, data.risk.warning > 0 ? "text-yellow-400" : "text-gray-300")}
+                  {card(
+                    "Críticos",
+                    data.risk.critical,
+                    data.risk.critical > 0 ? "text-red-400" : "text-gray-300",
+                  )}
+                  {card(
+                    "Advertencias",
+                    data.risk.warning,
+                    data.risk.warning > 0 ? "text-yellow-400" : "text-gray-300",
+                  )}
                   {card("OK", data.risk.ok, "text-green-400")}
                   {card("Sin riesgo", data.risk.nullRisk, "text-gray-400")}
                 </div>
@@ -178,8 +231,16 @@ export default function AdminAnalyticsPage() {
                 <h2 className="text-lg font-semibold mb-3">Hallazgos</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {card("Total", data.findings.total, "text-blue-400")}
-                  {card("Críticos", data.findings.critical, data.findings.critical > 0 ? "text-red-400" : "text-gray-300")}
-                  {card("Advertencias", data.findings.warnings, data.findings.warnings > 0 ? "text-yellow-400" : "text-gray-300")}
+                  {card(
+                    "Críticos",
+                    data.findings.critical,
+                    data.findings.critical > 0 ? "text-red-400" : "text-gray-300",
+                  )}
+                  {card(
+                    "Advertencias",
+                    data.findings.warnings,
+                    data.findings.warnings > 0 ? "text-yellow-400" : "text-gray-300",
+                  )}
                   {card("Info", data.findings.info, "text-cyan-400")}
                 </div>
               </div>
@@ -188,7 +249,11 @@ export default function AdminAnalyticsPage() {
             <h2 className="text-lg font-semibold mb-3">Técnico</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
               {card("XMLs con BOM", data.technical.withBom, "text-orange-400")}
-              {card("Normalización técnica", data.technical.withTechnicalNormalization, "text-blue-400")}
+              {card(
+                "Normalización técnica",
+                data.technical.withTechnicalNormalization,
+                "text-blue-400",
+              )}
               {card("Normalizados disponibles", data.technical.withNormalizedXml, "text-green-400")}
             </div>
 
@@ -205,13 +270,22 @@ export default function AdminAnalyticsPage() {
                     </thead>
                     <tbody>
                       {data.byTipoComprobante.length === 0 ? (
-                        <tr><td colSpan={2} className="py-4 text-center text-gray-500">Sin datos</td></tr>
-                      ) : data.byTipoComprobante.map(t => (
-                        <tr key={t.tipoComprobante} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                          <td className="py-2">{t.tipoComprobante}</td>
-                          <td className="py-2 text-right font-mono">{t.count}</td>
+                        <tr>
+                          <td colSpan={2} className="py-4 text-center text-gray-500">
+                            Sin datos
+                          </td>
                         </tr>
-                      ))}
+                      ) : (
+                        data.byTipoComprobante.map((t) => (
+                          <tr
+                            key={t.tipoComprobante}
+                            className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                          >
+                            <td className="py-2">{t.tipoComprobante}</td>
+                            <td className="py-2 text-right font-mono">{t.count}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -228,8 +302,11 @@ export default function AdminAnalyticsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.bySourceType.map(s => (
-                        <tr key={s.sourceType} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                      {data.bySourceType.map((s) => (
+                        <tr
+                          key={s.sourceType}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
                           <td className="py-2">{s.sourceType}</td>
                           <td className="py-2 text-right font-mono">{s.count}</td>
                         </tr>
@@ -244,12 +321,21 @@ export default function AdminAnalyticsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.byAnalysisStatus.map(s => (
-                        <tr key={s.analysisStatus} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                      {data.byAnalysisStatus.map((s) => (
+                        <tr
+                          key={s.analysisStatus}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
                           <td className="py-2">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                              s.analysisStatus === "ANALYZED" ? "bg-green-900/50 text-green-300" : "bg-red-900/50 text-red-300"
-                            }`}>{s.analysisStatus}</span>
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                s.analysisStatus === "ANALYZED"
+                                  ? "bg-green-900/50 text-green-300"
+                                  : "bg-red-900/50 text-red-300"
+                              }`}
+                            >
+                              {s.analysisStatus}
+                            </span>
                           </td>
                           <td className="py-2 text-right font-mono">{s.count}</td>
                         </tr>
@@ -274,16 +360,35 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {data.topOrganizations.length === 0 ? (
-                    <tr><td colSpan={5} className="py-4 text-center text-gray-500">Sin datos</td></tr>
-                  ) : data.topOrganizations.map(o => (
-                    <tr key={o.organizationId} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                      <td className="py-2 max-w-[200px] truncate" title={o.organizationName}>{o.organizationName}</td>
-                      <td className="py-2 text-right font-mono">{o.records}</td>
-                      <td className={`py-2 text-right font-mono ${o.failed > 0 ? "text-red-400" : ""}`}>{o.failed}</td>
-                      <td className={`py-2 text-right font-mono ${o.critical > 0 ? "text-red-400" : ""}`}>{o.critical}</td>
-                      <td className="py-2 text-right font-mono">{o.withBom}</td>
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-gray-500">
+                        Sin datos
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    data.topOrganizations.map((o) => (
+                      <tr
+                        key={o.organizationId}
+                        className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                      >
+                        <td className="py-2 max-w-[200px] truncate" title={o.organizationName}>
+                          {o.organizationName}
+                        </td>
+                        <td className="py-2 text-right font-mono">{o.records}</td>
+                        <td
+                          className={`py-2 text-right font-mono ${o.failed > 0 ? "text-red-400" : ""}`}
+                        >
+                          {o.failed}
+                        </td>
+                        <td
+                          className={`py-2 text-right font-mono ${o.critical > 0 ? "text-red-400" : ""}`}
+                        >
+                          {o.critical}
+                        </td>
+                        <td className="py-2 text-right font-mono">{o.withBom}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -302,16 +407,35 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {data.topUsers.length === 0 ? (
-                    <tr><td colSpan={5} className="py-4 text-center text-gray-500">Sin datos</td></tr>
-                  ) : data.topUsers.map(u => (
-                    <tr key={u.userId} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                      <td className="py-2 max-w-[200px] truncate" title={u.userEmail}>{u.userEmail}</td>
-                      <td className="py-2 text-right font-mono">{u.records}</td>
-                      <td className={`py-2 text-right font-mono ${u.failed > 0 ? "text-red-400" : ""}`}>{u.failed}</td>
-                      <td className={`py-2 text-right font-mono ${u.critical > 0 ? "text-red-400" : ""}`}>{u.critical}</td>
-                      <td className="py-2 text-right font-mono">{u.withBom}</td>
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-gray-500">
+                        Sin datos
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    data.topUsers.map((u) => (
+                      <tr
+                        key={u.userId}
+                        className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                      >
+                        <td className="py-2 max-w-[200px] truncate" title={u.userEmail}>
+                          {u.userEmail}
+                        </td>
+                        <td className="py-2 text-right font-mono">{u.records}</td>
+                        <td
+                          className={`py-2 text-right font-mono ${u.failed > 0 ? "text-red-400" : ""}`}
+                        >
+                          {u.failed}
+                        </td>
+                        <td
+                          className={`py-2 text-right font-mono ${u.critical > 0 ? "text-red-400" : ""}`}
+                        >
+                          {u.critical}
+                        </td>
+                        <td className="py-2 text-right font-mono">{u.withBom}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -341,19 +465,52 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {data.recentBatches.length === 0 ? (
-                    <tr><td colSpan={8} className="py-4 text-center text-gray-500">Sin lotes recientes</td></tr>
-                  ) : data.recentBatches.map(b => (
-                    <tr key={b.batchId} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                      <td className="py-2 whitespace-nowrap text-xs">{formatDate(b.createdAt)}</td>
-                      <td className="py-2 max-w-[150px] truncate" title={b.zipFilename}>{b.zipFilename}</td>
-                      <td className="py-2 max-w-[120px] truncate font-mono text-xs" title={b.batchId}>{b.batchId}</td>
-                      <td className="py-2 max-w-[120px] truncate" title={b.organizationName ?? "—"}>{b.organizationName ?? "—"}</td>
-                      <td className="py-2 max-w-[150px] truncate" title={b.userEmail}>{b.userEmail}</td>
-                      <td className="py-2 text-right font-mono">{b.totalRecords}</td>
-                      <td className={`py-2 text-right font-mono ${b.failed > 0 ? "text-red-400" : ""}`}>{b.failed}</td>
-                      <td className={`py-2 text-right font-mono ${b.critical > 0 ? "text-red-400" : ""}`}>{b.critical}</td>
+                    <tr>
+                      <td colSpan={8} className="py-4 text-center text-gray-500">
+                        Sin lotes recientes
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    data.recentBatches.map((b) => (
+                      <tr
+                        key={b.batchId}
+                        className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                      >
+                        <td className="py-2 whitespace-nowrap text-xs">
+                          {formatDate(b.createdAt)}
+                        </td>
+                        <td className="py-2 max-w-[150px] truncate" title={b.zipFilename}>
+                          {b.zipFilename}
+                        </td>
+                        <td
+                          className="py-2 max-w-[120px] truncate font-mono text-xs"
+                          title={b.batchId}
+                        >
+                          {b.batchId}
+                        </td>
+                        <td
+                          className="py-2 max-w-[120px] truncate"
+                          title={b.organizationName ?? "—"}
+                        >
+                          {b.organizationName ?? "—"}
+                        </td>
+                        <td className="py-2 max-w-[150px] truncate" title={b.userEmail}>
+                          {b.userEmail}
+                        </td>
+                        <td className="py-2 text-right font-mono">{b.totalRecords}</td>
+                        <td
+                          className={`py-2 text-right font-mono ${b.failed > 0 ? "text-red-400" : ""}`}
+                        >
+                          {b.failed}
+                        </td>
+                        <td
+                          className={`py-2 text-right font-mono ${b.critical > 0 ? "text-red-400" : ""}`}
+                        >
+                          {b.critical}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

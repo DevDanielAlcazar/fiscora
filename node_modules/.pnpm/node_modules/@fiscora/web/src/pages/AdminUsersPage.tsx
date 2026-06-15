@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
-import { getUsers, updateUserPlan, updateUserStatus, updateUser, deleteUser, type UserEntry } from "../api/admin";
+import {
+  getUsers,
+  updateUserPlan,
+  updateUserStatus,
+  updateUser,
+  deleteUser,
+  type UserEntry,
+} from "../api/admin";
 
 export default function AdminUsersPage() {
   const navigate = useNavigate();
@@ -17,7 +24,9 @@ export default function AdminUsersPage() {
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [createAccountType, setCreateAccountType] = useState<"INDIVIDUAL" | "ORGANIZATION">("INDIVIDUAL");
+  const [createAccountType, setCreateAccountType] = useState<"INDIVIDUAL" | "ORGANIZATION">(
+    "INDIVIDUAL",
+  );
   const [createOrgName, setCreateOrgName] = useState("");
   const [creating, setCreating] = useState(false);
   const [editUserId, setEditUserId] = useState<string | null>(null);
@@ -33,7 +42,9 @@ export default function AdminUsersPage() {
       navigate("/login");
       return;
     }
-    getUsers(token).then(setUsers).catch((err) => setError(err.message));
+    getUsers(token)
+      .then(setUsers)
+      .catch((err) => setError(err.message));
   }
 
   useEffect(() => {
@@ -338,7 +349,9 @@ export default function AdminUsersPage() {
         )}
 
         {planChangeError && (
-          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{planChangeError}</p>
+          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
+            {planChangeError}
+          </p>
         )}
 
         {actionError && (
@@ -346,14 +359,19 @@ export default function AdminUsersPage() {
         )}
 
         {successMsg && (
-          <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-4 py-3">{successMsg}</p>
+          <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-4 py-3">
+            {successMsg}
+          </p>
         )}
 
         {addUserError && (
           <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{addUserError}</p>
         )}
 
-        <form onSubmit={handleCreateUser} className="p-6 rounded-xl border border-border bg-card space-y-4">
+        <form
+          onSubmit={handleCreateUser}
+          className="p-6 rounded-xl border border-border bg-card space-y-4"
+        >
           <h2 className="font-semibold text-lg">Crear usuario</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -378,7 +396,9 @@ export default function AdminUsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Contraseña (min 12)</label>
+              <label className="text-xs text-muted-foreground font-medium">
+                Contraseña (min 12)
+              </label>
               <input
                 type="password"
                 value={createPassword}
@@ -392,7 +412,9 @@ export default function AdminUsersPage() {
               <label className="text-xs text-muted-foreground font-medium">Tipo de cuenta</label>
               <select
                 value={createAccountType}
-                onChange={(e) => setCreateAccountType(e.target.value as "INDIVIDUAL" | "ORGANIZATION")}
+                onChange={(e) =>
+                  setCreateAccountType(e.target.value as "INDIVIDUAL" | "ORGANIZATION")
+                }
                 className="w-full bg-transparent border border-border/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer"
               >
                 <option value="INDIVIDUAL">INDIVIDUAL</option>
@@ -401,7 +423,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-1 sm:col-span-2">
               <label className="text-xs text-muted-foreground font-medium">
-                Nombre organización {createAccountType === "ORGANIZATION" ? "(requerido)" : "(opcional)"}
+                Nombre organización{" "}
+                {createAccountType === "ORGANIZATION" ? "(requerido)" : "(opcional)"}
               </label>
               <input
                 type="text"
@@ -452,162 +475,158 @@ export default function AdminUsersPage() {
               {users.map((user) => (
                 <React.Fragment key={user.id}>
                   <tr className="border-b border-border/50 hover:bg-muted/20">
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="px-4 py-3">{user.email}</td>
-                  <td className="px-4 py-3">{roleLabel(user.role)}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                        user.status === "ACTIVE"
-                          ? "bg-emerald-500/10 text-emerald-600"
-                          : user.status === "DELETED"
-                          ? "bg-gray-500/10 text-gray-500"
-                          : "bg-red-500/10 text-red-600"
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {user.bannedAt ? new Date(user.bannedAt).toLocaleDateString("es-MX") : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground max-w-[120px] truncate">
-                    {user.bannedReason ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.organization ? user.organization.name : "Sin organización"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.organization?.accountType ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.organization ? (
-                      <select
-                        value={user.organization.subscription?.plan.key ?? "ESSENTIAL"}
-                        onChange={(e) => handlePlanChange(user.id, e.target.value)}
-                        className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm cursor-pointer"
+                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="px-4 py-3">{user.email}</td>
+                    <td className="px-4 py-3">{roleLabel(user.role)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          user.status === "ACTIVE"
+                            ? "bg-emerald-500/10 text-emerald-600"
+                            : user.status === "DELETED"
+                              ? "bg-gray-500/10 text-gray-500"
+                              : "bg-red-500/10 text-red-600"
+                        }`}
                       >
-                        {PLAN_OPTIONS.map((key) => (
-                          <option key={key} value={key}>
-                            {key}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-muted-foreground">Sin organización</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {user.organization?.subscription?.stripeSubscriptionId ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString("es-MX")}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.status === "DELETED" ? (
-                      <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-500/10 text-gray-500">
-                        DELETED
+                        {user.status}
                       </span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditClick(user)}
-                          className="text-xs font-semibold px-2 py-1 rounded bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {user.bannedAt ? new Date(user.bannedAt).toLocaleDateString("es-MX") : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground max-w-[120px] truncate">
+                      {user.bannedReason ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.organization ? user.organization.name : "Sin organización"}
+                    </td>
+                    <td className="px-4 py-3">{user.organization?.accountType ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {user.organization ? (
+                        <select
+                          value={user.organization.subscription?.plan.key ?? "ESSENTIAL"}
+                          onChange={(e) => handlePlanChange(user.id, e.target.value)}
+                          className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm cursor-pointer"
                         >
-                          Editar
-                        </button>
-                        {user.status === "ACTIVE" ? (
+                          {PLAN_OPTIONS.map((key) => (
+                            <option key={key} value={key}>
+                              {key}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-muted-foreground">Sin organización</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      {user.organization?.subscription?.stripeSubscriptionId ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {new Date(user.createdAt).toLocaleDateString("es-MX")}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.status === "DELETED" ? (
+                        <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-500/10 text-gray-500">
+                          DELETED
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleSuspend(user.id)}
+                            onClick={() => handleEditClick(user)}
+                            className="text-xs font-semibold px-2 py-1 rounded bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                          >
+                            Editar
+                          </button>
+                          {user.status === "ACTIVE" ? (
+                            <button
+                              onClick={() => handleSuspend(user.id)}
+                              className="text-xs font-semibold px-2 py-1 rounded bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+                            >
+                              Suspender
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleReactivate(user.id)}
+                              className="text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                            >
+                              Reactivar
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(user.id)}
                             className="text-xs font-semibold px-2 py-1 rounded bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
                           >
-                            Suspender
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleReactivate(user.id)}
-                            className="text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
-                          >
-                            Reactivar
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          className="text-xs font-semibold px-2 py-1 rounded bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-                {editUserId === user.id && (
-                  <tr className="bg-muted/20">
-                    <td colSpan={14} className="px-6 py-4">
-                      <div className="max-w-lg mx-auto space-y-3">
-                        <h4 className="text-sm font-semibold text-foreground">
-                          Editar usuario — {user.name}
-                        </h4>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">
-                              Nombre
-                            </label>
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">
-                              Email
-                            </label>
-                            <input
-                              type="email"
-                              value={editEmail}
-                              onChange={(e) => setEditEmail(e.target.value)}
-                              className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">
-                              Organización
-                            </label>
-                            <input
-                              type="text"
-                              value={editOrgName}
-                              onChange={(e) => setEditOrgName(e.target.value)}
-                              disabled={!user.organization}
-                              className={`w-full bg-background border border-border rounded px-2 py-1.5 text-sm ${
-                                !user.organization ? "opacity-50 cursor-not-allowed" : ""
-                              }`}
-                            />
-                          </div>
-                        </div>
-                        {editError && (
-                          <p className="text-xs text-red-500">{editError}</p>
-                        )}
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={handleEditCancel}
-                            className="text-xs font-semibold px-3 py-1.5 rounded border border-border text-foreground hover:bg-muted transition-colors"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            onClick={() => handleEditSave(user.id)}
-                            disabled={savingEdit}
-                            className="text-xs font-semibold px-3 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-                          >
-                            {savingEdit ? "Guardando..." : "Guardar"}
+                            Eliminar
                           </button>
                         </div>
-                      </div>
+                      )}
                     </td>
                   </tr>
-                )}
+                  {editUserId === user.id && (
+                    <tr className="bg-muted/20">
+                      <td colSpan={14} className="px-6 py-4">
+                        <div className="max-w-lg mx-auto space-y-3">
+                          <h4 className="text-sm font-semibold text-foreground">
+                            Editar usuario — {user.name}
+                          </h4>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                Nombre
+                              </label>
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                Organización
+                              </label>
+                              <input
+                                type="text"
+                                value={editOrgName}
+                                onChange={(e) => setEditOrgName(e.target.value)}
+                                disabled={!user.organization}
+                                className={`w-full bg-background border border-border rounded px-2 py-1.5 text-sm ${
+                                  !user.organization ? "opacity-50 cursor-not-allowed" : ""
+                                }`}
+                              />
+                            </div>
+                          </div>
+                          {editError && <p className="text-xs text-red-500">{editError}</p>}
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={handleEditCancel}
+                              className="text-xs font-semibold px-3 py-1.5 rounded border border-border text-foreground hover:bg-muted transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => handleEditSave(user.id)}
+                              disabled={savingEdit}
+                              className="text-xs font-semibold px-3 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+                            >
+                              {savingEdit ? "Guardando..." : "Guardar"}
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </React.Fragment>
               ))}
             </tbody>

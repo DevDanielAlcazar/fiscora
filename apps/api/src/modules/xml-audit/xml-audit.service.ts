@@ -1,5 +1,33 @@
 import { XMLParser } from "fast-xml-parser";
 import { createHash } from "node:crypto";
+import {
+  getTipoComprobanteLabel,
+  getMetodoPagoLabel,
+  getFormaPagoLabel,
+  getObjetoImpLabel,
+  getImpuestoLabel,
+  getTipoFactorLabel,
+  getTipoRelacionLabel,
+  getExportacionLabel,
+  getCurrencyLabel,
+  getUsoCfdiLabel,
+  isKnownTipoComprobante,
+  isKnownMetodoPago,
+  isKnownFormaPago,
+  isKnownObjetoImp,
+  isKnownImpuesto,
+  isKnownTipoFactor,
+  isKnownTipoRelacion,
+  isKnownExportacion,
+  isKnownUsoCfdi,
+  getRegimenFiscalLabel,
+  isKnownRegimenFiscal,
+  CFDI_METODO_PAGO_BASIC,
+  CFDI_FORMA_PAGO_BASIC,
+  CFDI_IMPUESTO_BASIC,
+  CFDI_TIPO_RELACION_BASIC,
+  CFDI_MONEDAS_BASICAS,
+} from "./xml-audit.catalogs.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -123,6 +151,22 @@ export interface Finding {
   evidence?: { label: string; value?: string }[];
 }
 
+export interface GlobalTaxLine {
+  type: "TRANSFERRED" | "WITHHELD";
+  impuesto?: string | null;
+  tipoFactor?: string | null;
+  tasaOCuota?: string | null;
+  base?: string | null;
+  importe?: string | null;
+}
+
+export interface GlobalTaxesInfo {
+  totalImpuestosTrasladados?: string | null;
+  totalImpuestosRetenidos?: string | null;
+  transferred: GlobalTaxLine[];
+  withheld: GlobalTaxLine[];
+}
+
 export interface NormalizedXml {
   available: boolean;
   reason: string;
@@ -196,6 +240,78 @@ export interface CartaPorteInfo {
   hasTransporteFerroviario: boolean;
 }
 
+export interface NominaReceptorInfo {
+  curp?: string | null;
+  numSeguridadSocial?: string | null;
+  fechaInicioRelLaboral?: string | null;
+  antiguedad?: string | null;
+  tipoContrato?: string | null;
+  sindicalizado?: string | null;
+  tipoJornada?: string | null;
+  tipoRegimen?: string | null;
+  numEmpleado?: string | null;
+  departamento?: string | null;
+  puesto?: string | null;
+  riesgoPuesto?: string | null;
+  periodicidadPago?: string | null;
+  banco?: string | null;
+  cuentaBancaria?: string | null;
+  salarioBaseCotApor?: string | null;
+  salarioDiarioIntegrado?: string | null;
+  claveEntFed?: string | null;
+}
+
+export interface NominaPercepcionInfo {
+  tipoPercepcion?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importeGravado?: string | null;
+  importeExento?: string | null;
+}
+
+export interface NominaDeduccionInfo {
+  tipoDeduccion?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importe?: string | null;
+}
+
+export interface NominaOtroPagoInfo {
+  tipoOtroPago?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importe?: string | null;
+}
+
+export interface NominaInfo {
+  version?: string | null;
+  tipoNomina?: string | null;
+  fechaPago?: string | null;
+  fechaInicialPago?: string | null;
+  fechaFinalPago?: string | null;
+  numDiasPagados?: string | null;
+  totalPercepciones?: string | null;
+  totalDeducciones?: string | null;
+  totalOtrosPagos?: string | null;
+  receptor?: NominaReceptorInfo;
+  percepciones: NominaPercepcionInfo[];
+  deducciones: NominaDeduccionInfo[];
+  otrosPagos: NominaOtroPagoInfo[];
+}
+
+export interface ComercioExteriorInfo {
+  version?: string | null;
+  tipoOperacion?: string | null;
+  claveDePedimento?: string | null;
+  certificadoOrigen?: string | null;
+  numeroExportadorConfiable?: string | null;
+  incoterm?: string | null;
+  subDivision?: string | null;
+  observaciones?: string | null;
+  tipoCambioUSD?: string | null;
+  totalUSD?: string | null;
+}
+
 export interface CfdiAnalysisResult {
   uuid: string | null;
   version: string | null;
@@ -208,6 +324,7 @@ export interface CfdiAnalysisResult {
   total: string | null;
   rfcEmisor: string | null;
   nombreEmisor: string | null;
+  regimenFiscal?: string | null;
   rfcReceptor: string | null;
   nombreReceptor: string | null;
   fechaTimbrado: string | null;
@@ -224,14 +341,19 @@ export interface CfdiAnalysisResult {
   paymentComplement?: PaymentComplement | null;
   cfdiRelations?: CfdiRelations;
   cartaPorte?: CartaPorteInfo;
+  nomina?: NominaInfo;
+  comercioExterior?: ComercioExteriorInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
+  globalTaxes?: GlobalTaxesInfo | null;
   normalizedXml?: NormalizedXml;
   regimenFiscalReceptor?: string | null;
   domicilioFiscalReceptor?: string | null;
   lugarExpedicion?: string | null;
+  exportacion?: string | null;
+  tipoCambio?: string | null;
   sello?: string | null;
   certificado?: string | null;
   noCertificado?: string | null;
@@ -247,6 +369,7 @@ export interface AnalysisResponse {
   tipoComprobante: string | null;
   rfcEmisor: string | null;
   nombreEmisor: string | null;
+  regimenFiscal?: string | null;
   rfcReceptor: string | null;
   nombreReceptor: string | null;
   fecha: string | null;
@@ -270,14 +393,19 @@ export interface AnalysisResponse {
   paymentComplement?: PaymentComplement | null;
   cfdiRelations?: CfdiRelations;
   cartaPorte?: CartaPorteInfo;
+  nomina?: NominaInfo;
+  comercioExterior?: ComercioExteriorInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
   taxSummary?: TaxSummary | null;
+  globalTaxes?: GlobalTaxesInfo | null;
   normalizedXml?: NormalizedXml;
   regimenFiscalReceptor?: string | null;
   domicilioFiscalReceptor?: string | null;
   lugarExpedicion?: string | null;
+  exportacion?: string | null;
+  tipoCambio?: string | null;
   sello?: string | null;
   certificado?: string | null;
   noCertificado?: string | null;
@@ -398,6 +526,34 @@ function isTipoComprobanteTraslado(tipo: string | null | undefined): boolean {
   return normalizeTipoRelacion(tipo) === "T" || normalizeTipoRelacion(tipo) === "Traslado";
 }
 
+function normalizeText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function looksLikeCurp(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[A-Z][A-Z][A-Z][A-Z]\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HM](AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)\d{3}[A-Z0-9]\d$/.test(
+    value.toUpperCase().trim(),
+  );
+}
+
+function looksLikeNss(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^\d{11}$/.test(value.trim());
+}
+
+function looksLikeBankAccount(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^\d{10,18}$/.test(value.trim());
+}
+
+function isTipoComprobanteNominaCompatible(tipo: string | null | undefined): boolean {
+  if (!tipo) return false;
+  const t = tipo.toUpperCase().trim();
+  return t === "N" || t === "NÓMINA" || t === "NOMINA" || t === "I" || t === "INGRESO";
+}
+
 function isPositiveNumberLike(value: string | null | undefined): boolean {
   if (!value) return false;
   const n = parseFloat(value.trim());
@@ -415,13 +571,104 @@ function normalizeCartaPorteVersion(value: string | null | undefined): string {
   return value.trim();
 }
 
+function normalizeTaxCode(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function normalizeTipoFactor(value: string | null | undefined): string {
+  if (!value) return "";
+  const v = value.trim().toLowerCase();
+  if (v === "tasa") return "Tasa";
+  if (v === "cuota") return "Cuota";
+  if (v === "exento") return "Exento";
+  return value.trim();
+}
+
+function normalizeObjetoImp(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function normalizeRate(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const n = parseFloat(value.trim());
+  return isNaN(n) ? null : n;
+}
+
+function calculateTaxAmount(base: number, tasaOCuota: number): number {
+  return Math.round(base * tasaOCuota * 100) / 100;
+}
+
+function hasConceptTaxes(concept: ConceptInfo): boolean {
+  return !!(
+    concept.impuestos &&
+    (concept.impuestos.traslados.length > 0 || concept.impuestos.retenciones.length > 0)
+  );
+}
+
+function getConceptTransferredTaxes(concept: ConceptInfo): ConceptTaxEntry[] {
+  return concept.impuestos?.traslados ?? [];
+}
+
+function getConceptWithheldTaxes(concept: ConceptInfo): ConceptTaxEntry[] {
+  return concept.impuestos?.retenciones ?? [];
+}
+
+function buildTaxGroupKey(
+  impuesto?: string | null,
+  tipoFactor?: string | null,
+  tasaOCuota?: string | null,
+): string {
+  return `${normalizeTaxCode(impuesto)}|${normalizeTipoFactor(tipoFactor)}|${normalizeText(tasaOCuota)}`;
+}
+
+function sumConceptTaxesByGroup(
+  concepts: ConceptInfo[],
+  type: "TRANSFERRED" | "WITHHELD",
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const c of concepts) {
+    if (!c.impuestos) continue;
+    const entries = type === "TRANSFERRED" ? c.impuestos.traslados : c.impuestos.retenciones;
+    for (const e of entries) {
+      const key = buildTaxGroupKey(e.impuesto, e.tipoFactor, e.tasaOCuota);
+      map.set(key, (map.get(key) ?? 0) + toMoneyNumber(e.importe));
+    }
+  }
+  return map;
+}
+
+function sumGlobalTaxesByGroup(
+  globalTaxes: GlobalTaxesInfo,
+  type: "TRANSFERRED" | "WITHHELD",
+): Map<string, number> {
+  const map = new Map<string, number>();
+  const entries = type === "TRANSFERRED" ? globalTaxes.transferred : globalTaxes.withheld;
+  for (const e of entries) {
+    const key = buildTaxGroupKey(e.impuesto, e.tipoFactor, e.tasaOCuota);
+    map.set(key, (map.get(key) ?? 0) + toMoneyNumber(e.importe));
+  }
+  return map;
+}
+
+function hasAnyConceptTransferredTaxes(concepts: ConceptInfo[]): boolean {
+  return concepts.some((c) => c.impuestos && c.impuestos.traslados.length > 0);
+}
+
+function hasAnyConceptWithheldTaxes(concepts: ConceptInfo[]): boolean {
+  return concepts.some((c) => c.impuestos && c.impuestos.retenciones.length > 0);
+}
+
 function hasChildNode(parent: Record<string, unknown>, ...names: string[]): boolean {
-  return names.some(n => n in parent);
+  return names.some((n) => n in parent);
 }
 
 function isCartaPorteComplementName(name: string): boolean {
   const lower = name.toLowerCase();
-  return lower.includes("cartaporte") || lower.includes("carta porte") || lower.includes("carta_porte");
+  return (
+    lower.includes("cartaporte") || lower.includes("carta porte") || lower.includes("carta_porte")
+  );
 }
 
 function normalizeRfc(value: string | null | undefined): string | null {
@@ -443,6 +690,79 @@ function isGenericRfc(rfc: string | null | undefined): boolean {
 
 function rc(version: string | null, target: "3.3" | "4.0"): boolean {
   return version === target;
+}
+
+function normalizePaymentMethod(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim().toUpperCase();
+}
+
+function normalizePaymentForm(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function normalizeExportacion(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim();
+}
+
+function looksLikePostalCode(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^\d{5}$/.test(value.trim());
+}
+
+function isKnownCurrencyBasic(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const key = value.trim().toUpperCase();
+  return CFDI_MONEDAS_BASICAS[key] !== undefined;
+}
+
+function isFutureDateBeyondTolerance(date: Date, now: Date, toleranceMinutes: number): boolean {
+  const toleranceMs = toleranceMinutes * 60 * 1000;
+  return date.getTime() > now.getTime() + toleranceMs;
+}
+
+function extractGlobalTaxLines(
+  impuestosNode: Record<string, unknown>,
+  nodeName: string,
+  singular: string,
+  type: "TRANSFERRED" | "WITHHELD",
+): GlobalTaxLine[] {
+  const node =
+    (get(impuestosNode, `cfdi:${nodeName}`) as Record<string, unknown>) ??
+    (get(impuestosNode, nodeName) as Record<string, unknown>) ??
+    {};
+  const rawEntry = get(node, `cfdi:${singular}`) ?? get(node, singular);
+  if (rawEntry === null || rawEntry === undefined) return [];
+  const arr = Array.isArray(rawEntry) ? rawEntry : [rawEntry];
+  return arr.map((e: Record<string, unknown>) => ({
+    type,
+    impuesto: str(get(e, "@_Impuesto")),
+    tipoFactor: str(get(e, "@_TipoFactor")),
+    tasaOCuota: str(get(e, "@_TasaOCuota")),
+    base: str(get(e, "@_Base")),
+    importe: str(get(e, "@_Importe")),
+  }));
+}
+
+function extractGlobalTaxes(comprobante: Record<string, unknown>): GlobalTaxesInfo | null {
+  const impuestosNode =
+    (get(comprobante, "cfdi:Impuestos") as Record<string, unknown>) ??
+    (get(comprobante, "Impuestos") as Record<string, unknown>) ??
+    null;
+  if (
+    !impuestosNode ||
+    typeof impuestosNode !== "object" ||
+    Object.keys(impuestosNode).length === 0
+  ) {
+    return null;
+  }
+  const totalImpuestosTrasladados = str(get(impuestosNode, "@_TotalImpuestosTrasladados"));
+  const totalImpuestosRetenidos = str(get(impuestosNode, "@_TotalImpuestosRetenidos"));
+  const transferred = extractGlobalTaxLines(impuestosNode, "Traslados", "Traslado", "TRANSFERRED");
+  const withheld = extractGlobalTaxLines(impuestosNode, "Retenciones", "Retencion", "WITHHELD");
+  return { totalImpuestosTrasladados, totalImpuestosRetenidos, transferred, withheld };
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -489,11 +809,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   if (bomDetected) {
     diag.bomDetected = true;
-    warnings.push("Se detectó BOM UTF-8 al inicio del archivo. Se normalizó en memoria para lectura; no se modificó contenido fiscal.");
+    warnings.push(
+      "Se detectó BOM UTF-8 al inicio del archivo. Se normalizó en memoria para lectura; no se modificó contenido fiscal.",
+    );
   }
   if (leadingContentBeforeXml) {
     diag.leadingContentBeforeXml = true;
-    warnings.push("Se detectó contenido antes del inicio del XML. Se normalizó en memoria para lectura; validar origen del archivo.");
+    warnings.push(
+      "Se detectó contenido antes del inicio del XML. Se normalizó en memoria para lectura; validar origen del archivo.",
+    );
   }
   diag.safeNormalizationApplied = safeNormalizationApplied;
   diag.safeNormalizationNotes = safeNormalizationNotes;
@@ -515,7 +839,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  const comprobante = (parsed as Record<string, unknown>)["cfdi:Comprobante"] as Record<string, unknown> ?? {};
+  const comprobante =
+    ((parsed as Record<string, unknown>)["cfdi:Comprobante"] as Record<string, unknown>) ?? {};
 
   if (!comprobante || Object.keys(comprobante).length === 0) {
     throw Object.assign(new Error("No se encontró un elemento cfdi:Comprobante válido"), {
@@ -545,21 +870,24 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const noCertificado = str(get(comprobante, "@_NoCertificado"));
 
   // Emisor
-  const emisor = get(comprobante, "cfdi:Emisor") as Record<string, unknown> ?? {};
+  const emisor = (get(comprobante, "cfdi:Emisor") as Record<string, unknown>) ?? {};
   const rfcEmisor = str(get(emisor, "@_Rfc"));
   const nombreEmisor = str(get(emisor, "@_Nombre"));
+  const regimenFiscal = str(get(emisor, "@_RegimenFiscal"));
 
   // Receptor
-  const receptor = get(comprobante, "cfdi:Receptor") as Record<string, unknown> ?? {};
+  const receptor = (get(comprobante, "cfdi:Receptor") as Record<string, unknown>) ?? {};
   const rfcReceptor = str(get(receptor, "@_Rfc"));
   const nombreReceptor = str(get(receptor, "@_Nombre"));
   const usoCfdi = str(get(receptor, "@_UsoCFDI"));
   const regimenFiscalReceptor = str(get(receptor, "@_RegimenFiscalReceptor"));
   const domicilioFiscalReceptor = str(get(receptor, "@_DomicilioFiscalReceptor"));
   const lugarExpedicion = str(get(comprobante, "@_LugarExpedicion"));
+  const exportacion = str(get(comprobante, "@_Exportacion"));
+  const tipoCambio = str(get(comprobante, "@_TipoCambio"));
 
   // Impuestos
-  const impuestos = get(comprobante, "cfdi:Impuestos") as Record<string, unknown> ?? {};
+  const impuestos = (get(comprobante, "cfdi:Impuestos") as Record<string, unknown>) ?? {};
   const totalTrasladadosVal = str(get(impuestos, "@_TotalImpuestosTrasladados"));
   const totalRetenidosVal = str(get(impuestos, "@_TotalImpuestosRetenidos"));
 
@@ -567,11 +895,14 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   let uuid: string | null = null;
   let fechaTimbrado: string | null = null;
 
-  const complemento = get(comprobante, "cfdi:Complemento") as Record<string, unknown> ?? {};
-  const timbre = get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown> ??
-    get(complemento, "TimbreFiscalDigital") as Record<string, unknown> ?? {};
+  const complemento = (get(comprobante, "cfdi:Complemento") as Record<string, unknown>) ?? {};
+  const timbre =
+    (get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown>) ??
+    (get(complemento, "TimbreFiscalDigital") as Record<string, unknown>) ??
+    {};
 
-  const hasTimbreFiscalDigital = timbre !== null && typeof timbre === "object" && Object.keys(timbre).length > 0;
+  const hasTimbreFiscalDigital =
+    timbre !== null && typeof timbre === "object" && Object.keys(timbre).length > 0;
   diag.hasTimbreFiscalDigital = hasTimbreFiscalDigital;
 
   let selloCfd: string | null = null;
@@ -596,13 +927,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     warnings.push("El XML no contiene TimbreFiscalDigital; podría no estar timbrado.");
   }
 
-  const tipoLabel =
-    tipoComprobante === "I" ? "Ingreso" :
-    tipoComprobante === "E" ? "Egreso" :
-    tipoComprobante === "P" ? "Pago" :
-    tipoComprobante === "N" ? "Nómina" :
-    tipoComprobante === "T" ? "Traslado" :
-    tipoComprobante;
+  const tipoLabel = getTipoComprobanteLabel(tipoComprobante) ?? tipoComprobante;
 
   // ── Structure Diagnostics ──
   const nodeShapeNotes: string[] = [];
@@ -611,11 +936,18 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const unknownComplements: string[] = [];
 
   const knownSet = new Set([
-    "TimbreFiscalDigital", "Pagos", "ImpuestosLocales", "LeyendasFiscales",
-    "CartaPorte", "ComercioExterior", "Retenciones", "Nomina",
+    "TimbreFiscalDigital",
+    "Pagos",
+    "ImpuestosLocales",
+    "LeyendasFiscales",
+    "CartaPorte",
+    "ComercioExterior",
+    "Retenciones",
+    "Nomina",
   ]);
 
-  const hasComplemento = complemento !== null && typeof complemento === "object" && Object.keys(complemento).length > 0;
+  const hasComplemento =
+    complemento !== null && typeof complemento === "object" && Object.keys(complemento).length > 0;
 
   const complementoKeys = hasComplemento ? Object.keys(complemento) : [];
 
@@ -632,14 +964,21 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   if (complementoKeys.length > 0) {
-    if (complementoKeys.length === 1 && typeof complemento[complementoKeys[0]] === "object" && !Array.isArray(complemento[complementoKeys[0]])) {
+    if (
+      complementoKeys.length === 1 &&
+      typeof complemento[complementoKeys[0]] === "object" &&
+      !Array.isArray(complemento[complementoKeys[0]])
+    ) {
       nodeShapeNotes.push(`Complemento de tipo único: ${complementoKeys[0]}`);
     }
   }
 
-  const addendaNode = get(comprobante, "cfdi:Addenda") as Record<string, unknown> ??
-    get(comprobante, "Addenda") as Record<string, unknown> ?? {};
-  const hasAddenda = addendaNode !== null && typeof addendaNode === "object" && Object.keys(addendaNode).length > 0;
+  const addendaNode =
+    (get(comprobante, "cfdi:Addenda") as Record<string, unknown>) ??
+    (get(comprobante, "Addenda") as Record<string, unknown>) ??
+    {};
+  const hasAddenda =
+    addendaNode !== null && typeof addendaNode === "object" && Object.keys(addendaNode).length > 0;
   const addendaDetected = hasAddenda;
 
   if (addendaDetected) {
@@ -670,18 +1009,24 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   };
 
   if (addendaDetected) {
-    warnings.push("El XML contiene Addenda. Se conservará como información adicional, pero no forma parte de la validación fiscal base.");
+    warnings.push(
+      "El XML contiene Addenda. Se conservará como información adicional, pero no forma parte de la validación fiscal base.",
+    );
   }
 
   if (unknownComplements.length > 0) {
-    warnings.push("El XML contiene complementos no clasificados por el motor actual; se recomienda revisión especializada si son relevantes para el proceso.");
+    warnings.push(
+      "El XML contiene complementos no clasificados por el motor actual; se recomienda revisión especializada si son relevantes para el proceso.",
+    );
   }
 
   // ── Concept extraction ──
   let concepts: ConceptInfo[] | null = null;
 
-  const rawConceptos = get(comprobante, "cfdi:Conceptos") as Record<string, unknown> ??
-    get(comprobante, "Conceptos") as Record<string, unknown> ?? {};
+  const rawConceptos =
+    (get(comprobante, "cfdi:Conceptos") as Record<string, unknown>) ??
+    (get(comprobante, "Conceptos") as Record<string, unknown>) ??
+    {};
 
   const rawConcepto = get(rawConceptos, "cfdi:Concepto") ?? get(rawConceptos, "Concepto");
 
@@ -694,51 +1039,72 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       nodeShapeNotes.push("Conceptos múltiples detectados");
     }
 
-    const extractTaxEntries = (raw: unknown, prefix: string, nodeName: string, singular: string, pluralNotes: string): ConceptTaxEntry[] => {
-    const node = get(raw, `${prefix}${nodeName}`) as Record<string, unknown> ??
-      get(raw, nodeName) as Record<string, unknown> ?? {};
-    const rawEntry = get(node, `${prefix}${singular}`) ?? get(node, singular);
-    if (rawEntry === null || rawEntry === undefined) return [];
-    const arr = Array.isArray(rawEntry) ? rawEntry : [rawEntry];
-    if (arr.length === 1 && !Array.isArray(rawEntry)) {
-      nodeShapeNotes.push(`${pluralNotes} — nodo único normalizado a arreglo`);
-    } else {
-      nodeShapeNotes.push(`${pluralNotes} — múltiples nodos detectados`);
-    }
-    return arr.map((e: Record<string, unknown>) => ({
-      base: str(get(e, "@_Base")) ?? undefined,
-      impuesto: str(get(e, "@_Impuesto")) ?? undefined,
-      tipoFactor: str(get(e, "@_TipoFactor")) ?? undefined,
-      tasaOCuota: str(get(e, "@_TasaOCuota")) ?? undefined,
-      importe: str(get(e, "@_Importe")) ?? undefined,
-    }));
-  };
-
-  concepts = conceptoArray.map((c: Record<string, unknown>) => {
-    const rawImpuestos = get(c, "cfdi:Impuestos") as Record<string, unknown> ??
-      get(c, "Impuestos") as Record<string, unknown> ?? {};
-
-    const traslados = extractTaxEntries(rawImpuestos, "cfdi:", "Traslados", "Traslado", "Traslados en concepto");
-    const retenciones = extractTaxEntries(rawImpuestos, "cfdi:", "Retenciones", "Retencion", "Retenciones en concepto");
-
-    const impuestos = traslados.length > 0 || retenciones.length > 0
-      ? { traslados, retenciones }
-      : undefined;
-
-    return {
-      claveProdServ: str(get(c, "@_ClaveProdServ")) ?? undefined,
-      noIdentificacion: str(get(c, "@_NoIdentificacion")) ?? undefined,
-      cantidad: str(get(c, "@_Cantidad")) ?? undefined,
-      claveUnidad: str(get(c, "@_ClaveUnidad")) ?? undefined,
-      unidad: str(get(c, "@_Unidad")) ?? undefined,
-      descripcion: str(get(c, "@_Descripcion")) ?? undefined,
-      valorUnitario: str(get(c, "@_ValorUnitario")) ?? undefined,
-      importe: str(get(c, "@_Importe")) ?? undefined,
-      descuento: str(get(c, "@_Descuento")) ?? undefined,
-      objetoImp: str(get(c, "@_ObjetoImp")) ?? undefined,
-      impuestos,
+    const extractTaxEntries = (
+      raw: unknown,
+      prefix: string,
+      nodeName: string,
+      singular: string,
+      pluralNotes: string,
+    ): ConceptTaxEntry[] => {
+      const node =
+        (get(raw, `${prefix}${nodeName}`) as Record<string, unknown>) ??
+        (get(raw, nodeName) as Record<string, unknown>) ??
+        {};
+      const rawEntry = get(node, `${prefix}${singular}`) ?? get(node, singular);
+      if (rawEntry === null || rawEntry === undefined) return [];
+      const arr = Array.isArray(rawEntry) ? rawEntry : [rawEntry];
+      if (arr.length === 1 && !Array.isArray(rawEntry)) {
+        nodeShapeNotes.push(`${pluralNotes} — nodo único normalizado a arreglo`);
+      } else {
+        nodeShapeNotes.push(`${pluralNotes} — múltiples nodos detectados`);
+      }
+      return arr.map((e: Record<string, unknown>) => ({
+        base: str(get(e, "@_Base")) ?? undefined,
+        impuesto: str(get(e, "@_Impuesto")) ?? undefined,
+        tipoFactor: str(get(e, "@_TipoFactor")) ?? undefined,
+        tasaOCuota: str(get(e, "@_TasaOCuota")) ?? undefined,
+        importe: str(get(e, "@_Importe")) ?? undefined,
+      }));
     };
-  });
+
+    concepts = conceptoArray.map((c: Record<string, unknown>) => {
+      const rawImpuestos =
+        (get(c, "cfdi:Impuestos") as Record<string, unknown>) ??
+        (get(c, "Impuestos") as Record<string, unknown>) ??
+        {};
+
+      const traslados = extractTaxEntries(
+        rawImpuestos,
+        "cfdi:",
+        "Traslados",
+        "Traslado",
+        "Traslados en concepto",
+      );
+      const retenciones = extractTaxEntries(
+        rawImpuestos,
+        "cfdi:",
+        "Retenciones",
+        "Retencion",
+        "Retenciones en concepto",
+      );
+
+      const impuestos =
+        traslados.length > 0 || retenciones.length > 0 ? { traslados, retenciones } : undefined;
+
+      return {
+        claveProdServ: str(get(c, "@_ClaveProdServ")) ?? undefined,
+        noIdentificacion: str(get(c, "@_NoIdentificacion")) ?? undefined,
+        cantidad: str(get(c, "@_Cantidad")) ?? undefined,
+        claveUnidad: str(get(c, "@_ClaveUnidad")) ?? undefined,
+        unidad: str(get(c, "@_Unidad")) ?? undefined,
+        descripcion: str(get(c, "@_Descripcion")) ?? undefined,
+        valorUnitario: str(get(c, "@_ValorUnitario")) ?? undefined,
+        importe: str(get(c, "@_Importe")) ?? undefined,
+        descuento: str(get(c, "@_Descuento")) ?? undefined,
+        objetoImp: str(get(c, "@_ObjetoImp")) ?? undefined,
+        impuestos,
+      };
+    });
   }
 
   if (tipoComprobante === "I" || tipoComprobante === "E") {
@@ -746,6 +1112,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       issues.push("El comprobante no contiene conceptos.");
     }
   }
+
+  // ── Global taxes extraction ──
+  const globalTaxes = extractGlobalTaxes(comprobante);
 
   if (concepts) {
     for (const c of concepts) {
@@ -758,7 +1127,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         const hasTraslados = c.impuestos && c.impuestos.traslados.length > 0;
         const hasRetenciones = c.impuestos && c.impuestos.retenciones.length > 0;
         if (!hasTraslados && !hasRetenciones) {
-          warnings.push("Un concepto marcado como objeto de impuesto sí objeto de impuesto no contiene impuestos.");
+          warnings.push(
+            "Un concepto marcado como objeto de impuesto sí objeto de impuesto no contiene impuestos.",
+          );
         }
       }
 
@@ -767,7 +1138,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           if (!t.base) warnings.push("Un traslado de concepto no contiene base.");
           if (!t.impuesto) warnings.push("Un traslado de concepto no contiene impuesto.");
           if (!t.tipoFactor) warnings.push("Un traslado de concepto no contiene tipo factor.");
-          if (t.tipoFactor !== "Exento" && !t.importe) warnings.push("Un traslado de concepto gravado no contiene importe.");
+          if (t.tipoFactor !== "Exento" && !t.importe)
+            warnings.push("Un traslado de concepto gravado no contiene importe.");
         }
         for (const r of c.impuestos.retenciones) {
           if (!r.base) warnings.push("Una retención de concepto no contiene base.");
@@ -833,36 +1205,42 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   let paymentComplement: PaymentComplement | null = null;
 
   if (tipoComprobante === "P") {
-    const pagosNode = get(complemento, "pago20:Pagos") as Record<string, unknown> ??
-      get(complemento, "pagos:Pagos") as Record<string, unknown> ??
-      get(complemento, "Pagos") as Record<string, unknown> ?? {};
+    const pagosNode =
+      (get(complemento, "pago20:Pagos") as Record<string, unknown>) ??
+      (get(complemento, "pagos:Pagos") as Record<string, unknown>) ??
+      (get(complemento, "Pagos") as Record<string, unknown>) ??
+      {};
 
     if (pagosNode && typeof pagosNode === "object" && Object.keys(pagosNode).length > 0) {
       const complementVersion = str(get(pagosNode, "@_Version"));
-      const rawPagos = get(pagosNode, "pago20:Pago") as unknown ??
-        get(pagosNode, "pagos:Pago") as unknown ??
-        get(pagosNode, "Pago") as unknown;
+      const rawPagos =
+        (get(pagosNode, "pago20:Pago") as unknown) ??
+        (get(pagosNode, "pagos:Pago") as unknown) ??
+        (get(pagosNode, "Pago") as unknown);
 
       const pagoArray = Array.isArray(rawPagos) ? rawPagos : rawPagos ? [rawPagos] : [];
 
       const pagos: PaymentInfo[] = pagoArray.map((p: Record<string, unknown>) => {
-        const docsRaw = get(p, "pago20:DoctoRelacionado") as unknown ??
-          get(p, "pagos:DoctoRelacionado") as unknown ??
-          get(p, "DoctoRelacionado") as unknown;
+        const docsRaw =
+          (get(p, "pago20:DoctoRelacionado") as unknown) ??
+          (get(p, "pagos:DoctoRelacionado") as unknown) ??
+          (get(p, "DoctoRelacionado") as unknown);
         const docsArray = Array.isArray(docsRaw) ? docsRaw : docsRaw ? [docsRaw] : [];
 
-        const documentosRelacionados: PaymentDocument[] = docsArray.map((d: Record<string, unknown>) => ({
-          idDocumento: str(get(d, "@_IdDocumento")) ?? undefined,
-          serie: str(get(d, "@_Serie")) ?? undefined,
-          folio: str(get(d, "@_Folio")) ?? undefined,
-          monedaDR: str(get(d, "@_MonedaDR")) ?? undefined,
-          equivalenciaDR: str(get(d, "@_EquivalenciaDR")) ?? undefined,
-          numParcialidad: str(get(d, "@_NumParcialidad")) ?? undefined,
-          impSaldoAnt: str(get(d, "@_ImpSaldoAnt")) ?? undefined,
-          impPagado: str(get(d, "@_ImpPagado")) ?? undefined,
-          impSaldoInsoluto: str(get(d, "@_ImpSaldoInsoluto")) ?? undefined,
-          objetoImpDR: str(get(d, "@_ObjetoImpDR")) ?? undefined,
-        }));
+        const documentosRelacionados: PaymentDocument[] = docsArray.map(
+          (d: Record<string, unknown>) => ({
+            idDocumento: str(get(d, "@_IdDocumento")) ?? undefined,
+            serie: str(get(d, "@_Serie")) ?? undefined,
+            folio: str(get(d, "@_Folio")) ?? undefined,
+            monedaDR: str(get(d, "@_MonedaDR")) ?? undefined,
+            equivalenciaDR: str(get(d, "@_EquivalenciaDR")) ?? undefined,
+            numParcialidad: str(get(d, "@_NumParcialidad")) ?? undefined,
+            impSaldoAnt: str(get(d, "@_ImpSaldoAnt")) ?? undefined,
+            impPagado: str(get(d, "@_ImpPagado")) ?? undefined,
+            impSaldoInsoluto: str(get(d, "@_ImpSaldoInsoluto")) ?? undefined,
+            objetoImpDR: str(get(d, "@_ObjetoImpDR")) ?? undefined,
+          }),
+        );
 
         return {
           fechaPago: str(get(p, "@_FechaPago")) ?? undefined,
@@ -889,20 +1267,21 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     if (moneda !== "XXX") {
-      warnings.push("En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX.");
+      warnings.push(
+        "En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX.",
+      );
     }
   }
 
   // ── CFDI Relacionados ──
   let cfdiRelations: CfdiRelations | undefined;
 
-  const rawRelationGroups = get(comprobante, "cfdi:CfdiRelacionados") as unknown ??
-    get(comprobante, "CfdiRelacionados") as unknown;
+  const rawRelationGroups =
+    (get(comprobante, "cfdi:CfdiRelacionados") as unknown) ??
+    (get(comprobante, "CfdiRelacionados") as unknown);
 
   if (rawRelationGroups) {
-    const groupArray = Array.isArray(rawRelationGroups)
-      ? rawRelationGroups
-      : [rawRelationGroups];
+    const groupArray = Array.isArray(rawRelationGroups) ? rawRelationGroups : [rawRelationGroups];
 
     const groups: CfdiRelationGroup[] = [];
 
@@ -910,14 +1289,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       if (!group || typeof group !== "object") continue;
 
       const tipoRelacion = str(get(group, "@_TipoRelacion")) ?? null;
-      const rawRelated = get(group, "cfdi:CfdiRelacionado") as unknown ??
-        get(group, "CfdiRelacionado") as unknown;
+      const rawRelated =
+        (get(group, "cfdi:CfdiRelacionado") as unknown) ??
+        (get(group, "CfdiRelacionado") as unknown);
 
-      const relatedArray = Array.isArray(rawRelated)
-        ? rawRelated
-        : rawRelated
-          ? [rawRelated]
-          : [];
+      const relatedArray = Array.isArray(rawRelated) ? rawRelated : rawRelated ? [rawRelated] : [];
 
       const relatedCfdis: RelatedCfdi[] = relatedArray.map((r: Record<string, unknown>) => ({
         uuid: str(get(r, "@_UUID")) ?? undefined,
@@ -939,84 +1315,108 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   // ── Carta Porte ──
   let cartaPorte: CartaPorteInfo | undefined;
 
-  const cartaPorteNode = get(complemento, "cartaporte31:CartaPorte") as Record<string, unknown> ??
-    get(complemento, "cartaporte30:CartaPorte") as Record<string, unknown> ??
-    get(complemento, "cartaporte20:CartaPorte") as Record<string, unknown> ??
-    get(complemento, "CartaPorte") as Record<string, unknown> ?? null;
+  const cartaPorteNode =
+    (get(complemento, "cartaporte31:CartaPorte") as Record<string, unknown>) ??
+    (get(complemento, "cartaporte30:CartaPorte") as Record<string, unknown>) ??
+    (get(complemento, "cartaporte20:CartaPorte") as Record<string, unknown>) ??
+    (get(complemento, "CartaPorte") as Record<string, unknown>) ??
+    null;
 
-  if (cartaPorteNode && typeof cartaPorteNode === "object" && Object.keys(cartaPorteNode).length > 0) {
+  if (
+    cartaPorteNode &&
+    typeof cartaPorteNode === "object" &&
+    Object.keys(cartaPorteNode).length > 0
+  ) {
     const version = str(get(cartaPorteNode, "@_Version")) ?? null;
     const idCCP = str(get(cartaPorteNode, "@_IdCCP")) ?? null;
     const transpInternac = str(get(cartaPorteNode, "@_TranspInternac")) ?? null;
     const totalDistRec = str(get(cartaPorteNode, "@_TotalDistRec")) ?? null;
 
     // Ubicaciones
-    const rawUbics = get(cartaPorteNode, "cartaporte31:Ubicaciones") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte30:Ubicaciones") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte20:Ubicaciones") as Record<string, unknown> ??
-      get(cartaPorteNode, "Ubicaciones") as Record<string, unknown> ?? null;
+    const rawUbics =
+      (get(cartaPorteNode, "cartaporte31:Ubicaciones") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte30:Ubicaciones") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte20:Ubicaciones") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "Ubicaciones") as Record<string, unknown>) ??
+      null;
 
     let ubicacionesNodes: unknown[] = [];
     if (rawUbics && typeof rawUbics === "object") {
-      const rawUbi = get(rawUbics, "cartaporte31:Ubicacion") as unknown ??
-        get(rawUbics, "cartaporte30:Ubicacion") as unknown ??
-        get(rawUbics, "cartaporte20:Ubicacion") as unknown ??
-        get(rawUbics, "Ubicacion") as unknown;
+      const rawUbi =
+        (get(rawUbics, "cartaporte31:Ubicacion") as unknown) ??
+        (get(rawUbics, "cartaporte30:Ubicacion") as unknown) ??
+        (get(rawUbics, "cartaporte20:Ubicacion") as unknown) ??
+        (get(rawUbics, "Ubicacion") as unknown);
       ubicacionesNodes = Array.isArray(rawUbi) ? rawUbi : rawUbi ? [rawUbi] : [];
     }
 
-    const ubicaciones: CartaPorteUbicacion[] = (ubicacionesNodes as Record<string, unknown>[]).map((u) => ({
-      tipoUbicacion: str(get(u, "@_TipoUbicacion")) ?? null,
-      idUbicacion: str(get(u, "@_IDUbicacion")) ?? null,
-      rfcRemitenteDestinatario: str(get(u, "@_RFCRemitenteDestinatario")) ?? null,
-      nombreRemitenteDestinatario: str(get(u, "@_NombreRemitenteDestinatario")) ?? null,
-      fechaHoraSalidaLlegada: str(get(u, "@_FechaHoraSalidaLlegada")) ?? null,
-      distanciaRecorrida: str(get(u, "@_DistanciaRecorrida")) ?? null,
-    }));
+    const ubicaciones: CartaPorteUbicacion[] = (ubicacionesNodes as Record<string, unknown>[]).map(
+      (u) => ({
+        tipoUbicacion: str(get(u, "@_TipoUbicacion")) ?? null,
+        idUbicacion: str(get(u, "@_IDUbicacion")) ?? null,
+        rfcRemitenteDestinatario: str(get(u, "@_RFCRemitenteDestinatario")) ?? null,
+        nombreRemitenteDestinatario: str(get(u, "@_NombreRemitenteDestinatario")) ?? null,
+        fechaHoraSalidaLlegada: str(get(u, "@_FechaHoraSalidaLlegada")) ?? null,
+        distanciaRecorrida: str(get(u, "@_DistanciaRecorrida")) ?? null,
+      }),
+    );
 
     // Mercancias
-    const rawMercs = get(cartaPorteNode, "cartaporte31:Mercancias") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte30:Mercancias") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte20:Mercancias") as Record<string, unknown> ??
-      get(cartaPorteNode, "Mercancias") as Record<string, unknown> ?? null;
+    const rawMercs =
+      (get(cartaPorteNode, "cartaporte31:Mercancias") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte30:Mercancias") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte20:Mercancias") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "Mercancias") as Record<string, unknown>) ??
+      null;
 
     let mercanciasNodes: unknown[] = [];
     if (rawMercs && typeof rawMercs === "object") {
-      const rawMer = get(rawMercs, "cartaporte31:Mercancia") as unknown ??
-        get(rawMercs, "cartaporte30:Mercancia") as unknown ??
-        get(rawMercs, "cartaporte20:Mercancia") as unknown ??
-        get(rawMercs, "Mercancia") as unknown;
+      const rawMer =
+        (get(rawMercs, "cartaporte31:Mercancia") as unknown) ??
+        (get(rawMercs, "cartaporte30:Mercancia") as unknown) ??
+        (get(rawMercs, "cartaporte20:Mercancia") as unknown) ??
+        (get(rawMercs, "Mercancia") as unknown);
       mercanciasNodes = Array.isArray(rawMer) ? rawMer : rawMer ? [rawMer] : [];
     }
 
-    const mercancias: CartaPorteMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map((m) => ({
-      bienesTransp: str(get(m, "@_BienesTransp")) ?? null,
-      descripcion: str(get(m, "@_Descripcion")) ?? null,
-      cantidad: str(get(m, "@_Cantidad")) ?? null,
-      claveUnidad: str(get(m, "@_ClaveUnidad")) ?? null,
-      pesoEnKg: str(get(m, "@_PesoEnKg")) ?? null,
-      valorMercancia: str(get(m, "@_ValorMercancia")) ?? null,
-      moneda: str(get(m, "@_Moneda")) ?? null,
-    }));
+    const mercancias: CartaPorteMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map(
+      (m) => ({
+        bienesTransp: str(get(m, "@_BienesTransp")) ?? null,
+        descripcion: str(get(m, "@_Descripcion")) ?? null,
+        cantidad: str(get(m, "@_Cantidad")) ?? null,
+        claveUnidad: str(get(m, "@_ClaveUnidad")) ?? null,
+        pesoEnKg: str(get(m, "@_PesoEnKg")) ?? null,
+        valorMercancia: str(get(m, "@_ValorMercancia")) ?? null,
+        moneda: str(get(m, "@_Moneda")) ?? null,
+      }),
+    );
 
     // Figuras Transporte
-    const rawFigs = get(cartaPorteNode, "cartaporte31:FiguraTransporte") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte30:FiguraTransporte") as Record<string, unknown> ??
-      get(cartaPorteNode, "cartaporte20:FiguraTransporte") as Record<string, unknown> ??
-      get(cartaPorteNode, "FiguraTransporte") as Record<string, unknown> ?? null;
+    const rawFigs =
+      (get(cartaPorteNode, "cartaporte31:FiguraTransporte") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte30:FiguraTransporte") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "cartaporte20:FiguraTransporte") as Record<string, unknown>) ??
+      (get(cartaPorteNode, "FiguraTransporte") as Record<string, unknown>) ??
+      null;
 
     const figurasNodes: unknown[] = [];
     if (rawFigs && typeof rawFigs === "object") {
-      const rawTiposFig = get(rawFigs, "cartaporte31:TiposFigura") as unknown ??
-        get(rawFigs, "cartaporte30:TiposFigura") as unknown ??
-        get(rawFigs, "cartaporte20:TiposFigura") as unknown ??
-        get(rawFigs, "TiposFigura") as unknown;
-      const tiposFigArray = Array.isArray(rawTiposFig) ? rawTiposFig : rawTiposFig ? [rawTiposFig] : [];
+      const rawTiposFig =
+        (get(rawFigs, "cartaporte31:TiposFigura") as unknown) ??
+        (get(rawFigs, "cartaporte30:TiposFigura") as unknown) ??
+        (get(rawFigs, "cartaporte20:TiposFigura") as unknown) ??
+        (get(rawFigs, "TiposFigura") as unknown);
+      const tiposFigArray = Array.isArray(rawTiposFig)
+        ? rawTiposFig
+        : rawTiposFig
+          ? [rawTiposFig]
+          : [];
       tiposFigArray.forEach((tf: Record<string, unknown>) => {
-        const rawFig = get(tf, "cartaporte31:PartesTransporte") as unknown ??
-          get(tf, "cartaporte30:PartesTransporte") as unknown ??
-          get(tf, "cartaporte20:PartesTransporte") as unknown ??
-          get(tf, "PartesTransporte") as unknown;
+        const rawFig =
+          (get(tf, "cartaporte31:PartesTransporte") as unknown) ??
+          (get(tf, "cartaporte30:PartesTransporte") as unknown) ??
+          (get(tf, "cartaporte20:PartesTransporte") as unknown) ??
+          (get(tf, "PartesTransporte") as unknown);
         const partesArray = Array.isArray(rawFig) ? rawFig : rawFig ? [rawFig] : [];
         partesArray.forEach((p: Record<string, unknown>) => {
           figurasNodes.push({
@@ -1029,7 +1429,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       });
     }
 
-    const figurasTransporte: CartaPorteTransportFigure[] = (figurasNodes as Record<string, unknown>[]).map((f) => ({
+    const figurasTransporte: CartaPorteTransportFigure[] = (
+      figurasNodes as Record<string, unknown>[]
+    ).map((f) => ({
       tipoFigura: str(get(f, "tipoFigura")) ?? null,
       rfcFigura: str(get(f, "rfcFigura")) ?? null,
       nombreFigura: str(get(f, "nombreFigura")) ?? null,
@@ -1037,17 +1439,33 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }));
 
     // Detect medio transporte
-    const hasAutotransporte = hasChildNode(cartaPorteNode,
-      "cartaporte31:Autotransporte", "cartaporte30:Autotransporte", "cartaporte20:Autotransporte", "Autotransporte",
+    const hasAutotransporte = hasChildNode(
+      cartaPorteNode,
+      "cartaporte31:Autotransporte",
+      "cartaporte30:Autotransporte",
+      "cartaporte20:Autotransporte",
+      "Autotransporte",
     );
-    const hasTransporteMaritimo = hasChildNode(cartaPorteNode,
-      "cartaporte31:TransporteMaritimo", "cartaporte30:TransporteMaritimo", "cartaporte20:TransporteMaritimo", "TransporteMaritimo",
+    const hasTransporteMaritimo = hasChildNode(
+      cartaPorteNode,
+      "cartaporte31:TransporteMaritimo",
+      "cartaporte30:TransporteMaritimo",
+      "cartaporte20:TransporteMaritimo",
+      "TransporteMaritimo",
     );
-    const hasTransporteAereo = hasChildNode(cartaPorteNode,
-      "cartaporte31:TransporteAereo", "cartaporte30:TransporteAereo", "cartaporte20:TransporteAereo", "TransporteAereo",
+    const hasTransporteAereo = hasChildNode(
+      cartaPorteNode,
+      "cartaporte31:TransporteAereo",
+      "cartaporte30:TransporteAereo",
+      "cartaporte20:TransporteAereo",
+      "TransporteAereo",
     );
-    const hasTransporteFerroviario = hasChildNode(cartaPorteNode,
-      "cartaporte31:TransporteFerroviario", "cartaporte30:TransporteFerroviario", "cartaporte20:TransporteFerroviario", "TransporteFerroviario",
+    const hasTransporteFerroviario = hasChildNode(
+      cartaPorteNode,
+      "cartaporte31:TransporteFerroviario",
+      "cartaporte30:TransporteFerroviario",
+      "cartaporte20:TransporteFerroviario",
+      "TransporteFerroviario",
     );
 
     cartaPorte = {
@@ -1064,6 +1482,160 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       hasTransporteMaritimo,
       hasTransporteAereo,
       hasTransporteFerroviario,
+    };
+  }
+
+  // ── Nomina 1.2 extraction ──
+  let nomina: NominaInfo | undefined;
+
+  const nominaNode =
+    (get(complemento, "nomina12:Nomina") as Record<string, unknown>) ??
+    (get(complemento, "Nomina") as Record<string, unknown>) ??
+    null;
+
+  if (nominaNode && typeof nominaNode === "object" && Object.keys(nominaNode).length > 0) {
+    const nominaVersion = str(get(nominaNode, "@_Version")) ?? null;
+    const tipoNomina = str(get(nominaNode, "@_TipoNomina")) ?? null;
+    const fechaPago = str(get(nominaNode, "@_FechaPago")) ?? null;
+    const fechaInicialPago = str(get(nominaNode, "@_FechaInicialPago")) ?? null;
+    const fechaFinalPago = str(get(nominaNode, "@_FechaFinalPago")) ?? null;
+    const numDiasPagados = str(get(nominaNode, "@_NumDiasPagados")) ?? null;
+    const totalPercepciones = str(get(nominaNode, "@_TotalPercepciones")) ?? null;
+    const totalDeducciones = str(get(nominaNode, "@_TotalDeducciones")) ?? null;
+    const totalOtrosPagos = str(get(nominaNode, "@_TotalOtrosPagos")) ?? null;
+
+    // Receptor node
+    const nominaReceptor =
+      (get(nominaNode, "nomina12:Receptor") as Record<string, unknown>) ??
+      (get(nominaNode, "Receptor") as Record<string, unknown>) ??
+      {};
+
+    const receptor: NominaReceptorInfo = {
+      curp: str(get(nominaReceptor, "@_CURP")) ?? null,
+      numSeguridadSocial: str(get(nominaReceptor, "@_NumSeguridadSocial")) ?? null,
+      fechaInicioRelLaboral: str(get(nominaReceptor, "@_FechaInicioRelLaboral")) ?? null,
+      antiguedad: str(get(nominaReceptor, "@_Antiguedad")) ?? null,
+      tipoContrato: str(get(nominaReceptor, "@_TipoContrato")) ?? null,
+      sindicalizado: str(get(nominaReceptor, "@_Sindicalizado")) ?? null,
+      tipoJornada: str(get(nominaReceptor, "@_TipoJornada")) ?? null,
+      tipoRegimen: str(get(nominaReceptor, "@_TipoRegimen")) ?? null,
+      numEmpleado: str(get(nominaReceptor, "@_NumEmpleado")) ?? null,
+      departamento: str(get(nominaReceptor, "@_Departamento")) ?? null,
+      puesto: str(get(nominaReceptor, "@_Puesto")) ?? null,
+      riesgoPuesto: str(get(nominaReceptor, "@_RiesgoPuesto")) ?? null,
+      periodicidadPago: str(get(nominaReceptor, "@_PeriodicidadPago")) ?? null,
+      banco: str(get(nominaReceptor, "@_Banco")) ?? null,
+      cuentaBancaria: str(get(nominaReceptor, "@_CuentaBancaria")) ?? null,
+      salarioBaseCotApor: str(get(nominaReceptor, "@_SalarioBaseCotApor")) ?? null,
+      salarioDiarioIntegrado: str(get(nominaReceptor, "@_SalarioDiarioIntegrado")) ?? null,
+      claveEntFed: str(get(nominaReceptor, "@_ClaveEntFed")) ?? null,
+    };
+
+    // Percepciones
+    const percepciones: NominaPercepcionInfo[] = [];
+    const rawPercepcionesNode =
+      (get(nominaNode, "nomina12:Percepciones") as Record<string, unknown>) ??
+      (get(nominaNode, "Percepciones") as Record<string, unknown>) ??
+      {};
+    if (rawPercepcionesNode && typeof rawPercepcionesNode === "object") {
+      const rawPerc =
+        (get(rawPercepcionesNode, "nomina12:Percepcion") as unknown) ??
+        (get(rawPercepcionesNode, "Percepcion") as unknown);
+      const percArray = Array.isArray(rawPerc) ? rawPerc : rawPerc ? [rawPerc] : [];
+      percepciones.push(
+        ...percArray.map((p: Record<string, unknown>) => ({
+          tipoPercepcion: str(get(p, "@_TipoPercepcion")) ?? null,
+          clave: str(get(p, "@_Clave")) ?? null,
+          concepto: str(get(p, "@_Concepto")) ?? null,
+          importeGravado: str(get(p, "@_ImporteGravado")) ?? null,
+          importeExento: str(get(p, "@_ImporteExento")) ?? null,
+        })),
+      );
+    }
+
+    // Deducciones
+    const deducciones: NominaDeduccionInfo[] = [];
+    const rawDeduccionesNode =
+      (get(nominaNode, "nomina12:Deducciones") as Record<string, unknown>) ??
+      (get(nominaNode, "Deducciones") as Record<string, unknown>) ??
+      {};
+    if (rawDeduccionesNode && typeof rawDeduccionesNode === "object") {
+      const rawDed =
+        (get(rawDeduccionesNode, "nomina12:Deduccion") as unknown) ??
+        (get(rawDeduccionesNode, "Deduccion") as unknown);
+      const dedArray = Array.isArray(rawDed) ? rawDed : rawDed ? [rawDed] : [];
+      deducciones.push(
+        ...dedArray.map((d: Record<string, unknown>) => ({
+          tipoDeduccion: str(get(d, "@_TipoDeduccion")) ?? null,
+          clave: str(get(d, "@_Clave")) ?? null,
+          concepto: str(get(d, "@_Concepto")) ?? null,
+          importe: str(get(d, "@_Importe")) ?? null,
+        })),
+      );
+    }
+
+    // OtrosPagos
+    const otrosPagos: NominaOtroPagoInfo[] = [];
+    const rawOtrosPagosNode =
+      (get(nominaNode, "nomina12:OtrosPagos") as Record<string, unknown>) ??
+      (get(nominaNode, "OtrosPagos") as Record<string, unknown>) ??
+      {};
+    if (rawOtrosPagosNode && typeof rawOtrosPagosNode === "object") {
+      const rawOP =
+        (get(rawOtrosPagosNode, "nomina12:OtroPago") as unknown) ??
+        (get(rawOtrosPagosNode, "OtroPago") as unknown);
+      const opArray = Array.isArray(rawOP) ? rawOP : rawOP ? [rawOP] : [];
+      otrosPagos.push(
+        ...opArray.map((o: Record<string, unknown>) => ({
+          tipoOtroPago: str(get(o, "@_TipoOtroPago")) ?? null,
+          clave: str(get(o, "@_Clave")) ?? null,
+          concepto: str(get(o, "@_Concepto")) ?? null,
+          importe: str(get(o, "@_Importe")) ?? null,
+        })),
+      );
+    }
+
+    nomina = {
+      version: nominaVersion,
+      tipoNomina,
+      fechaPago,
+      fechaInicialPago,
+      fechaFinalPago,
+      numDiasPagados,
+      totalPercepciones,
+      totalDeducciones,
+      totalOtrosPagos,
+      receptor,
+      percepciones,
+      deducciones,
+      otrosPagos,
+    };
+  }
+
+  // ── Comercio Exterior 1.1 extraction ──
+  let comercioExterior: ComercioExteriorInfo | undefined;
+
+  const comercioExteriorNode =
+    (get(complemento, "cce11:ComercioExterior") as Record<string, unknown>) ??
+    (get(complemento, "ComercioExterior") as Record<string, unknown>) ??
+    null;
+
+  if (
+    comercioExteriorNode &&
+    typeof comercioExteriorNode === "object" &&
+    Object.keys(comercioExteriorNode).length > 0
+  ) {
+    comercioExterior = {
+      version: str(get(comercioExteriorNode, "@_Version")) ?? null,
+      tipoOperacion: str(get(comercioExteriorNode, "@_TipoOperacion")) ?? null,
+      claveDePedimento: str(get(comercioExteriorNode, "@_ClaveDePedimento")) ?? null,
+      certificadoOrigen: str(get(comercioExteriorNode, "@_CertificadoOrigen")) ?? null,
+      numeroExportadorConfiable: str(get(comercioExteriorNode, "@_NumeroExportadorConfiable")) ?? null,
+      incoterm: str(get(comercioExteriorNode, "@_Incoterm")) ?? null,
+      subDivision: str(get(comercioExteriorNode, "@_SubDivision")) ?? null,
+      observaciones: str(get(comercioExteriorNode, "@_Observaciones")) ?? null,
+      tipoCambioUSD: str(get(comercioExteriorNode, "@_TipoCambioUSD")) ?? null,
+      totalUSD: str(get(comercioExteriorNode, "@_TotalUSD")) ?? null,
     };
   }
 
@@ -1098,7 +1670,12 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     const trasladadosNum = toMoneyNumber(totalTrasladadosVal);
     const retenidosNum = toMoneyNumber(totalRetenidosVal);
 
-    const totalCalculated = roundMoney(subtotalCalculated - discountCalculated + transferredTaxesCalculated - retainedTaxesCalculated);
+    const totalCalculated = roundMoney(
+      subtotalCalculated -
+        discountCalculated +
+        transferredTaxesCalculated -
+        retainedTaxesCalculated,
+    );
     const rawDifference = Math.abs(totalCalculated - totalNum);
     const matches = rawDifference <= 0.01;
     const difference = matches ? 0 : roundMoney(rawDifference);
@@ -1123,30 +1700,50 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     if (!matches) {
-      issues.push("El total global no coincide con conceptos + impuestos - descuentos - retenciones.");
+      issues.push(
+        "El total global no coincide con conceptos + impuestos - descuentos - retenciones.",
+      );
     }
 
     if (trasladadosNum > 0 && Math.abs(transferredTaxesCalculated - trasladadosNum) > 0.01) {
-      warnings.push("El total de impuestos trasladados global no coincide con la suma de traslados por concepto.");
+      warnings.push(
+        "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
+      );
     }
 
     if (retenidosNum > 0 && Math.abs(retainedTaxesCalculated - retenidosNum) > 0.01) {
-      warnings.push("El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.");
+      warnings.push(
+        "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
+      );
     }
   }
 
   // ── Tax Summary ──
-  const TAX_LABELS: Record<string, string> = { "001": "ISR", "002": "IVA", "003": "IEPS" };
 
   function groupTaxEntries(entries: ConceptTaxEntry[]): TaxSummaryEntry[] {
-    const map = new Map<string, { base: number; importe: number; impuesto: string; tipoFactor: string | undefined; tasaOCuota: string | undefined }>();
+    const map = new Map<
+      string,
+      {
+        base: number;
+        importe: number;
+        impuesto: string;
+        tipoFactor: string | undefined;
+        tasaOCuota: string | undefined;
+      }
+    >();
 
     for (const e of entries) {
       const impuesto = e.impuesto ?? "SIN_IMPUESTO";
       const grupo = `${impuesto}|${e.tipoFactor ?? ""}|${e.tasaOCuota ?? ""}`;
 
       if (!map.has(grupo)) {
-        map.set(grupo, { base: 0, importe: 0, impuesto, tipoFactor: e.tipoFactor, tasaOCuota: e.tasaOCuota });
+        map.set(grupo, {
+          base: 0,
+          importe: 0,
+          impuesto,
+          tipoFactor: e.tipoFactor,
+          tasaOCuota: e.tasaOCuota,
+        });
       }
       const g = map.get(grupo)!;
       g.base += toNum(e.base) ?? 0;
@@ -1157,7 +1754,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     for (const [, g] of map) {
       result.push({
         impuesto: g.impuesto,
-        impuestoLabel: TAX_LABELS[g.impuesto] ?? `Impuesto ${g.impuesto}`,
+        impuestoLabel: getImpuestoLabel(g.impuesto) ?? `Impuesto ${g.impuesto}`,
         tipoFactor: g.tipoFactor,
         tasaOCuota: g.tasaOCuota,
         baseCalculated: formatMoney(g.base),
@@ -1191,14 +1788,14 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     for (const t of allTraslados) {
-      if (t.impuesto && !["001", "002", "003"].includes(t.impuesto)) {
+      if (t.impuesto && !isKnownImpuesto(t.impuesto)) {
         warnings.push("Se detectó un impuesto no clasificado por el catálogo base del motor.");
         break;
       }
     }
 
     for (const r of allRetenciones) {
-      if (r.impuesto && !["001", "002", "003"].includes(r.impuesto)) {
+      if (r.impuesto && !isKnownImpuesto(r.impuesto)) {
         warnings.push("Se detectó un impuesto no clasificado por el catálogo base del motor.");
         break;
       }
@@ -1219,8 +1816,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     for (const t of allTraslados) {
-      if (t.impuesto === "002" && t.tipoFactor === "Tasa" && t.tasaOCuota && !["0.160000", "0.080000", "0.000000"].includes(t.tasaOCuota)) {
-        warnings.push("Se detectó una tasa de IVA no común; revisar si corresponde al caso fiscal.");
+      if (
+        t.impuesto === "002" &&
+        t.tipoFactor === "Tasa" &&
+        t.tasaOCuota &&
+        !["0.160000", "0.080000", "0.000000"].includes(t.tasaOCuota)
+      ) {
+        warnings.push(
+          "Se detectó una tasa de IVA no común; revisar si corresponde al caso fiscal.",
+        );
         lastUncommonVatRate = t.tasaOCuota;
         break;
       }
@@ -1235,11 +1839,21 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
     for (const r of allRetenciones) {
       if (tipoComprobante === "I" || tipoComprobante === "E") {
-        if (r.impuesto === "001" && toNum(r.importe) && toNum(r.base) && toNum(r.importe)! > toNum(r.base)!) {
+        if (
+          r.impuesto === "001" &&
+          toNum(r.importe) &&
+          toNum(r.base) &&
+          toNum(r.importe)! > toNum(r.base)!
+        ) {
           warnings.push("Una retención ISR tiene importe mayor que su base.");
           break;
         }
-        if (r.impuesto === "002" && toNum(r.importe) && toNum(r.base) && toNum(r.importe)! > toNum(r.base)!) {
+        if (
+          r.impuesto === "002" &&
+          toNum(r.importe) &&
+          toNum(r.base) &&
+          toNum(r.importe)! > toNum(r.base)!
+        ) {
           warnings.push("Una retención de IVA tiene importe mayor que su base.");
           break;
         }
@@ -1260,7 +1874,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           const esperado = roundMoney(base * tasa);
           if (Math.abs(esperado - importe) > 0.01) {
             warnings.push("El importe de un impuesto no coincide con base por tasa.");
-            lastBaseRateMismatch = { base: e.base ?? "", tasaOCuota: e.tasaOCuota ?? "", importe: e.importe ?? "" };
+            lastBaseRateMismatch = {
+              base: e.base ?? "",
+              tasaOCuota: e.tasaOCuota ?? "",
+              importe: e.importe ?? "",
+            };
             break;
           }
         }
@@ -1270,7 +1888,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   // ── Warnings ──
   if (moneda === "XXX" && tipoComprobante !== "P") {
-    warnings.push("La moneda del comprobante es 'XXX' (sin moneda), inusual en comprobantes que no son de pago");
+    warnings.push(
+      "La moneda del comprobante es 'XXX' (sin moneda), inusual en comprobantes que no son de pago",
+    );
   }
 
   if (tipoComprobante === "I" || tipoComprobante === "E") {
@@ -1322,7 +1942,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "BOM_UTF8_DETECTED",
       title: "BOM UTF-8 detectado",
-      message: "El archivo contiene BOM UTF-8 al inicio. Se normalizó en memoria para lectura sin modificar contenido fiscal.",
+      message:
+        "El archivo contiene BOM UTF-8 al inicio. Se normalizó en memoria para lectura sin modificar contenido fiscal.",
       recommendedAction: "En fases futuras podrás descargar el XML técnicamente normalizado.",
       evidence: [
         { label: "Problema detectado", value: "BOM UTF-8 al inicio del archivo" },
@@ -1343,7 +1964,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       code: "LEADING_CONTENT_BEFORE_XML",
       title: "Contenido previo al XML",
       message: "Se detectó contenido antes del inicio del XML. Validar origen del archivo.",
-      recommendedAction: "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
+      recommendedAction:
+        "Verifica que el archivo provenga de una fuente confiable o descarga una copia limpia del SAT.",
       evidence: [
         { label: "Problema detectado", value: "Contenido previo al primer '<'" },
         { label: "Normalización aplicada", value: "Sí, solo en memoria" },
@@ -1362,7 +1984,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "UNSTAMPED_XML",
       title: "XML sin timbre fiscal",
-      message: "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
+      message:
+        "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
       recommendedAction: "Solicita al emisor el XML timbrado o verifica en el portal del SAT.",
     });
   }
@@ -1373,7 +1996,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "STRUCTURE",
       code: "ADDENDA_DETECTED",
       title: "Addenda detectada",
-      message: "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
+      message:
+        "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
       recommendedAction: "Revisa que la addenda no interfiera con la validez fiscal del CFDI.",
     });
   }
@@ -1385,7 +2009,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       code: "UNKNOWN_COMPLEMENT",
       title: "Complemento desconocido detectado",
       message: `Se encontraron complementos no reconocidos por el motor base: ${unknownComplements.join(", ")}.`,
-      recommendedAction: "Verifica si el complemento es válido fiscalmente o requiere un módulo adicional.",
+      recommendedAction:
+        "Verifica si el complemento es válido fiscalmente o requiere un módulo adicional.",
     });
   }
 
@@ -1396,7 +2021,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       code: "TOTAL_MISMATCH",
       title: "Total global inconsistente",
       message: "El total global no coincide con conceptos, impuestos, descuentos y retenciones.",
-      recommendedAction: "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
+      recommendedAction:
+        "Solicita al emisor revisar el CFDI o valida si corresponde una corrección antes de usarlo fiscalmente.",
       evidence: [
         { label: "Total XML", value: totalsValidation.totalXml },
         { label: "Total calculado", value: totalsValidation.totalCalculated },
@@ -1408,14 +2034,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   // ── Map issues to findings ──
 
-  if (issues.some(i => i.includes("El subtotal global no coincide"))) {
+  if (issues.some((i) => i.includes("El subtotal global no coincide"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "TOTALS",
       code: "SUBTOTAL_MISMATCH",
       title: "Subtotal global inconsistente",
       message: "El subtotal global no coincide con la suma de importes de conceptos.",
-      recommendedAction: "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
+      recommendedAction:
+        "Verifica que cada concepto tenga el importe correcto y que el subtotal esté declarado correctamente en el CFDI.",
       evidence: [
         { label: "Subtotal XML", value: totalsValidation?.subtotalXml },
         { label: "Subtotal calculado", value: totalsValidation?.subtotalCalculated },
@@ -1423,40 +2050,44 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("El total no coincide con subtotal + impuestos"))) {
+  if (issues.some((i) => i.includes("El total no coincide con subtotal + impuestos"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "TOTALS",
       code: "ARITHMETIC_TOTAL_MISMATCH",
       title: "Total aritmético inconsistente",
-      message: "El total del comprobante no coincide con la operación resta de subtotal, descuento, impuestos y retenciones.",
-      recommendedAction: "Revisa los valores de subtotal, descuentos, traslados y retenciones declarados en el XML.",
+      message:
+        "El total del comprobante no coincide con la operación resta de subtotal, descuento, impuestos y retenciones.",
+      recommendedAction:
+        "Revisa los valores de subtotal, descuentos, traslados y retenciones declarados en el XML.",
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró la versión del CFDI"))) {
+  if (issues.some((i) => i.includes("No se encontró la versión del CFDI"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "TECHNICAL",
       code: "MISSING_VERSION",
       title: "Versión del CFDI faltante",
       message: "No se encontró la versión del CFDI en el comprobante.",
-      recommendedAction: "Verifica que el XML sea un CFDI válido emitido por un proveedor autorizado.",
+      recommendedAction:
+        "Verifica que el XML sea un CFDI válido emitido por un proveedor autorizado.",
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el UUID"))) {
+  if (issues.some((i) => i.includes("No se encontró el UUID"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "TECHNICAL",
       code: "MISSING_UUID",
       title: "UUID del timbre faltante",
       message: "No se encontró el UUID en el TimbreFiscalDigital.",
-      recommendedAction: "El comprobante no cuenta con un UUID válido; solicita el XML timbrado al emisor.",
+      recommendedAction:
+        "El comprobante no cuenta con un UUID válido; solicita el XML timbrado al emisor.",
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el RFC del emisor"))) {
+  if (issues.some((i) => i.includes("No se encontró el RFC del emisor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1467,18 +2098,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el RFC del receptor"))) {
+  if (issues.some((i) => i.includes("No se encontró el RFC del receptor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "MISSING_RFC_RECEPTOR",
       title: "RFC del receptor faltante",
       message: "No se encontró el RFC del receptor en el comprobante.",
-      recommendedAction: "El RFC del receptor es obligatorio; verifica que el CFDI incluya tus datos fiscales.",
+      recommendedAction:
+        "El RFC del receptor es obligatorio; verifica que el CFDI incluya tus datos fiscales.",
     });
   }
 
-  if (issues.some(i => i.includes("El comprobante no contiene conceptos"))) {
+  if (issues.some((i) => i.includes("El comprobante no contiene conceptos"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1489,7 +2121,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el total"))) {
+  if (issues.some((i) => i.includes("No se encontró el total"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1500,7 +2132,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el subtotal"))) {
+  if (issues.some((i) => i.includes("No se encontró el subtotal"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1511,18 +2143,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el tipo de comprobante"))) {
+  if (issues.some((i) => i.includes("No se encontró el tipo de comprobante"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "MISSING_TIPO_COMPROBANTE",
       title: "Tipo de comprobante faltante",
       message: "No se encontró el TipoDeComprobante en el CFDI.",
-      recommendedAction: "El tipo de comprobante es obligatorio; verifica que el XML esté completo.",
+      recommendedAction:
+        "El tipo de comprobante es obligatorio; verifica que el XML esté completo.",
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró la fecha"))) {
+  if (issues.some((i) => i.includes("No se encontró la fecha"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1533,7 +2166,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró la moneda"))) {
+  if (issues.some((i) => i.includes("No se encontró la moneda"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1544,18 +2177,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("El subtotal no puede ser negativo"))) {
+  if (issues.some((i) => i.includes("El subtotal no puede ser negativo"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "SUBTOTAL_NEGATIVE",
       title: "Subtotal negativo",
       message: "El subtotal del comprobante es negativo, lo cual no es válido.",
-      recommendedAction: "Revisa el origen del CFDI; un subtotal negativo puede indicar un error en la emisión.",
+      recommendedAction:
+        "Revisa el origen del CFDI; un subtotal negativo puede indicar un error en la emisión.",
     });
   }
 
-  if (issues.some(i => i.includes("El total debe ser mayor a 0"))) {
+  if (issues.some((i) => i.includes("El total debe ser mayor a 0"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1566,18 +2200,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el nombre del emisor"))) {
+  if (issues.some((i) => i.includes("CFDI 4.0: No se encontró el nombre del emisor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "CFDI40_MISSING_EMISOR_NAME",
       title: "Nombre del emisor faltante (CFDI 4.0)",
       message: "En CFDI 4.0 el nombre del emisor es obligatorio y no se encontró.",
-      recommendedAction: "Solicita al emisor que el CFDI incluya su nombre completo o razón social.",
+      recommendedAction:
+        "Solicita al emisor que el CFDI incluya su nombre completo o razón social.",
     });
   }
 
-  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el nombre del receptor"))) {
+  if (issues.some((i) => i.includes("CFDI 4.0: No se encontró el nombre del receptor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1588,7 +2223,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("CFDI 4.0: No se encontró el uso del CFDI"))) {
+  if (issues.some((i) => i.includes("CFDI 4.0: No se encontró el uso del CFDI"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
@@ -1599,31 +2234,33 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el régimen fiscal del receptor"))) {
+  if (issues.some((i) => i.includes("No se encontró el régimen fiscal del receptor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "CFDI40_MISSING_REGIMEN_RECEPTOR",
       title: "Régimen fiscal del receptor faltante (CFDI 4.0)",
       message: "En CFDI 4.0 el régimen fiscal del receptor es obligatorio y no se encontró.",
-      recommendedAction: "Verifica que tu régimen fiscal esté correctamente registrado con el emisor.",
+      recommendedAction:
+        "Verifica que tu régimen fiscal esté correctamente registrado con el emisor.",
     });
   }
 
-  if (issues.some(i => i.includes("No se encontró el domicilio fiscal del receptor"))) {
+  if (issues.some((i) => i.includes("No se encontró el domicilio fiscal del receptor"))) {
     addFindingOnce({
       severity: "CRITICAL",
       category: "FISCAL",
       code: "CFDI40_MISSING_DOMICILIO_RECEPTOR",
       title: "Domicilio fiscal del receptor faltante (CFDI 4.0)",
       message: "En CFDI 4.0 el DomicilioFiscalReceptor es obligatorio y no se encontró.",
-      recommendedAction: "Verifica que tu domicilio fiscal esté correctamente registrado con el emisor.",
+      recommendedAction:
+        "Verifica que tu domicilio fiscal esté correctamente registrado con el emisor.",
     });
   }
 
   // ── Map warnings to findings ──
 
-  if (warnings.some(w => w.includes("Versión de CFDI no estándar"))) {
+  if (warnings.some((w) => w.includes("Versión de CFDI no estándar"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TECHNICAL",
@@ -1634,14 +2271,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El total de impuestos trasladados global no coincide"))) {
+  if (warnings.some((w) => w.includes("El total de impuestos trasladados global no coincide"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "TRANSFERRED_TAXES_MISMATCH",
       title: "Impuestos trasladados globales inconsistentes",
-      message: "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
-      recommendedAction: "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
+      message:
+        "El total de impuestos trasladados global no coincide con la suma de traslados por concepto.",
+      recommendedAction:
+        "Revisa cada concepto para confirmar que los traslados de IVA/IEPS estén correctamente desglosados.",
       evidence: [
         { label: "Trasladados XML", value: totalsValidation?.transferredTaxesXml },
         { label: "Trasladados calculados", value: totalsValidation?.transferredTaxesCalculated },
@@ -1649,14 +2288,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El total de impuestos retenidos global no coincide"))) {
+  if (warnings.some((w) => w.includes("El total de impuestos retenidos global no coincide"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "RETAINED_TAXES_MISMATCH",
       title: "Impuestos retenidos globales inconsistentes",
-      message: "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
-      recommendedAction: "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
+      message:
+        "El total de impuestos retenidos global no coincide con la suma de retenciones por concepto.",
+      recommendedAction:
+        "Revisa cada concepto para confirmar que las retenciones estén correctamente desglosadas.",
       evidence: [
         { label: "Retenidos XML", value: totalsValidation?.retainedTaxesXml },
         { label: "Retenidos calculados", value: totalsValidation?.retainedTaxesCalculated },
@@ -1664,13 +2305,14 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Se detectó una tasa de IVA no común"))) {
+  if (warnings.some((w) => w.includes("Se detectó una tasa de IVA no común"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "UNCOMMON_VAT_RATE",
       title: "Tasa de IVA no común",
-      message: "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
+      message:
+        "Se detectó una tasa de IVA fuera de las tasas comunes configuradas en el motor base.",
       recommendedAction: "Verifica que la tasa corresponda al supuesto fiscal aplicable.",
       evidence: [
         { label: "Impuesto", value: "IVA (002)" },
@@ -1680,7 +2322,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
+  if (warnings.some((w) => w.includes("El importe de un impuesto no coincide con base por tasa"))) {
     const baseNum = toNum(lastBaseRateMismatch?.base);
     const tasaNum = toNum(lastBaseRateMismatch?.tasaOCuota);
     addFindingOnce({
@@ -1689,83 +2331,100 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       code: "TAX_BASE_RATE_MISMATCH",
       title: "Importe fiscal no coincide con base por tasa",
       message: "El importe de un impuesto no coincide con el resultado de base por tasa/cuota.",
-      recommendedAction: "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
+      recommendedAction:
+        "Revisa que los valores de base, tasa y el importe trasladado o retenido sean fiscalmente correctos.",
       evidence: [
         { label: "Base", value: lastBaseRateMismatch?.base },
         { label: "Tasa", value: lastBaseRateMismatch?.tasaOCuota },
         { label: "Importe XML", value: lastBaseRateMismatch?.importe },
-        { label: "Importe esperado", value: baseNum !== null && tasaNum !== null ? formatMoney(baseNum * tasaNum) : undefined },
+        {
+          label: "Importe esperado",
+          value: baseNum !== null && tasaNum !== null ? formatMoney(baseNum * tasaNum) : undefined,
+        },
       ],
     });
   }
 
-  if (warnings.some(w => w.includes("Un concepto no contiene ClaveProdServ"))) {
+  if (warnings.some((w) => w.includes("Un concepto no contiene ClaveProdServ"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "CONCEPT_MISSING_CLAVE_PROD_SERV",
       title: "Concepto sin ClaveProdServ",
       message: "Un concepto del CFDI no contiene clave de producto o servicio.",
-      recommendedAction: "La clave de producto o servicio es importante para la clasificación fiscal; solicita al emisor incluirla.",
+      recommendedAction:
+        "La clave de producto o servicio es importante para la clasificación fiscal; solicita al emisor incluirla.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un concepto no contiene cantidad"))) {
+  if (warnings.some((w) => w.includes("Un concepto no contiene cantidad"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "CONCEPT_MISSING_CANTIDAD",
       title: "Concepto sin cantidad",
       message: "Un concepto del CFDI no tiene cantidad especificada.",
-      recommendedAction: "La cantidad permite verificar la integridad del cálculo fiscal; solicítala al emisor.",
+      recommendedAction:
+        "La cantidad permite verificar la integridad del cálculo fiscal; solicítala al emisor.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un concepto no contiene descripción"))) {
+  if (warnings.some((w) => w.includes("Un concepto no contiene descripción"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "CONCEPT_MISSING_DESCRIPCION",
       title: "Concepto sin descripción",
       message: "Un concepto del CFDI no tiene descripción del bien o servicio.",
-      recommendedAction: "La descripción es necesaria para identificar el producto o servicio; solicítala al emisor.",
+      recommendedAction:
+        "La descripción es necesaria para identificar el producto o servicio; solicítala al emisor.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un concepto no contiene ObjetoImp"))) {
+  if (warnings.some((w) => w.includes("Un concepto no contiene ObjetoImp"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "CONCEPT_MISSING_OBJETO_IMP",
       title: "Concepto sin ObjetoImp (CFDI 4.0)",
       message: "Un concepto en CFDI 4.0 no contiene el campo ObjetoImp.",
-      recommendedAction: "ObjetoImp es obligatorio en CFDI 4.0; solicita al emisor corregir el CFDI.",
+      recommendedAction:
+        "ObjetoImp es obligatorio en CFDI 4.0; solicita al emisor corregir el CFDI.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un concepto marcado como objeto de impuesto sí objeto de impuesto no contiene impuestos"))) {
+  if (
+    warnings.some((w) =>
+      w.includes(
+        "Un concepto marcado como objeto de impuesto sí objeto de impuesto no contiene impuestos",
+      ),
+    )
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "CONCEPT_OBJETO_IMP_NO_TAX",
       title: "Concepto marcado como objeto de impuesto sin impuestos",
-      message: "Un concepto con ObjetoImp=02 (sí objeto de impuesto) no contiene traslados ni retenciones.",
-      recommendedAction: "Verifica que el concepto deba estar exento o solicita al emisor corregir los impuestos.",
+      message:
+        "Un concepto con ObjetoImp=02 (sí objeto de impuesto) no contiene traslados ni retenciones.",
+      recommendedAction:
+        "Verifica que el concepto deba estar exento o solicita al emisor corregir los impuestos.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un traslado de concepto no contiene base"))) {
+  if (warnings.some((w) => w.includes("Un traslado de concepto no contiene base"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "TRASLADO_MISSING_BASE",
       title: "Traslado sin base",
       message: "Un traslado de impuesto en un concepto no tiene base especificada.",
-      recommendedAction: "La base es necesaria para calcular el impuesto; solicita al emisor corregir el CFDI.",
+      recommendedAction:
+        "La base es necesaria para calcular el impuesto; solicita al emisor corregir el CFDI.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un traslado de concepto no contiene impuesto"))) {
+  if (warnings.some((w) => w.includes("Un traslado de concepto no contiene impuesto"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1776,7 +2435,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Un traslado de concepto no contiene tipo factor"))) {
+  if (warnings.some((w) => w.includes("Un traslado de concepto no contiene tipo factor"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1787,29 +2446,31 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Un traslado de concepto gravado no contiene importe"))) {
+  if (warnings.some((w) => w.includes("Un traslado de concepto gravado no contiene importe"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "TRASLADO_MISSING_IMPORTE",
       title: "Traslado gravado sin importe",
       message: "Un traslado de concepto con tipo factor distinto de Exento no contiene importe.",
-      recommendedAction: "El importe del traslado es obligatorio para impuestos gravados; solicita al emisor corregir el CFDI.",
+      recommendedAction:
+        "El importe del traslado es obligatorio para impuestos gravados; solicita al emisor corregir el CFDI.",
     });
   }
 
-  if (warnings.some(w => w.includes("Una retención de concepto no contiene base"))) {
+  if (warnings.some((w) => w.includes("Una retención de concepto no contiene base"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "RETENCION_MISSING_BASE",
       title: "Retención sin base",
       message: "Una retención de concepto no tiene base especificada.",
-      recommendedAction: "La base es necesaria para calcular la retención; solicita al emisor corregir el CFDI.",
+      recommendedAction:
+        "La base es necesaria para calcular la retención; solicita al emisor corregir el CFDI.",
     });
   }
 
-  if (warnings.some(w => w.includes("Una retención de concepto no contiene impuesto"))) {
+  if (warnings.some((w) => w.includes("Una retención de concepto no contiene impuesto"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1820,18 +2481,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Una retención de concepto no contiene importe"))) {
+  if (warnings.some((w) => w.includes("Una retención de concepto no contiene importe"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "RETENCION_MISSING_IMPORTE",
       title: "Retención sin importe",
       message: "Una retención de concepto no tiene importe especificado.",
-      recommendedAction: "El importe de la retención es obligatorio; solicita al emisor corregir el CFDI.",
+      recommendedAction:
+        "El importe de la retención es obligatorio; solicita al emisor corregir el CFDI.",
     });
   }
 
-  if (warnings.some(w => w.includes("No se especificó el método de pago"))) {
+  if (warnings.some((w) => w.includes("No se especificó el método de pago"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -1842,7 +2504,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("No se especificó la forma de pago"))) {
+  if (warnings.some((w) => w.includes("No se especificó la forma de pago"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -1853,18 +2515,25 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El complemento de pago no contiene documentos relacionados"))) {
+  if (
+    warnings.some((w) => w.includes("El complemento de pago no contiene documentos relacionados"))
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "COMPLEMENT",
       code: "PAGO_MISSING_DOCUMENTOS",
       title: "Complemento de pago sin documentos relacionados",
       message: "El complemento de pago no contiene documentos relacionados.",
-      recommendedAction: "En comprobantes de pago los documentos relacionados son esperados; verifica el origen.",
+      recommendedAction:
+        "En comprobantes de pago los documentos relacionados son esperados; verifica el origen.",
     });
   }
 
-  if (warnings.some(w => w.includes("El comprobante es tipo Pago, pero no se detectó complemento de pagos"))) {
+  if (
+    warnings.some((w) =>
+      w.includes("El comprobante es tipo Pago, pero no se detectó complemento de pagos"),
+    )
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "COMPLEMENT",
@@ -1875,51 +2544,67 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX"))) {
+  if (
+    warnings.some((w) =>
+      w.includes("En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX"),
+    )
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "PAGO_MONEDA_NOT_XXX",
       title: "Moneda distinta de XXX en tipo Pago",
       message: "En comprobantes tipo Pago, la moneda del comprobante normalmente debe ser XXX.",
-      recommendedAction: "Verifica que la moneda declarada sea correcta para el tipo de comprobante.",
+      recommendedAction:
+        "Verifica que la moneda declarada sea correcta para el tipo de comprobante.",
     });
   }
 
-  if (warnings.some(w => w.includes("Se detectó un impuesto no clasificado por el catálogo base"))) {
+  if (
+    warnings.some((w) => w.includes("Se detectó un impuesto no clasificado por el catálogo base"))
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "UNCLASSIFIED_TAX",
       title: "Impuesto no clasificado detectado",
       message: "Se detectó un impuesto con código no reconocido por el catálogo base del motor.",
-      recommendedAction: "Revisa que el tipo de impuesto en el CFDI corresponda al catálogo fiscal vigente.",
+      recommendedAction:
+        "Revisa que el tipo de impuesto en el CFDI corresponda al catálogo fiscal vigente.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un impuesto exento contiene importe"))) {
+  if (warnings.some((w) => w.includes("Un impuesto exento contiene importe"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "EXENTO_WITH_IMPORTE",
       title: "Impuesto exento con importe",
       message: "Un impuesto exento contiene importe mayor a 0; revisar consistencia fiscal.",
-      recommendedAction: "Un impuesto exento no debería tener importe; verifica que el tipo factor sea correcto.",
+      recommendedAction:
+        "Un impuesto exento no debería tener importe; verifica que el tipo factor sea correcto.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un impuesto con tipo factor Tasa no contiene tasa o cuota"))) {
+  if (
+    warnings.some((w) => w.includes("Un impuesto con tipo factor Tasa no contiene tasa o cuota"))
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "TASA_MISSING_TASA_OCUOTA",
       title: "Impuesto con tipo Tasa sin tasa o cuota",
       message: "Un impuesto con tipo factor Tasa no contiene el valor de tasa o cuota.",
-      recommendedAction: "El valor de tasa o cuota es obligatorio para impuestos con tipo factor Tasa.",
+      recommendedAction:
+        "El valor de tasa o cuota es obligatorio para impuestos con tipo factor Tasa.",
     });
   }
 
-  if (warnings.some(w => w.includes("Un impuesto IEPS con tipo factor Tasa no contiene tasa o cuota"))) {
+  if (
+    warnings.some((w) =>
+      w.includes("Un impuesto IEPS con tipo factor Tasa no contiene tasa o cuota"),
+    )
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1930,7 +2615,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Una retención ISR tiene importe mayor que su base"))) {
+  if (warnings.some((w) => w.includes("Una retención ISR tiene importe mayor que su base"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1941,7 +2626,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Una retención de IVA tiene importe mayor que su base"))) {
+  if (warnings.some((w) => w.includes("Una retención de IVA tiene importe mayor que su base"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
@@ -1952,29 +2637,35 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("Un impuesto tiene importe mayor a 0 con base igual o menor a 0"))) {
+  if (
+    warnings.some((w) =>
+      w.includes("Un impuesto tiene importe mayor a 0 con base igual o menor a 0"),
+    )
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "TAX",
       code: "TAX_IMPORTE_WITHOUT_BASE",
       title: "Impuesto con importe y base no positiva",
       message: "Un impuesto tiene importe mayor a 0 con base igual o menor a 0.",
-      recommendedAction: "Revisa que la base del impuesto sea correcta y consistente con el importe.",
+      recommendedAction:
+        "Revisa que la base del impuesto sea correcta y consistente con el importe.",
     });
   }
 
-  if (warnings.some(w => w.includes("La moneda del comprobante es 'XXX'"))) {
+  if (warnings.some((w) => w.includes("La moneda del comprobante es 'XXX'"))) {
     addFindingOnce({
       severity: "INFO",
       category: "FISCAL",
       code: "MONEDA_XXX",
       title: "Moneda en código XXX",
-      message: "La moneda del comprobante es 'XXX' (sin moneda), inusual en comprobantes que no son de pago.",
+      message:
+        "La moneda del comprobante es 'XXX' (sin moneda), inusual en comprobantes que no son de pago.",
       recommendedAction: "Verifica que usar moneda XXX sea correcto para el tipo de operación.",
     });
   }
 
-  if (warnings.some(w => w.includes("El total del comprobante es 0"))) {
+  if (warnings.some((w) => w.includes("El total del comprobante es 0"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -1985,7 +2676,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("No se encontró la fecha de timbrado"))) {
+  if (warnings.some((w) => w.includes("No se encontró la fecha de timbrado"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TECHNICAL",
@@ -1996,7 +2687,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El formato del UUID no es estándar"))) {
+  if (warnings.some((w) => w.includes("El formato del UUID no es estándar"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TECHNICAL",
@@ -2007,7 +2698,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El RFC del emisor tiene un formato sospechoso"))) {
+  if (warnings.some((w) => w.includes("El RFC del emisor tiene un formato sospechoso"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -2018,7 +2709,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("El RFC del receptor tiene un formato sospechoso"))) {
+  if (warnings.some((w) => w.includes("El RFC del receptor tiene un formato sospechoso"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -2029,7 +2720,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (warnings.some(w => w.includes("No se pudo determinar la versión del CFDI"))) {
+  if (warnings.some((w) => w.includes("No se pudo determinar la versión del CFDI"))) {
     addFindingOnce({
       severity: "WARNING",
       category: "TECHNICAL",
@@ -2048,8 +2739,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "GENERIC_RFC_RECEPTOR_NATIONAL",
       title: "RFC genérico nacional en receptor",
-      message: "El receptor utiliza el RFC genérico nacional XAXX010101000. Esto puede ser válido para operaciones con público en general, pero debe revisarse según el contexto fiscal del comprobante.",
-      recommendedAction: "Confirma que el uso de RFC genérico corresponda al escenario fiscal real del comprobante y que los campos del receptor sean consistentes.",
+      message:
+        "El receptor utiliza el RFC genérico nacional XAXX010101000. Esto puede ser válido para operaciones con público en general, pero debe revisarse según el contexto fiscal del comprobante.",
+      recommendedAction:
+        "Confirma que el uso de RFC genérico corresponda al escenario fiscal real del comprobante y que los campos del receptor sean consistentes.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor },
         { label: "Nombre receptor", value: nombreReceptor ?? "—" },
@@ -2068,8 +2761,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "GENERIC_RFC_RECEPTOR_FOREIGN",
       title: "RFC genérico extranjero en receptor",
-      message: "El receptor utiliza el RFC genérico extranjero XEXX010101000. Esto puede ser válido para operaciones con residentes en el extranjero no inscritos en RFC, pero debe revisarse según el contexto fiscal del comprobante.",
-      recommendedAction: "Confirma que la operación corresponda a un receptor extranjero sin RFC mexicano y que los campos fiscales del receptor sean consistentes.",
+      message:
+        "El receptor utiliza el RFC genérico extranjero XEXX010101000. Esto puede ser válido para operaciones con residentes en el extranjero no inscritos en RFC, pero debe revisarse según el contexto fiscal del comprobante.",
+      recommendedAction:
+        "Confirma que la operación corresponda a un receptor extranjero sin RFC mexicano y que los campos fiscales del receptor sean consistentes.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor },
         { label: "Nombre receptor", value: nombreReceptor ?? "—" },
@@ -2088,8 +2783,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "GENERIC_RFC_EMISOR",
       title: "RFC genérico usado como emisor",
-      message: "El RFC genérico aparece en el emisor del comprobante. Esto es inusual y puede indicar un XML de prueba, inválido o mal generado.",
-      recommendedAction: "Verifica que el RFC emisor corresponda a un contribuyente real y que el XML provenga de una emisión válida.",
+      message:
+        "El RFC genérico aparece en el emisor del comprobante. Esto es inusual y puede indicar un XML de prueba, inválido o mal generado.",
+      recommendedAction:
+        "Verifica que el RFC emisor corresponda a un contribuyente real y que el XML provenga de una emisión válida.",
       evidence: [
         { label: "RFC emisor", value: rfcEmisor },
         { label: "Nombre emisor", value: nombreEmisor ?? "—" },
@@ -2100,14 +2797,22 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
-  if (rc(version, "4.0") && rfcReceptor && isGenericRfc(rfcReceptor) && regimenFiscalReceptor && regimenFiscalReceptor !== "616") {
+  if (
+    rc(version, "4.0") &&
+    rfcReceptor &&
+    isGenericRfc(rfcReceptor) &&
+    regimenFiscalReceptor &&
+    regimenFiscalReceptor !== "616"
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "GENERIC_RFC_RECEPTOR_REGIMEN_NOT_616",
       title: "Régimen fiscal receptor no esperado para RFC genérico",
-      message: "El receptor usa RFC genérico, pero el RégimenFiscalReceptor no es 616. Esto puede generar inconsistencias según el tipo de CFDI y el contexto de emisión.",
-      recommendedAction: "Revisa si el receptor genérico debe usar RégimenFiscalReceptor 616 conforme al escenario fiscal aplicable.",
+      message:
+        "El receptor usa RFC genérico, pero el RégimenFiscalReceptor no es 616. Esto puede generar inconsistencias según el tipo de CFDI y el contexto de emisión.",
+      recommendedAction:
+        "Revisa si el receptor genérico debe usar RégimenFiscalReceptor 616 conforme al escenario fiscal aplicable.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor },
         { label: "Régimen fiscal receptor detectado", value: regimenFiscalReceptor },
@@ -2132,8 +2837,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "FISCAL",
         code: "GENERIC_RFC_RECEPTOR_USO_CFDI_REVIEW",
         title: "Uso CFDI requiere revisión para RFC genérico",
-        message: "El receptor usa RFC genérico y el UsoCFDI detectado no corresponde al patrón esperado para este escenario. Puede ser válido en casos específicos, pero requiere revisión.",
-        recommendedAction: "Valida que el UsoCFDI sea consistente con el tipo de comprobante, el régimen fiscal del receptor y el escenario de emisión.",
+        message:
+          "El receptor usa RFC genérico y el UsoCFDI detectado no corresponde al patrón esperado para este escenario. Puede ser válido en casos específicos, pero requiere revisión.",
+        recommendedAction:
+          "Valida que el UsoCFDI sea consistente con el tipo de comprobante, el régimen fiscal del receptor y el escenario de emisión.",
         evidence: [
           { label: "RFC receptor", value: rfcReceptor },
           { label: "Uso CFDI detectado", value: usoCfdi },
@@ -2145,14 +2852,23 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
   }
 
-  if (rc(version, "4.0") && rfcReceptor && isGenericRfc(rfcReceptor) && domicilioFiscalReceptor && lugarExpedicion && domicilioFiscalReceptor !== lugarExpedicion) {
+  if (
+    rc(version, "4.0") &&
+    rfcReceptor &&
+    isGenericRfc(rfcReceptor) &&
+    domicilioFiscalReceptor &&
+    lugarExpedicion &&
+    domicilioFiscalReceptor !== lugarExpedicion
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
       code: "GENERIC_RFC_RECEPTOR_POSTAL_MISMATCH",
       title: "Domicilio fiscal receptor no coincide con lugar de expedición",
-      message: "El receptor usa RFC genérico, pero el DomicilioFiscalReceptor no coincide con LugarExpedicion. Esto puede ser inconsistente para CFDI 4.0 según reglas de validación aplicables.",
-      recommendedAction: "Revisa el código postal del receptor y el lugar de expedición capturados en el CFDI.",
+      message:
+        "El receptor usa RFC genérico, pero el DomicilioFiscalReceptor no coincide con LugarExpedicion. Esto puede ser inconsistente para CFDI 4.0 según reglas de validación aplicables.",
+      recommendedAction:
+        "Revisa el código postal del receptor y el lugar de expedición capturados en el CFDI.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor },
         { label: "Domicilio fiscal receptor", value: domicilioFiscalReceptor },
@@ -2167,14 +2883,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     const isPago = tipoComprobante === "P" || tipoLabel === "Pago";
     if (!isPago) {
       const normalizedName = nombreReceptor.toUpperCase().trim();
-      if (!normalizedName.includes("PUBLICO EN GENERAL") && !normalizedName.includes("PÚBLICO EN GENERAL")) {
+      if (
+        !normalizedName.includes("PUBLICO EN GENERAL") &&
+        !normalizedName.includes("PÚBLICO EN GENERAL")
+      ) {
         addFindingOnce({
           severity: "INFO",
           category: "FISCAL",
           code: "GENERIC_RFC_RECEPTOR_NAME_REVIEW",
           title: "Nombre de receptor con RFC genérico requiere revisión",
-          message: "El receptor usa RFC genérico, pero el nombre del receptor no corresponde al patrón común de público en general. Puede ser válido según el tipo de operación, pero conviene revisarlo.",
-          recommendedAction: "Confirma si el comprobante corresponde a público en general, extranjero u otro escenario donde el RFC genérico sea procedente.",
+          message:
+            "El receptor usa RFC genérico, pero el nombre del receptor no corresponde al patrón común de público en general. Puede ser válido según el tipo de operación, pero conviene revisarlo.",
+          recommendedAction:
+            "Confirma si el comprobante corresponde a público en general, extranjero u otro escenario donde el RFC genérico sea procedente.",
           evidence: [
             { label: "RFC receptor", value: rfcReceptor },
             { label: "Nombre receptor", value: nombreReceptor },
@@ -2195,8 +2916,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_COMPROBANTE_SELLO",
       title: "Sello del CFDI ausente",
-      message: "El comprobante timbrado no contiene el atributo Sello en el nodo principal. Esto puede indicar un XML incompleto, alterado o mal generado.",
-      recommendedAction: "Solicita al emisor el XML original timbrado y verifica que el archivo no haya sido modificado.",
+      message:
+        "El comprobante timbrado no contiene el atributo Sello en el nodo principal. Esto puede indicar un XML incompleto, alterado o mal generado.",
+      recommendedAction:
+        "Solicita al emisor el XML original timbrado y verifica que el archivo no haya sido modificado.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "XML timbrado", value: diag.isStamped ? "Sí" : "No" },
@@ -2212,8 +2935,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_COMPROBANTE_CERTIFICADO",
       title: "Certificado del CFDI ausente",
-      message: "El comprobante timbrado no contiene el atributo Certificado en el nodo principal. Esto puede indicar que el XML está incompleto o fue alterado.",
-      recommendedAction: "Verifica el XML original emitido por el PAC o solicita una nueva descarga al emisor.",
+      message:
+        "El comprobante timbrado no contiene el atributo Certificado en el nodo principal. Esto puede indicar que el XML está incompleto o fue alterado.",
+      recommendedAction:
+        "Verifica el XML original emitido por el PAC o solicita una nueva descarga al emisor.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "Certificado presente", value: "No" },
@@ -2229,8 +2954,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_NO_CERTIFICADO",
       title: "Número de certificado del CFDI ausente",
-      message: "El comprobante no contiene NoCertificado en el nodo principal. Esto puede afectar la trazabilidad técnica del CFDI.",
-      recommendedAction: "Confirma que el XML corresponda al comprobante original timbrado y no a una representación parcial.",
+      message:
+        "El comprobante no contiene NoCertificado en el nodo principal. Esto puede afectar la trazabilidad técnica del CFDI.",
+      recommendedAction:
+        "Confirma que el XML corresponda al comprobante original timbrado y no a una representación parcial.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "NoCertificado", value: noCertificado ?? "—" },
@@ -2245,7 +2972,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "NO_CERTIFICADO_FORMAT_REVIEW",
       title: "Formato de NoCertificado requiere revisión",
-      message: "El número de certificado del CFDI tiene un formato poco común. Puede ser válido en escenarios específicos, pero conviene revisarlo.",
+      message:
+        "El número de certificado del CFDI tiene un formato poco común. Puede ser válido en escenarios específicos, pero conviene revisarlo.",
       recommendedAction: "Verifica que el NoCertificado corresponda al XML original emitido.",
       evidence: [
         { label: "NoCertificado", value: noCertificado ?? "—" },
@@ -2261,8 +2989,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_TFD_SELLO_CFD",
       title: "SelloCFD ausente en TimbreFiscalDigital",
-      message: "El TimbreFiscalDigital no contiene SelloCFD. Esto puede indicar un timbre incompleto o una extracción incorrecta del XML.",
-      recommendedAction: "Solicita el XML original al emisor o valida que el archivo no haya sido manipulado.",
+      message:
+        "El TimbreFiscalDigital no contiene SelloCFD. Esto puede indicar un timbre incompleto o una extracción incorrecta del XML.",
+      recommendedAction:
+        "Solicita el XML original al emisor o valida que el archivo no haya sido manipulado.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
@@ -2277,8 +3007,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_TFD_SELLO_SAT",
       title: "SelloSAT ausente en TimbreFiscalDigital",
-      message: "El TimbreFiscalDigital no contiene SelloSAT. Esto puede indicar un timbre incompleto o un XML alterado.",
-      recommendedAction: "Verifica el XML original timbrado y confirma que provenga de una fuente confiable.",
+      message:
+        "El TimbreFiscalDigital no contiene SelloSAT. Esto puede indicar un timbre incompleto o un XML alterado.",
+      recommendedAction:
+        "Verifica el XML original timbrado y confirma que provenga de una fuente confiable.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
@@ -2293,8 +3025,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_TFD_NO_CERTIFICADO_SAT",
       title: "NoCertificadoSAT ausente en TimbreFiscalDigital",
-      message: "El TimbreFiscalDigital no contiene NoCertificadoSAT. Esto limita la trazabilidad del timbrado.",
-      recommendedAction: "Solicita el XML original timbrado o revisa si el complemento fue alterado.",
+      message:
+        "El TimbreFiscalDigital no contiene NoCertificadoSAT. Esto limita la trazabilidad del timbrado.",
+      recommendedAction:
+        "Solicita el XML original timbrado o revisa si el complemento fue alterado.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "NoCertificadoSAT", value: noCertificadoSat ?? "—" },
@@ -2309,12 +3043,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "TFD_NO_CERTIFICADO_SAT_FORMAT_REVIEW",
       title: "Formato de NoCertificadoSAT requiere revisión",
-      message: "El número de certificado SAT del timbre tiene un formato poco común. Puede requerir revisión técnica.",
+      message:
+        "El número de certificado SAT del timbre tiene un formato poco común. Puede requerir revisión técnica.",
       recommendedAction: "Confirma que el TimbreFiscalDigital corresponda a una emisión válida.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "NoCertificadoSAT", value: noCertificadoSat ?? "—" },
-        { label: "Longitud", value: noCertificadoSat ? String(noCertificadoSat.trim().length) : "—" },
+        {
+          label: "Longitud",
+          value: noCertificadoSat ? String(noCertificadoSat.trim().length) : "—",
+        },
       ],
     });
   }
@@ -2325,7 +3063,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_RFC_PROV_CERTIF",
       title: "RFC del proveedor de certificación no detectado",
-      message: "No se detectó RfcProvCertif en el TimbreFiscalDigital. Esto puede limitar la trazabilidad del PAC.",
+      message:
+        "No se detectó RfcProvCertif en el TimbreFiscalDigital. Esto puede limitar la trazabilidad del PAC.",
       recommendedAction: "Revisa el complemento TimbreFiscalDigital del XML original.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
@@ -2341,8 +3080,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "MISSING_TFD_VERSION",
       title: "Versión del TimbreFiscalDigital no detectada",
-      message: "No se detectó la versión del complemento TimbreFiscalDigital. Puede deberse a estructura no estándar o atributos incompletos.",
-      recommendedAction: "Revisa el XML original si se requiere trazabilidad técnica completa del timbrado.",
+      message:
+        "No se detectó la versión del complemento TimbreFiscalDigital. Puede deberse a estructura no estándar o atributos incompletos.",
+      recommendedAction:
+        "Revisa el XML original si se requiere trazabilidad técnica completa del timbrado.",
       evidence: [
         { label: "UUID", value: uuid ?? "—" },
         { label: "Complemento detectado", value: "TimbreFiscalDigital" },
@@ -2359,8 +3100,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "TECHNICAL",
       code: "TIMBRADO_DATE_BEFORE_CFDI_DATE",
       title: "Fecha de timbrado anterior a la fecha del CFDI",
-      message: "La fecha de timbrado es anterior a la fecha de emisión del CFDI. Esto puede indicar inconsistencia temporal en el comprobante.",
-      recommendedAction: "Verifica las fechas del XML y confirma que el comprobante no haya sido generado con datos inconsistentes.",
+      message:
+        "La fecha de timbrado es anterior a la fecha de emisión del CFDI. Esto puede indicar inconsistencia temporal en el comprobante.",
+      recommendedAction:
+        "Verifica las fechas del XML y confirma que el comprobante no haya sido generado con datos inconsistentes.",
       evidence: [
         { label: "Fecha CFDI", value: fecha ?? "—" },
         { label: "Fecha timbrado", value: fechaTimbrado ?? "—" },
@@ -2374,7 +3117,6 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const isPago = tipoComprobante === "P";
 
   if (isPago) {
-
     // A) PAYMENT_COMPLEMENT_MISSING
     if (!paymentComplement || paymentComplement.pagos.length === 0) {
       addFindingOnce({
@@ -2382,12 +3124,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "COMPLEMENT",
         code: "PAYMENT_COMPLEMENT_MISSING",
         title: "Complemento de pago no detectado",
-        message: "El comprobante es de tipo Pago, pero no se detectó información válida del complemento de pagos.",
-        recommendedAction: "Verifica que el XML corresponda a un REP válido y que incluya el complemento Pagos 2.0.",
+        message:
+          "El comprobante es de tipo Pago, pero no se detectó información válida del complemento de pagos.",
+        recommendedAction:
+          "Verifica que el XML corresponda a un REP válido y que incluya el complemento Pagos 2.0.",
         evidence: [
           { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
           { label: "UUID", value: uuid ?? "—" },
-          { label: "Complementos detectados", value: complemento ? Object.keys(complemento).join(", ") : "Ninguno" },
+          {
+            label: "Complementos detectados",
+            value: complemento ? Object.keys(complemento).join(", ") : "Ninguno",
+          },
         ],
       });
     }
@@ -2403,7 +3150,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             category: "COMPLEMENT",
             code: "PAYMENT_WITHOUT_RELATED_DOCUMENTS",
             title: "Pago sin documentos relacionados",
-            message: "Se detectó un pago dentro del complemento, pero no contiene documentos relacionados.",
+            message:
+              "Se detectó un pago dentro del complemento, pero no contiene documentos relacionados.",
             recommendedAction: "Revisa que el REP incluya los CFDI relacionados al pago.",
             evidence: [
               { label: "Número de pago", value: String(pagoNum) },
@@ -2439,7 +3187,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             code: "PAYMENT_MISSING_FORMA_PAGO",
             title: "Forma de pago faltante en pago",
             message: "Un pago del complemento no contiene FormaDePagoP.",
-            recommendedAction: "Valida que la forma de pago del REP haya sido capturada correctamente.",
+            recommendedAction:
+              "Valida que la forma de pago del REP haya sido capturada correctamente.",
             evidence: [
               { label: "Número de pago", value: String(pagoNum) },
               { label: "Fecha pago", value: pago.fechaPago ?? "—" },
@@ -2492,7 +3241,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             category: "COMPLEMENT",
             code: "PAYMENT_CURRENCY_XXX",
             title: "MonedaP no debe ser XXX",
-            message: "En el detalle del pago, MonedaP normalmente debe indicar la moneda real del pago y no XXX.",
+            message:
+              "En el detalle del pago, MonedaP normalmente debe indicar la moneda real del pago y no XXX.",
             recommendedAction: "Valida la moneda del pago en el complemento Pagos.",
             evidence: [
               { label: "Número de pago", value: String(pagoNum) },
@@ -2503,7 +3253,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         }
 
         // H) PAYMENT_EXCHANGE_RATE_REQUIRED
-        if (isNonEmptyString(pago.monedaP) && monedaP !== "MXN" && !isNonEmptyString(pago.tipoCambioP)) {
+        if (
+          isNonEmptyString(pago.monedaP) &&
+          monedaP !== "MXN" &&
+          !isNonEmptyString(pago.tipoCambioP)
+        ) {
           addFindingOnce({
             severity: "WARNING",
             category: "COMPLEMENT",
@@ -2532,7 +3286,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               code: "RELATED_DOCUMENT_MISSING_UUID",
               title: "Documento relacionado sin UUID",
               message: "Un documento relacionado del REP no contiene IdDocumento.",
-              recommendedAction: "Verifica que cada documento relacionado incluya el UUID del CFDI pagado.",
+              recommendedAction:
+                "Verifica que cada documento relacionado incluya el UUID del CFDI pagado.",
               evidence: [
                 { label: "Número de pago", value: String(pagoNum) },
                 { label: "Documento relacionado #", value: String(docNum) },
@@ -2569,7 +3324,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               category: "COMPLEMENT",
               code: "RELATED_DOCUMENT_PARTIALITY_INVALID",
               title: "Parcialidad inválida en documento relacionado",
-              message: "El número de parcialidad del documento relacionado no tiene un formato válido.",
+              message:
+                "El número de parcialidad del documento relacionado no tiene un formato válido.",
               recommendedAction: "Revisa NumParcialidad en el documento relacionado.",
               evidence: [
                 { label: "Número de pago", value: String(pagoNum) },
@@ -2611,7 +3367,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               category: "COMPLEMENT",
               code: "RELATED_DOCUMENT_BALANCE_NEGATIVE",
               title: "Saldo negativo en documento relacionado",
-              message: "El documento relacionado contiene saldo anterior o saldo insoluto negativo.",
+              message:
+                "El documento relacionado contiene saldo anterior o saldo insoluto negativo.",
               recommendedAction: "Verifica los saldos del documento relacionado dentro del REP.",
               evidence: [
                 { label: "Número de pago", value: String(pagoNum) },
@@ -2637,8 +3394,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
                 category: "COMPLEMENT",
                 code: "RELATED_DOCUMENT_BALANCE_MISMATCH",
                 title: "Saldo insoluto no coincide",
-                message: "El saldo insoluto del documento relacionado no coincide con saldo anterior menos importe pagado.",
-                recommendedAction: "Revisa los importes ImpSaldoAnt, ImpPagado e ImpSaldoInsoluto del documento relacionado antes de usar este REP.",
+                message:
+                  "El saldo insoluto del documento relacionado no coincide con saldo anterior menos importe pagado.",
+                recommendedAction:
+                  "Revisa los importes ImpSaldoAnt, ImpPagado e ImpSaldoInsoluto del documento relacionado antes de usar este REP.",
                 evidence: [
                   { label: "Número de pago", value: String(pagoNum) },
                   { label: "Documento relacionado #", value: String(docNum) },
@@ -2666,14 +3425,18 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               code: "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE",
               title: "Importe pagado mayor al saldo anterior",
               message: "El importe pagado del documento relacionado es mayor al saldo anterior.",
-              recommendedAction: "Valida los importes del REP; puede existir un error en parcialidad, saldo anterior o pago aplicado.",
+              recommendedAction:
+                "Valida los importes del REP; puede existir un error en parcialidad, saldo anterior o pago aplicado.",
               evidence: [
                 { label: "Número de pago", value: String(pagoNum) },
                 { label: "Documento relacionado #", value: String(docNum) },
                 { label: "IdDocumento", value: doc.idDocumento ?? "—" },
                 { label: "ImpSaldoAnt", value: doc.impSaldoAnt ?? "—" },
                 { label: "ImpPagado", value: doc.impPagado ?? "—" },
-                { label: "Diferencia", value: String(Math.round((impPagado - impSaldoAnt) * 100) / 100) },
+                {
+                  label: "Diferencia",
+                  value: String(Math.round((impPagado - impSaldoAnt) * 100) / 100),
+                },
               ],
             });
           }
@@ -2706,15 +3469,23 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
                 category: "COMPLEMENT",
                 code: "PAYMENT_TOTAL_RELATED_PAID_EXCEEDS_PAYMENT_AMOUNT",
                 title: "Importes relacionados exceden el monto del pago",
-                message: "La suma de importes pagados en documentos relacionados excede el monto del pago.",
-                recommendedAction: "Revisa el monto del pago y los importes aplicados a documentos relacionados.",
+                message:
+                  "La suma de importes pagados en documentos relacionados excede el monto del pago.",
+                recommendedAction:
+                  "Revisa el monto del pago y los importes aplicados a documentos relacionados.",
                 evidence: [
                   { label: "Número de pago", value: String(pagoNum) },
                   { label: "Monto pago", value: pago.monto ?? "—" },
                   { label: "MonedaP", value: monedaPago },
                   { label: "Suma ImpPagado comparable", value: String(sumPagado) },
-                  { label: "Diferencia", value: String(Math.round((sumPagado - pagoMonto) * 100) / 100) },
-                  { label: "Criterio comparación", value: "MonedaP = MonedaDR y EquivalenciaDR = 1 o vacío" },
+                  {
+                    label: "Diferencia",
+                    value: String(Math.round((sumPagado - pagoMonto) * 100) / 100),
+                  },
+                  {
+                    label: "Criterio comparación",
+                    value: "MonedaP = MonedaDR y EquivalenciaDR = 1 o vacío",
+                  },
                 ],
               });
             }
@@ -2724,13 +3495,31 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               category: "COMPLEMENT",
               code: "PAYMENT_TOTAL_RELATED_PAID_REVIEW",
               title: "Importes relacionados requieren revisión por moneda/equivalencia",
-              message: "El pago contiene documentos relacionados con moneda o equivalencia que requieren revisión antes de comparar importes de forma directa.",
-              recommendedAction: "Valida manualmente la equivalencia y el tipo de cambio aplicado en el REP.",
+              message:
+                "El pago contiene documentos relacionados con moneda o equivalencia que requieren revisión antes de comparar importes de forma directa.",
+              recommendedAction:
+                "Valida manualmente la equivalencia y el tipo de cambio aplicado en el REP.",
               evidence: [
                 { label: "Número de pago", value: String(pagoNum) },
                 { label: "MonedaP", value: monedaPago },
-                { label: "Monedas DR detectadas", value: [...new Set(pago.documentosRelacionados.map((d) => normalizeCurrency(d.monedaDR) || "—"))].join(", ") },
-                { label: "Equivalencias DR detectadas", value: [...new Set(pago.documentosRelacionados.map((d) => normalizeCurrency(d.equivalenciaDR) || "—"))].join(", ") },
+                {
+                  label: "Monedas DR detectadas",
+                  value: [
+                    ...new Set(
+                      pago.documentosRelacionados.map((d) => normalizeCurrency(d.monedaDR) || "—"),
+                    ),
+                  ].join(", "),
+                },
+                {
+                  label: "Equivalencias DR detectadas",
+                  value: [
+                    ...new Set(
+                      pago.documentosRelacionados.map(
+                        (d) => normalizeCurrency(d.equivalenciaDR) || "—",
+                      ),
+                    ),
+                  ].join(", "),
+                },
                 { label: "Monto pago", value: pago.monto ?? "—" },
               ],
             });
@@ -2758,10 +3547,14 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           code: "CFDI_RELATION_GROUP_WITHOUT_TIPO_RELACION",
           title: "Tipo de relación faltante",
           message: "Se detectó un grupo de CFDI relacionados sin TipoRelacion.",
-          recommendedAction: "Verifica que el nodo CfdiRelacionados incluya el TipoRelacion correspondiente.",
+          recommendedAction:
+            "Verifica que el nodo CfdiRelacionados incluya el TipoRelacion correspondiente.",
           evidence: [
             { label: "Grupo #", value: String(groupNum) },
-            { label: "Total CFDI relacionados en el grupo", value: String(group.relatedCfdis.length) },
+            {
+              label: "Total CFDI relacionados en el grupo",
+              value: String(group.relatedCfdis.length),
+            },
             { label: "UUID comprobante", value: uuid ?? "—" },
           ],
         });
@@ -2792,13 +3585,18 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "FISCAL",
           code: "SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW",
           title: "Sustitución con múltiples CFDI relacionados",
-          message: "Se detectó TipoRelacion 04 con múltiples CFDI relacionados. Puede ser válido según el caso, pero requiere revisión operativa.",
-          recommendedAction: "Confirma que la sustitución se haya generado contra los CFDI origen correctos.",
+          message:
+            "Se detectó TipoRelacion 04 con múltiples CFDI relacionados. Puede ser válido según el caso, pero requiere revisión operativa.",
+          recommendedAction:
+            "Confirma que la sustitución se haya generado contra los CFDI origen correctos.",
           evidence: [
             { label: "Grupo #", value: String(groupNum) },
             { label: "TipoRelacion", value: group.tipoRelacion },
             { label: "Total relacionados", value: String(group.relatedCfdis.length) },
-            { label: "UUIDs relacionados", value: group.relatedCfdis.map(r => r.uuid ?? "—").join(", ") },
+            {
+              label: "UUIDs relacionados",
+              value: group.relatedCfdis.map((r) => r.uuid ?? "—").join(", "),
+            },
           ],
         });
       }
@@ -2815,7 +3613,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             code: "CFDI_RELATED_MISSING_UUID",
             title: "CFDI relacionado sin UUID",
             message: "Un CFDI relacionado no contiene UUID.",
-            recommendedAction: "Verifica que cada CFDI relacionado tenga el UUID del comprobante origen.",
+            recommendedAction:
+              "Verifica que cada CFDI relacionado tenga el UUID del comprobante origen.",
             evidence: [
               { label: "Grupo #", value: String(groupNum) },
               { label: "Relacionado #", value: String(relNum) },
@@ -2852,8 +3651,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             category: "FISCAL",
             code: "CFDI_SELF_RELATION",
             title: "CFDI relacionado apunta al mismo comprobante",
-            message: "El comprobante se relaciona a sí mismo como CFDI relacionado. Esto es inusual y puede indicar un error de generación.",
-            recommendedAction: "Verifica que el UUID relacionado corresponda al comprobante origen correcto.",
+            message:
+              "El comprobante se relaciona a sí mismo como CFDI relacionado. Esto es inusual y puede indicar un error de generación.",
+            recommendedAction:
+              "Verifica que el UUID relacionado corresponda al comprobante origen correcto.",
             evidence: [
               { label: "UUID comprobante", value: compUuid },
               { label: "UUID relacionado", value: relatedUuid },
@@ -2880,7 +3681,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "FISCAL",
           code: "CFDI_RELATED_DUPLICATE_UUID",
           title: "UUID relacionado duplicado",
-          message: "El mismo UUID relacionado aparece más de una vez en el XML. Puede ser válido en estructuras específicas, pero conviene revisarlo.",
+          message:
+            "El mismo UUID relacionado aparece más de una vez en el XML. Puede ser válido en estructuras específicas, pero conviene revisarlo.",
           recommendedAction: "Confirma si la duplicidad del UUID relacionado es intencional.",
           evidence: [
             { label: "UUID relacionado", value: lowerUuid.toUpperCase() },
@@ -2899,8 +3701,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "EGRESO_WITHOUT_CFDI_RELACIONADOS",
       title: "Egreso sin CFDI relacionado",
-      message: "El comprobante es de tipo Egreso, pero no se detectaron CFDI relacionados. En notas de crédito o devoluciones normalmente debe existir una relación con el CFDI origen.",
-      recommendedAction: "Revisa si el CFDI de egreso debe relacionarse con la factura original o documento que corrige.",
+      message:
+        "El comprobante es de tipo Egreso, pero no se detectaron CFDI relacionados. En notas de crédito o devoluciones normalmente debe existir una relación con el CFDI origen.",
+      recommendedAction:
+        "Revisa si el CFDI de egreso debe relacionarse con la factura original o documento que corrige.",
       evidence: [
         { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
         { label: "UUID", value: uuid ?? "—" },
@@ -2916,17 +3720,27 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     const expectedEgresoTypes = ["01", "03", "04", "07"];
     cfdiRelations.groups.forEach((group) => {
       const grupoTipoRel = group.tipoRelacion;
-      if (grupoTipoRel && grupoTipoRel.trim().length > 0 && !expectedEgresoTypes.includes(grupoTipoRel.trim())) {
+      if (
+        grupoTipoRel &&
+        grupoTipoRel.trim().length > 0 &&
+        !expectedEgresoTypes.includes(grupoTipoRel.trim())
+      ) {
+        const relLabel = getTipoRelacionLabel(grupoTipoRel);
         addFindingOnce({
           severity: "INFO",
           category: "FISCAL",
           code: "EGRESO_RELATION_TYPE_REVIEW",
           title: "Tipo de relación en egreso requiere revisión",
-          message: "El comprobante de egreso usa un TipoRelacion que puede ser válido, pero no corresponde al patrón más común para notas de crédito, devoluciones o sustituciones.",
-          recommendedAction: "Revisa que el TipoRelacion sea correcto para el escenario fiscal del egreso.",
+          message:
+            "El comprobante de egreso usa un TipoRelacion que puede ser válido, pero no corresponde al patrón más común para notas de crédito, devoluciones o sustituciones.",
+          recommendedAction:
+            "Revisa que el TipoRelacion sea correcto para el escenario fiscal del egreso.",
           evidence: [
             { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
-            { label: "TipoRelacion", value: grupoTipoRel },
+            {
+              label: "TipoRelacion",
+              value: relLabel ? `${grupoTipoRel} - ${relLabel}` : grupoTipoRel,
+            },
             { label: "Valores de referencia", value: expectedEgresoTypes.join(", ") },
             { label: "UUID comprobante", value: uuid ?? "—" },
           ],
@@ -2942,12 +3756,20 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "COMPLEMENT",
       code: "PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW",
       title: "Comprobante de pago con CFDI relacionados",
-      message: "El comprobante de pago incluye CfdiRelacionados además del complemento de pagos. Puede ser válido en escenarios específicos, pero normalmente la relación principal de documentos se controla dentro del complemento Pagos.",
-      recommendedAction: "Revisa si la relación adicional es necesaria o si la trazabilidad debe estar únicamente en DoctoRelacionado del complemento de pago.",
+      message:
+        "El comprobante de pago incluye CfdiRelacionados además del complemento de pagos. Puede ser válido en escenarios específicos, pero normalmente la relación principal de documentos se controla dentro del complemento Pagos.",
+      recommendedAction:
+        "Revisa si la relación adicional es necesaria o si la trazabilidad debe estar únicamente en DoctoRelacionado del complemento de pago.",
       evidence: [
         { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
         { label: "Total CFDI relacionados", value: String(cfdiRelations.totalRelatedCfdis) },
-        { label: "Total documentos relacionados en Pagos", value: String(paymentComplement?.pagos.reduce((acc, p) => acc + p.documentosRelacionados.length, 0) ?? 0) },
+        {
+          label: "Total documentos relacionados en Pagos",
+          value: String(
+            paymentComplement?.pagos.reduce((acc, p) => acc + p.documentosRelacionados.length, 0) ??
+              0,
+          ),
+        },
         { label: "UUID comprobante", value: uuid ?? "—" },
       ],
     });
@@ -2955,15 +3777,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   // ── Carta Porte Findings ──
   if (cartaPorte) {
-
     // A) CARTA_PORTE_DETECTED
     addFindingOnce({
       severity: "INFO",
       category: "COMPLEMENT",
       code: "CARTA_PORTE_DETECTED",
       title: "Complemento Carta Porte detectado",
-      message: "El XML contiene complemento Carta Porte. Se realizará una revisión estructural base de ubicaciones, mercancías y transporte.",
-      recommendedAction: "Revisa que los datos logísticos y fiscales del traslado correspondan al escenario real de la operación.",
+      message:
+        "El XML contiene complemento Carta Porte. Se realizará una revisión estructural base de ubicaciones, mercancías y transporte.",
+      recommendedAction:
+        "Revisa que los datos logísticos y fiscales del traslado correspondan al escenario real de la operación.",
       evidence: [
         { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
         { label: "IdCCP", value: cartaPorte.idCCP ?? "—" },
@@ -2985,7 +3808,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         evidence: [
           { label: "UUID", value: uuid ?? "—" },
           { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
-          { label: "Complementos detectados", value: complemento ? Object.keys(complemento).join(", ") : "Ninguno" },
+          {
+            label: "Complementos detectados",
+            value: complemento ? Object.keys(complemento).join(", ") : "Ninguno",
+          },
         ],
       });
     }
@@ -2998,8 +3824,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "COMPLEMENT",
         code: "CARTA_PORTE_VERSION_REVIEW",
         title: "Versión de Carta Porte no reconocida",
-        message: "El complemento Carta Porte tiene una versión no reconocida por el motor actual. El XML puede requerir revisión especializada.",
-        recommendedAction: "Confirma que la versión del complemento Carta Porte sea compatible con el CFDI y con las reglas vigentes aplicables.",
+        message:
+          "El complemento Carta Porte tiene una versión no reconocida por el motor actual. El XML puede requerir revisión especializada.",
+        recommendedAction:
+          "Confirma que la versión del complemento Carta Porte sea compatible con el CFDI y con las reglas vigentes aplicables.",
         evidence: [
           { label: "Versión detectada", value: cpVersionReview },
           { label: "Complemento detectado", value: "CartaPorte" },
@@ -3016,8 +3844,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "COMPLEMENT",
         code: "CARTA_PORTE_MISSING_IDCCP",
         title: "IdCCP faltante en Carta Porte",
-        message: "No se detectó IdCCP en Carta Porte. Este identificador es relevante para la trazabilidad del complemento.",
-        recommendedAction: "Revisa que el XML de Carta Porte incluya el identificador del complemento cuando aplique.",
+        message:
+          "No se detectó IdCCP en Carta Porte. Este identificador es relevante para la trazabilidad del complemento.",
+        recommendedAction:
+          "Revisa que el XML de Carta Porte incluya el identificador del complemento cuando aplique.",
         evidence: [
           { label: "Versión Carta Porte", value: cpVersion },
           { label: "IdCCP", value: cartaPorte.idCCP ?? "—" },
@@ -3033,8 +3863,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "FISCAL",
         code: "CARTA_PORTE_WITH_UNEXPECTED_CFDI_TYPE",
         title: "Carta Porte en tipo de comprobante no esperado",
-        message: "Se detectó Carta Porte en un tipo de comprobante distinto de Ingreso o Traslado. Esto es inusual y requiere revisión.",
-        recommendedAction: "Confirma que el tipo de comprobante sea correcto para el traslado o servicio de transporte documentado.",
+        message:
+          "Se detectó Carta Porte en un tipo de comprobante distinto de Ingreso o Traslado. Esto es inusual y requiere revisión.",
+        recommendedAction:
+          "Confirma que el tipo de comprobante sea correcto para el traslado o servicio de transporte documentado.",
         evidence: [
           { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
           { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
@@ -3051,8 +3883,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "FISCAL",
         code: "CARTA_PORTE_TRASLADO_TOTAL_NOT_ZERO",
         title: "CFDI de traslado con Carta Porte tiene total distinto de cero",
-        message: "El CFDI de tipo Traslado con Carta Porte normalmente debe manejar subtotal y total en cero.",
-        recommendedAction: "Revisa si el CFDI debe ser de tipo Ingreso o si los importes del traslado fueron capturados correctamente.",
+        message:
+          "El CFDI de tipo Traslado con Carta Porte normalmente debe manejar subtotal y total en cero.",
+        recommendedAction:
+          "Revisa si el CFDI debe ser de tipo Ingreso o si los importes del traslado fueron capturados correctamente.",
         evidence: [
           { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
           { label: "Subtotal", value: subtotal ?? "—" },
@@ -3070,7 +3904,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         code: "CARTA_PORTE_MISSING_UBICACIONES",
         title: "Carta Porte sin ubicaciones",
         message: "No se detectaron ubicaciones dentro del complemento Carta Porte.",
-        recommendedAction: "Verifica que el complemento incluya las ubicaciones de origen, destino y, si aplica, puntos intermedios.",
+        recommendedAction:
+          "Verifica que el complemento incluya las ubicaciones de origen, destino y, si aplica, puntos intermedios.",
         evidence: [
           { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
           { label: "UUID", value: uuid ?? "—" },
@@ -3087,7 +3922,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         code: "CARTA_PORTE_MISSING_MERCANCIAS",
         title: "Carta Porte sin mercancías",
         message: "No se detectaron mercancías dentro del complemento Carta Porte.",
-        recommendedAction: "Verifica que el complemento incluya el detalle de bienes o mercancías trasladadas.",
+        recommendedAction:
+          "Verifica que el complemento incluya el detalle de bienes o mercancías trasladadas.",
         evidence: [
           { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
           { label: "UUID", value: uuid ?? "—" },
@@ -3098,17 +3934,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
     // I) CARTA_PORTE_ORIGIN_DESTINATION_REVIEW
     if (cartaPorte.hasUbicaciones) {
-      const tiposUbicacion = cartaPorte.ubicaciones.map(u => u.tipoUbicacion).filter(Boolean);
-      const hasOrigen = tiposUbicacion.some(t => t && t.toLowerCase() === "origen");
-      const hasDestino = tiposUbicacion.some(t => t && t.toLowerCase() === "destino");
+      const tiposUbicacion = cartaPorte.ubicaciones.map((u) => u.tipoUbicacion).filter(Boolean);
+      const hasOrigen = tiposUbicacion.some((t) => t && t.toLowerCase() === "origen");
+      const hasDestino = tiposUbicacion.some((t) => t && t.toLowerCase() === "destino");
       if (!hasOrigen || !hasDestino) {
         addFindingOnce({
           severity: "WARNING",
           category: "COMPLEMENT",
           code: "CARTA_PORTE_ORIGIN_DESTINATION_REVIEW",
           title: "Ubicaciones de origen/destino incompletas",
-          message: "No se detectó la combinación mínima de ubicación origen y destino dentro de Carta Porte.",
-          recommendedAction: "Revisa que el complemento incluya una ubicación de origen y una de destino.",
+          message:
+            "No se detectó la combinación mínima de ubicación origen y destino dentro de Carta Porte.",
+          recommendedAction:
+            "Revisa que el complemento incluya una ubicación de origen y una de destino.",
           evidence: [
             { label: "Total ubicaciones", value: String(cartaPorte.ubicaciones.length) },
             { label: "Tipos de ubicación detectados", value: tiposUbicacion.join(", ") || "—" },
@@ -3133,7 +3971,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             { label: "Ubicación #", value: String(ubiNum) },
             { label: "Tipo ubicación", value: ubi.tipoUbicacion ?? "—" },
             { label: "ID ubicación", value: ubi.idUbicacion ?? "—" },
-            { label: "Nombre remitente/destinatario", value: ubi.nombreRemitenteDestinatario ?? "—" },
+            {
+              label: "Nombre remitente/destinatario",
+              value: ubi.nombreRemitenteDestinatario ?? "—",
+            },
           ],
         });
       }
@@ -3151,7 +3992,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             category: "COMPLEMENT",
             code: "CARTA_PORTE_UBICACION_INVALID_DISTANCE",
             title: "Distancia recorrida inválida",
-            message: "Una ubicación contiene DistanciaRecorrida con formato inválido o valor negativo.",
+            message:
+              "Una ubicación contiene DistanciaRecorrida con formato inválido o valor negativo.",
             recommendedAction: "Revisa la distancia recorrida capturada para la ubicación.",
             evidence: [
               { label: "Ubicación #", value: String(ubiNum) },
@@ -3255,20 +4097,36 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
 
     // P) CARTA_PORTE_NO_TRANSPORT_MODE_DETECTED
-    if (!cartaPorte.hasAutotransporte && !cartaPorte.hasTransporteMaritimo && !cartaPorte.hasTransporteAereo && !cartaPorte.hasTransporteFerroviario) {
+    if (
+      !cartaPorte.hasAutotransporte &&
+      !cartaPorte.hasTransporteMaritimo &&
+      !cartaPorte.hasTransporteAereo &&
+      !cartaPorte.hasTransporteFerroviario
+    ) {
       addFindingOnce({
         severity: "INFO",
         category: "COMPLEMENT",
         code: "CARTA_PORTE_NO_TRANSPORT_MODE_DETECTED",
         title: "Medio de transporte no detectado",
-        message: "No se detectó un nodo de medio de transporte específico dentro de Carta Porte. Puede ser válido según estructura, pero requiere revisión.",
-        recommendedAction: "Revisa si el complemento debe incluir información de autotransporte, transporte marítimo, aéreo o ferroviario.",
+        message:
+          "No se detectó un nodo de medio de transporte específico dentro de Carta Porte. Puede ser válido según estructura, pero requiere revisión.",
+        recommendedAction:
+          "Revisa si el complemento debe incluir información de autotransporte, transporte marítimo, aéreo o ferroviario.",
         evidence: [
           { label: "Versión Carta Porte", value: cartaPorte.version ?? "—" },
           { label: "Autotransporte detectado", value: cartaPorte.hasAutotransporte ? "Sí" : "No" },
-          { label: "Transporte marítimo detectado", value: cartaPorte.hasTransporteMaritimo ? "Sí" : "No" },
-          { label: "Transporte aéreo detectado", value: cartaPorte.hasTransporteAereo ? "Sí" : "No" },
-          { label: "Transporte ferroviario detectado", value: cartaPorte.hasTransporteFerroviario ? "Sí" : "No" },
+          {
+            label: "Transporte marítimo detectado",
+            value: cartaPorte.hasTransporteMaritimo ? "Sí" : "No",
+          },
+          {
+            label: "Transporte aéreo detectado",
+            value: cartaPorte.hasTransporteAereo ? "Sí" : "No",
+          },
+          {
+            label: "Transporte ferroviario detectado",
+            value: cartaPorte.hasTransporteFerroviario ? "Sí" : "No",
+          },
         ],
       });
     }
@@ -3282,7 +4140,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "COMPLEMENT",
           code: "CARTA_PORTE_FIGURA_MISSING_RFC_REVIEW",
           title: "Figura de transporte sin RFC",
-          message: "Una figura de transporte contiene nombre, pero no RFCFigura. Puede ser válido según el caso, pero conviene revisarlo.",
+          message:
+            "Una figura de transporte contiene nombre, pero no RFCFigura. Puede ser válido según el caso, pero conviene revisarlo.",
           recommendedAction: "Confirma si la figura de transporte debe incluir RFC.",
           evidence: [
             { label: "Figura #", value: String(figNum) },
@@ -3295,30 +4154,2639 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     });
   }
 
+  // ── Nomina 1.2 Findings ──
+  if (nomina) {
+    // A) NOMINA_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "NOMINA_DETECTED",
+      title: "Complemento Nómina detectado",
+      message:
+        "El XML contiene complemento Nómina. Se realizará una revisión base de fechas, empleado, percepciones, deducciones y totales.",
+      recommendedAction:
+        "Revisa que los datos laborales y fiscales correspondan al recibo de nómina emitido.",
+      evidence: [
+        { label: "Versión Nómina", value: nomina.version ?? "—" },
+        { label: "Tipo nómina", value: nomina.tipoNomina ?? "—" },
+        { label: "Fecha pago", value: nomina.fechaPago ?? "—" },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Total CFDI", value: total ?? "—" },
+      ],
+    });
+
+    // B) NOMINA_MISSING_VERSION
+    if (!isNonEmptyString(nomina.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "NOMINA_MISSING_VERSION",
+        title: "Versión de Nómina faltante",
+        message: "No se detectó la versión del complemento Nómina.",
+        recommendedAction: "Verifica que el complemento Nómina esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        ],
+      });
+    }
+
+    // C) NOMINA_VERSION_REVIEW
+    if (isNonEmptyString(nomina.version) && nomina.version !== "1.2") {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "NOMINA_VERSION_REVIEW",
+        title: "Versión de Nómina requiere revisión",
+        message:
+          "El complemento Nómina tiene una versión distinta a la esperada por el motor actual.",
+        recommendedAction:
+          "Confirma si la versión del complemento corresponde al escenario fiscal del XML.",
+        evidence: [
+          { label: "Versión detectada", value: nomina.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // D) NOMINA_WITH_UNEXPECTED_CFDI_TYPE
+    if (!isTipoComprobanteNominaCompatible(tipoComprobante)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "NOMINA_WITH_UNEXPECTED_CFDI_TYPE",
+        title: "Nómina en tipo de comprobante no esperado",
+        message: "Se detectó complemento Nómina en un tipo de comprobante no esperado.",
+        recommendedAction:
+          "Verifica que el tipo de comprobante sea correcto para un recibo de nómina.",
+        evidence: [
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "Versión Nómina", value: nomina.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // E) NOMINA_MISSING_FECHA_PAGO
+    if (!isNonEmptyString(nomina.fechaPago)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "NOMINA_MISSING_FECHA_PAGO",
+        title: "Fecha de pago faltante en Nómina",
+        message: "No se detectó FechaPago en el complemento Nómina.",
+        recommendedAction: "Revisa la fecha de pago capturada en el recibo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Tipo nómina", value: nomina.tipoNomina ?? "—" },
+        ],
+      });
+    }
+
+    // F) NOMINA_PAYMENT_DATE_OUTSIDE_PERIOD
+    const pagoDate = parseCfdiDate(nomina.fechaPago);
+    const inicialDate = parseCfdiDate(nomina.fechaInicialPago);
+    const finalDate = parseCfdiDate(nomina.fechaFinalPago);
+    if (pagoDate && inicialDate && finalDate) {
+      if (isDateBefore(pagoDate, inicialDate) || isDateBefore(finalDate, inicialDate)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_PAYMENT_DATE_OUTSIDE_PERIOD",
+          title: "Fechas de nómina requieren revisión",
+          message: "Las fechas del complemento Nómina presentan una inconsistencia temporal.",
+          recommendedAction: "Verifica FechaPago, FechaInicialPago y FechaFinalPago.",
+          evidence: [
+            { label: "Fecha pago", value: nomina.fechaPago ?? "—" },
+            { label: "Fecha inicial pago", value: nomina.fechaInicialPago ?? "—" },
+            { label: "Fecha final pago", value: nomina.fechaFinalPago ?? "—" },
+          ],
+        });
+      }
+    }
+
+    // G) NOMINA_NUM_DIAS_INVALID
+    if (isNonEmptyString(nomina.numDiasPagados)) {
+      const dias = parseFloat(nomina.numDiasPagados!.trim());
+      if (isNaN(dias) || dias <= 0) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_NUM_DIAS_INVALID",
+          title: "Número de días pagados inválido",
+          message: "NumDiasPagados no tiene un valor numérico positivo.",
+          recommendedAction: "Revisa los días pagados capturados en el complemento.",
+          evidence: [
+            { label: "NumDiasPagados", value: nomina.numDiasPagados ?? "—" },
+            { label: "Fecha inicial pago", value: nomina.fechaInicialPago ?? "—" },
+            { label: "Fecha final pago", value: nomina.fechaFinalPago ?? "—" },
+          ],
+        });
+      }
+    }
+
+    // H) NOMINA_RECEPTOR_MISSING_CURP
+    if (nomina.receptor && !isNonEmptyString(nomina.receptor.curp)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "NOMINA_RECEPTOR_MISSING_CURP",
+        title: "CURP del receptor faltante",
+        message: "No se detectó CURP del trabajador en el complemento Nómina.",
+        recommendedAction: "Verifica los datos del receptor de nómina.",
+        evidence: [
+          { label: "RFC receptor", value: rfcReceptor ?? "—" },
+          { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+          { label: "NumEmpleado", value: nomina.receptor.numEmpleado ?? "—" },
+        ],
+      });
+    }
+
+    // I) NOMINA_RECEPTOR_CURP_FORMAT_REVIEW
+    if (
+      nomina.receptor &&
+      isNonEmptyString(nomina.receptor.curp) &&
+      !looksLikeCurp(nomina.receptor.curp)
+    ) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "FISCAL",
+        code: "NOMINA_RECEPTOR_CURP_FORMAT_REVIEW",
+        title: "Formato de CURP requiere revisión",
+        message: "La CURP del trabajador tiene un formato poco común o incompleto.",
+        recommendedAction: "Verifica la CURP capturada en el complemento.",
+        evidence: [
+          { label: "CURP", value: nomina.receptor.curp ?? "—" },
+          { label: "RFC receptor", value: rfcReceptor ?? "—" },
+          { label: "NumEmpleado", value: nomina.receptor.numEmpleado ?? "—" },
+        ],
+      });
+    }
+
+    // J) NOMINA_RECEPTOR_NSS_FORMAT_REVIEW
+    if (
+      nomina.receptor &&
+      isNonEmptyString(nomina.receptor.numSeguridadSocial) &&
+      !looksLikeNss(nomina.receptor.numSeguridadSocial)
+    ) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "FISCAL",
+        code: "NOMINA_RECEPTOR_NSS_FORMAT_REVIEW",
+        title: "Formato de NSS requiere revisión",
+        message: "El número de seguridad social tiene un formato poco común.",
+        recommendedAction: "Verifica el NSS del trabajador.",
+        evidence: [
+          { label: "NSS", value: nomina.receptor.numSeguridadSocial ?? "—" },
+          { label: "NumEmpleado", value: nomina.receptor.numEmpleado ?? "—" },
+          { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        ],
+      });
+    }
+
+    // K) NOMINA_RECEPTOR_MISSING_NUM_EMPLEADO
+    if (nomina.receptor && !isNonEmptyString(nomina.receptor.numEmpleado)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "NOMINA_RECEPTOR_MISSING_NUM_EMPLEADO",
+        title: "Número de empleado faltante",
+        message: "No se detectó NumEmpleado en el receptor de Nómina.",
+        recommendedAction: "Verifica la información laboral del receptor.",
+        evidence: [
+          { label: "RFC receptor", value: rfcReceptor ?? "—" },
+          { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+          { label: "CURP", value: nomina.receptor.curp ?? "—" },
+        ],
+      });
+    }
+
+    // L) NOMINA_WITHOUT_PERCEPCIONES
+    if (nomina.percepciones.length === 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "NOMINA_WITHOUT_PERCEPCIONES",
+        title: "Nómina sin percepciones",
+        message: "No se detectaron percepciones en el complemento Nómina.",
+        recommendedAction: "Revisa si el recibo debe incluir percepciones del trabajador.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Tipo nómina", value: nomina.tipoNomina ?? "—" },
+          { label: "Total percepciones", value: nomina.totalPercepciones ?? "—" },
+        ],
+      });
+    }
+
+    // M) NOMINA_PERCEPCION_MISSING_TIPO
+    nomina.percepciones.forEach((p, idx) => {
+      const percNum = idx + 1;
+      if (!isNonEmptyString(p.tipoPercepcion)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_PERCEPCION_MISSING_TIPO",
+          title: "Percepción sin TipoPercepcion",
+          message: "Una percepción no contiene TipoPercepcion.",
+          recommendedAction: "Revisa el detalle de percepciones del complemento.",
+          evidence: [
+            { label: "Percepción #", value: String(percNum) },
+            { label: "Clave", value: p.clave ?? "—" },
+            { label: "Concepto", value: p.concepto ?? "—" },
+            { label: "Importe gravado", value: p.importeGravado ?? "—" },
+            { label: "Importe exento", value: p.importeExento ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // N) NOMINA_PERCEPCION_AMOUNT_INVALID
+    nomina.percepciones.forEach((p, idx) => {
+      const percNum = idx + 1;
+      const gravado = toMoneyNumber(p.importeGravado);
+      const exento = toMoneyNumber(p.importeExento);
+      const hasInvalidAmount =
+        (!isNonEmptyString(p.importeGravado) && !isNonEmptyString(p.importeExento)) ||
+        (isNonEmptyString(p.importeGravado) && gravado < 0) ||
+        (isNonEmptyString(p.importeExento) && exento < 0);
+      if (hasInvalidAmount) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_PERCEPCION_AMOUNT_INVALID",
+          title: "Importe de percepción inválido",
+          message: "Una percepción contiene importes inválidos o negativos.",
+          recommendedAction: "Revisa ImporteGravado e ImporteExento de la percepción.",
+          evidence: [
+            { label: "Percepción #", value: String(percNum) },
+            { label: "TipoPercepcion", value: p.tipoPercepcion ?? "—" },
+            { label: "Concepto", value: p.concepto ?? "—" },
+            { label: "Importe gravado", value: p.importeGravado ?? "—" },
+            { label: "Importe exento", value: p.importeExento ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // O) NOMINA_DEDUCCION_AMOUNT_INVALID
+    nomina.deducciones.forEach((d, idx) => {
+      const dedNum = idx + 1;
+      if (!isNonEmptyString(d.importe)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_DEDUCCION_AMOUNT_INVALID",
+          title: "Importe de deducción inválido",
+          message: "Una deducción contiene importe inválido o negativo.",
+          recommendedAction: "Revisa el importe de la deducción.",
+          evidence: [
+            { label: "Deducción #", value: String(dedNum) },
+            { label: "TipoDeduccion", value: d.tipoDeduccion ?? "—" },
+            { label: "Concepto", value: d.concepto ?? "—" },
+            { label: "Importe", value: d.importe ?? "—" },
+          ],
+        });
+        return;
+      }
+      const importeNum = toMoneyNumber(d.importe);
+      if (importeNum < 0) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "NOMINA_DEDUCCION_AMOUNT_INVALID",
+          title: "Importe de deducción inválido",
+          message: "Una deducción contiene importe inválido o negativo.",
+          recommendedAction: "Revisa el importe de la deducción.",
+          evidence: [
+            { label: "Deducción #", value: String(dedNum) },
+            { label: "TipoDeduccion", value: d.tipoDeduccion ?? "—" },
+            { label: "Concepto", value: d.concepto ?? "—" },
+            { label: "Importe", value: d.importe ?? "—" },
+          ],
+        });
+      }
+    });
+
+    // P) NOMINA_TOTAL_PERCEPCIONES_MISMATCH
+    if (isNonEmptyString(nomina.totalPercepciones) && nomina.percepciones.length > 0) {
+      const sumaPercepciones = nomina.percepciones.reduce(
+        (acc, p) => acc + toMoneyNumber(p.importeGravado) + toMoneyNumber(p.importeExento),
+        0,
+      );
+      const totalPercNum = toMoneyNumber(nomina.totalPercepciones);
+      const diff = moneyDiff(totalPercNum, sumaPercepciones);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "NOMINA_TOTAL_PERCEPCIONES_MISMATCH",
+          title: "Total de percepciones no coincide",
+          message:
+            "El TotalPercepciones del complemento no coincide con la suma de percepciones detectadas.",
+          recommendedAction: "Revisa los importes de percepciones antes de utilizar este XML.",
+          evidence: [
+            { label: "TotalPercepciones XML", value: nomina.totalPercepciones ?? "—" },
+            { label: "Total percepciones calculado", value: formatMoney(sumaPercepciones) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+          ],
+        });
+      }
+    }
+
+    // Q) NOMINA_TOTAL_DEDUCCIONES_MISMATCH
+    if (isNonEmptyString(nomina.totalDeducciones) && nomina.deducciones.length > 0) {
+      const sumaDeducciones = nomina.deducciones.reduce(
+        (acc, d) => acc + toMoneyNumber(d.importe),
+        0,
+      );
+      const totalDedNum = toMoneyNumber(nomina.totalDeducciones);
+      const diff = moneyDiff(totalDedNum, sumaDeducciones);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "NOMINA_TOTAL_DEDUCCIONES_MISMATCH",
+          title: "Total de deducciones no coincide",
+          message:
+            "El TotalDeducciones del complemento no coincide con la suma de deducciones detectadas.",
+          recommendedAction: "Revisa los importes de deducciones antes de utilizar este XML.",
+          evidence: [
+            { label: "TotalDeducciones XML", value: nomina.totalDeducciones ?? "—" },
+            { label: "Total deducciones calculado", value: formatMoney(sumaDeducciones) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+          ],
+        });
+      }
+    }
+
+    // R) NOMINA_TOTAL_OTROS_PAGOS_MISMATCH
+    if (isNonEmptyString(nomina.totalOtrosPagos) && nomina.otrosPagos.length > 0) {
+      const sumaOtrosPagos = nomina.otrosPagos.reduce(
+        (acc, o) => acc + toMoneyNumber(o.importe),
+        0,
+      );
+      const totalOPNum = toMoneyNumber(nomina.totalOtrosPagos);
+      const diff = moneyDiff(totalOPNum, sumaOtrosPagos);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "NOMINA_TOTAL_OTROS_PAGOS_MISMATCH",
+          title: "Total de otros pagos no coincide",
+          message:
+            "El TotalOtrosPagos del complemento no coincide con la suma de otros pagos detectados.",
+          recommendedAction: "Revisa los importes de OtrosPagos antes de utilizar este XML.",
+          evidence: [
+            { label: "TotalOtrosPagos XML", value: nomina.totalOtrosPagos ?? "—" },
+            { label: "Total otros pagos calculado", value: formatMoney(sumaOtrosPagos) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+          ],
+        });
+      }
+    }
+  }
+
+  // ── Comercio Exterior 1.1 Findings ──
+  if (comercioExterior) {
+    // A) COMERCIO_EXTERIOR_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "COMERCIO_EXTERIOR_DETECTED",
+      title: "Complemento Comercio Exterior detectado",
+      message:
+        "El XML contiene complemento Comercio Exterior. Se realizará una revisión base de la operación, moneda e importes.",
+      recommendedAction:
+        "Revisa que los datos de comercio exterior correspondan a la operación de importación/exportación.",
+      evidence: [
+        { label: "Versión", value: comercioExterior.version ?? "—" },
+        { label: "Tipo operación", value: comercioExterior.tipoOperacion ?? "—" },
+        { label: "TotalUSD", value: comercioExterior.totalUSD ?? "—" },
+      ],
+    });
+
+    // B) COMERCIO_EXTERIOR_MISSING_VERSION
+    if (!isNonEmptyString(comercioExterior.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "COMERCIO_EXTERIOR_MISSING_VERSION",
+        title: "Versión de Comercio Exterior faltante",
+        message: "No se detectó la versión del complemento Comercio Exterior.",
+        recommendedAction: "Verifica que el complemento Comercio Exterior esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Tipo operación", value: comercioExterior.tipoOperacion ?? "—" },
+        ],
+      });
+    }
+
+    // C) COMERCIO_EXTERIOR_VERSION_REVIEW
+    if (isNonEmptyString(comercioExterior.version) && comercioExterior.version !== "1.1") {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "COMERCIO_EXTERIOR_VERSION_REVIEW",
+        title: "Versión de Comercio Exterior requiere revisión",
+        message:
+          "El complemento Comercio Exterior tiene una versión distinta a la esperada por el motor actual.",
+        recommendedAction:
+          "Confirma si la versión del complemento corresponde al escenario fiscal del XML.",
+        evidence: [
+          { label: "Versión detectada", value: comercioExterior.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // D) COMERCIO_EXTERIOR_MISSING_TIPO_OPERACION
+    if (!isNonEmptyString(comercioExterior.tipoOperacion)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "COMERCIO_EXTERIOR_MISSING_TIPO_OPERACION",
+        title: "Tipo de operación faltante",
+        message: "No se detectó TipoOperacion en el complemento Comercio Exterior.",
+        recommendedAction: "Verifica que el complemento incluya el tipo de operación.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Versión", value: comercioExterior.version ?? "—" },
+        ],
+      });
+    }
+
+    // E) COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW
+    if (isNonEmptyString(comercioExterior.tipoOperacion) && !["1", "2"].includes(comercioExterior.tipoOperacion.trim())) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW",
+        title: "Tipo de operación requiere revisión",
+        message:
+          "El tipo de operación del complemento no es el habitual (1=Temporal, 2=Definitiva).",
+        recommendedAction: "Confirma que el tipo de operación corresponda al escenario real.",
+        evidence: [
+          { label: "TipoOperacion", value: comercioExterior.tipoOperacion ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // F) COMERCIO_EXTERIOR_TOTAL_USD_MISMATCH
+    if (isNonEmptyString(comercioExterior.totalUSD) && isNonEmptyString(total)) {
+      const totalUSDNum = parseFloat(comercioExterior.totalUSD!.trim());
+      const totalNum = parseFloat(total.trim());
+      if (!isNaN(totalUSDNum) && !isNaN(totalNum) && Math.abs(totalUSDNum - totalNum) > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "COMPLEMENT",
+          code: "COMERCIO_EXTERIOR_TOTAL_USD_MISMATCH",
+          title: "TotalUSD no coincide con total del CFDI",
+          message:
+            "El valor de TotalUSD en el complemento difiere del total del comprobante.",
+          recommendedAction:
+            "Verifica que el monto en dólares coincida con el total del CFDI.",
+          evidence: [
+            { label: "TotalUSD", value: comercioExterior.totalUSD ?? "—" },
+            { label: "Total CFDI", value: total },
+            { label: "UUID", value: uuid ?? "—" },
+          ],
+        });
+      }
+    }
+  }
+
+  // ── Concept-level Tax Findings ──
+  if (concepts && concepts.length > 0 && rc(version, "4.0")) {
+    concepts.forEach((c, idx) => {
+      const cn = idx + 1;
+      const objetoImp = normalizeObjetoImp(c.objetoImp);
+      const hasTransferred = getConceptTransferredTaxes(c).length > 0;
+      const hasWithheld = getConceptWithheldTaxes(c).length > 0;
+      const hasAnyTax = hasConceptTaxes(c);
+      const allTransferred = getConceptTransferredTaxes(c);
+      const allWithheld = getConceptWithheldTaxes(c);
+
+      // A) CONCEPT_OBJETO_IMP_MISSING
+      if (!isNonEmptyString(objetoImp)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TAX",
+          code: "CONCEPT_OBJETO_IMP_MISSING",
+          title: "ObjetoImp faltante en concepto",
+          message:
+            "Un concepto no contiene ObjetoImp, campo necesario para identificar si el concepto es objeto de impuesto.",
+          recommendedAction:
+            "Revisa el concepto y confirma si debe indicar ObjetoImp conforme al tratamiento fiscal aplicable.",
+          evidence: [
+            { label: "Concepto #", value: String(cn) },
+            { label: "ClaveProdServ", value: c.claveProdServ ?? "—" },
+            { label: "Descripción", value: c.descripcion ?? "—" },
+            { label: "Importe", value: c.importe ?? "—" },
+            { label: "ObjetoImp", value: c.objetoImp ?? "—" },
+          ],
+        });
+      }
+
+      // B) CONCEPT_OBJETO_IMP_01_WITH_TAXES
+      if (objetoImp === "01" && hasAnyTax) {
+        const totalTraslados = allTransferred.reduce((s, t) => s + toMoneyNumber(t.importe), 0);
+        const totalRetenciones = allWithheld.reduce((s, r) => s + toMoneyNumber(r.importe), 0);
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TAX",
+          code: "CONCEPT_OBJETO_IMP_01_WITH_TAXES",
+          title: "Concepto no objeto de impuesto contiene impuestos",
+          message: "El concepto indica ObjetoImp 01, pero contiene impuestos a nivel concepto.",
+          recommendedAction:
+            "Revisa si el concepto realmente no es objeto de impuesto o si los impuestos fueron capturados incorrectamente.",
+          evidence: [
+            { label: "Concepto #", value: String(cn) },
+            { label: "ObjetoImp", value: objetoImp },
+            { label: "Total traslados concepto", value: formatMoney(totalTraslados) },
+            { label: "Total retenciones concepto", value: formatMoney(totalRetenciones) },
+            { label: "Descripción", value: c.descripcion ?? "—" },
+          ],
+        });
+      }
+
+      // C) CONCEPT_OBJETO_IMP_02_WITHOUT_TAXES
+      if (objetoImp === "02" && !hasAnyTax) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TAX",
+          code: "CONCEPT_OBJETO_IMP_02_WITHOUT_TAXES",
+          title: "Concepto objeto de impuesto sin impuestos",
+          message:
+            "El concepto indica ObjetoImp 02, pero no se detectaron impuestos a nivel concepto.",
+          recommendedAction:
+            "Verifica si el concepto debe incluir traslados o retenciones, o si el ObjetoImp correcto debe ser otro.",
+          evidence: [
+            { label: "Concepto #", value: String(cn) },
+            { label: "ObjetoImp", value: objetoImp },
+            { label: "ClaveProdServ", value: c.claveProdServ ?? "—" },
+            { label: "Descripción", value: c.descripcion ?? "—" },
+            { label: "Importe", value: c.importe ?? "—" },
+          ],
+        });
+      }
+
+      // D) CONCEPT_OBJETO_IMP_03_WITHOUT_EXEMPT_REVIEW
+      if (objetoImp === "03") {
+        const hasExentoTraslado = allTransferred.some(
+          (t) => normalizeTipoFactor(t.tipoFactor) === "Exento",
+        );
+        if (!hasExentoTraslado) {
+          const tiposFactor = [...new Set(allTransferred.map((t) => t.tipoFactor ?? "—"))];
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "CONCEPT_OBJETO_IMP_03_WITHOUT_EXEMPT_REVIEW",
+            title: "ObjetoImp 03 requiere revisión",
+            message:
+              "El concepto indica ObjetoImp 03, pero no se detectó un traslado exento a nivel concepto. Puede ser válido según estructura, pero requiere revisión.",
+            recommendedAction:
+              "Confirma que el tratamiento exento del concepto esté correctamente representado.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "ObjetoImp", value: objetoImp },
+              { label: "TipoFactor detectados", value: tiposFactor.join(", ") || "—" },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // E) CONCEPT_TAX_BASE_MISSING
+      for (const t of allTransferred) {
+        if (!isNonEmptyString(t.base)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_BASE_MISSING",
+            title: "Base de impuesto faltante en concepto",
+            message: "Un impuesto a nivel concepto no contiene Base.",
+            recommendedAction: "Revisa la base gravable del impuesto dentro del concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Tipo impuesto", value: "Traslado" },
+              { label: "Impuesto", value: t.impuesto ?? "—" },
+              { label: "TipoFactor", value: t.tipoFactor ?? "—" },
+              { label: "TasaOCuota", value: t.tasaOCuota ?? "—" },
+              { label: "Importe impuesto", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        if (!isNonEmptyString(r.base)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_BASE_MISSING",
+            title: "Base de impuesto faltante en concepto",
+            message: "Un impuesto a nivel concepto no contiene Base.",
+            recommendedAction: "Revisa la base gravable del impuesto dentro del concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Tipo impuesto", value: "Retención" },
+              { label: "Impuesto", value: r.impuesto ?? "—" },
+              { label: "TipoFactor", value: r.tipoFactor ?? "—" },
+              { label: "TasaOCuota", value: r.tasaOCuota ?? "—" },
+              { label: "Importe impuesto", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // F) CONCEPT_TAX_BASE_INVALID
+      for (const t of allTransferred) {
+        if (isNonEmptyString(t.base)) {
+          const baseNum = toMoneyNumber(t.base);
+          if (baseNum <= 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "CONCEPT_TAX_BASE_INVALID",
+              title: "Base de impuesto inválida en concepto",
+              message: "La base de impuesto a nivel concepto no tiene un valor numérico positivo.",
+              recommendedAction: "Revisa la Base del impuesto en el concepto.",
+              evidence: [
+                { label: "Concepto #", value: String(cn) },
+                { label: "Tipo impuesto", value: "Traslado" },
+                { label: "Base", value: t.base },
+                { label: "Impuesto", value: t.impuesto ?? "—" },
+                { label: "Descripción", value: c.descripcion ?? "—" },
+              ],
+            });
+          }
+        }
+      }
+      for (const r of allWithheld) {
+        if (isNonEmptyString(r.base)) {
+          const baseNum = toMoneyNumber(r.base);
+          if (baseNum <= 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "CONCEPT_TAX_BASE_INVALID",
+              title: "Base de impuesto inválida en concepto",
+              message: "La base de impuesto a nivel concepto no tiene un valor numérico positivo.",
+              recommendedAction: "Revisa la Base del impuesto en el concepto.",
+              evidence: [
+                { label: "Concepto #", value: String(cn) },
+                { label: "Tipo impuesto", value: "Retención" },
+                { label: "Base", value: r.base },
+                { label: "Impuesto", value: r.impuesto ?? "—" },
+                { label: "Descripción", value: c.descripcion ?? "—" },
+              ],
+            });
+          }
+        }
+      }
+
+      // G) CONCEPT_TAX_MISSING_TAX_CODE
+      for (const t of allTransferred) {
+        if (!isNonEmptyString(t.impuesto)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_MISSING_TAX_CODE",
+            title: "Clave de impuesto faltante en concepto",
+            message: "Un impuesto a nivel concepto no contiene la clave de impuesto.",
+            recommendedAction:
+              "Revisa que el impuesto indique la clave correspondiente, por ejemplo IVA, ISR o IEPS.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Tipo impuesto", value: "Traslado" },
+              { label: "Base", value: t.base ?? "—" },
+              { label: "TipoFactor", value: t.tipoFactor ?? "—" },
+              { label: "TasaOCuota", value: t.tasaOCuota ?? "—" },
+              { label: "Importe", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        if (!isNonEmptyString(r.impuesto)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_MISSING_TAX_CODE",
+            title: "Clave de impuesto faltante en concepto",
+            message: "Un impuesto a nivel concepto no contiene la clave de impuesto.",
+            recommendedAction:
+              "Revisa que el impuesto indique la clave correspondiente, por ejemplo IVA, ISR o IEPS.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Tipo impuesto", value: "Retención" },
+              { label: "Base", value: r.base ?? "—" },
+              { label: "TipoFactor", value: r.tipoFactor ?? "—" },
+              { label: "TasaOCuota", value: r.tasaOCuota ?? "—" },
+              { label: "Importe", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // H) CONCEPT_TAX_UNKNOWN_CODE_REVIEW
+      for (const t of allTransferred) {
+        if (isNonEmptyString(t.impuesto) && !isKnownImpuesto(t.impuesto)) {
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "CONCEPT_TAX_UNKNOWN_CODE_REVIEW",
+            title: "Clave de impuesto no reconocida",
+            message: "El impuesto del concepto usa una clave no reconocida por el motor actual.",
+            recommendedAction:
+              "Revisa si la clave de impuesto corresponde a un caso fiscal específico o estructura no estándar.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: t.impuesto! },
+              { label: "Tipo impuesto", value: "Traslado" },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        if (isNonEmptyString(r.impuesto) && !isKnownImpuesto(r.impuesto)) {
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "CONCEPT_TAX_UNKNOWN_CODE_REVIEW",
+            title: "Clave de impuesto no reconocida",
+            message: "El impuesto del concepto usa una clave no reconocida por el motor actual.",
+            recommendedAction:
+              "Revisa si la clave de impuesto corresponde a un caso fiscal específico o estructura no estándar.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: r.impuesto! },
+              { label: "Tipo impuesto", value: "Retención" },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // I) CONCEPT_TAX_TIPO_FACTOR_MISSING
+      for (const t of allTransferred) {
+        if (!isNonEmptyString(t.tipoFactor)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_TIPO_FACTOR_MISSING",
+            title: "TipoFactor faltante en traslado",
+            message: "Un traslado a nivel concepto no contiene TipoFactor.",
+            recommendedAction: "Revisa si el traslado debe indicar Tasa, Cuota o Exento.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: t.impuesto ?? "—" },
+              { label: "Base", value: t.base ?? "—" },
+              { label: "TasaOCuota", value: t.tasaOCuota ?? "—" },
+              { label: "Importe", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // J) CONCEPT_TAX_RATE_REQUIRED
+      for (const t of allTransferred) {
+        const tf = normalizeTipoFactor(t.tipoFactor);
+        if ((tf === "Tasa" || tf === "Cuota") && !isNonEmptyString(t.tasaOCuota)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_RATE_REQUIRED",
+            title: "TasaOCuota faltante en impuesto",
+            message: "El impuesto tiene TipoFactor Tasa/Cuota, pero no contiene TasaOCuota.",
+            recommendedAction: "Revisa la tasa o cuota del impuesto a nivel concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: t.impuesto ?? "—" },
+              { label: "TipoFactor", value: tf },
+              { label: "Base", value: t.base ?? "—" },
+              { label: "Importe", value: t.importe ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        const tf = normalizeTipoFactor(r.tipoFactor);
+        if ((tf === "Tasa" || tf === "Cuota") && !isNonEmptyString(r.tasaOCuota)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_RATE_REQUIRED",
+            title: "TasaOCuota faltante en impuesto",
+            message: "El impuesto tiene TipoFactor Tasa/Cuota, pero no contiene TasaOCuota.",
+            recommendedAction: "Revisa la tasa o cuota del impuesto a nivel concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: r.impuesto ?? "—" },
+              { label: "TipoFactor", value: tf },
+              { label: "Base", value: r.base ?? "—" },
+              { label: "Importe", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // K) CONCEPT_TAX_AMOUNT_REQUIRED
+      for (const t of allTransferred) {
+        const tf = normalizeTipoFactor(t.tipoFactor);
+        if ((tf === "Tasa" || tf === "Cuota") && !isNonEmptyString(t.importe)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_AMOUNT_REQUIRED",
+            title: "Importe de impuesto faltante",
+            message: "El impuesto tiene TipoFactor Tasa/Cuota, pero no contiene Importe.",
+            recommendedAction: "Revisa el importe calculado del impuesto a nivel concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: t.impuesto ?? "—" },
+              { label: "TipoFactor", value: tf },
+              { label: "Base", value: t.base ?? "—" },
+              { label: "TasaOCuota", value: t.tasaOCuota ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        const tf = normalizeTipoFactor(r.tipoFactor);
+        if ((tf === "Tasa" || tf === "Cuota") && !isNonEmptyString(r.importe)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_TAX_AMOUNT_REQUIRED",
+            title: "Importe de impuesto faltante",
+            message: "El impuesto tiene TipoFactor Tasa/Cuota, pero no contiene Importe.",
+            recommendedAction: "Revisa el importe calculado del impuesto a nivel concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: r.impuesto ?? "—" },
+              { label: "TipoFactor", value: tf },
+              { label: "Base", value: r.base ?? "—" },
+              { label: "TasaOCuota", value: r.tasaOCuota ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // L) CONCEPT_TAX_EXEMPT_WITH_AMOUNT
+      for (const t of allTransferred) {
+        const tf = normalizeTipoFactor(t.tipoFactor);
+        if (tf === "Exento" && isNonEmptyString(t.importe)) {
+          const importeNum = toMoneyNumber(t.importe);
+          if (importeNum > 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "CONCEPT_TAX_EXEMPT_WITH_AMOUNT",
+              title: "Impuesto exento con importe",
+              message: "Un traslado exento contiene Importe mayor a cero.",
+              recommendedAction: "Revisa el tratamiento exento del impuesto en el concepto.",
+              evidence: [
+                { label: "Concepto #", value: String(cn) },
+                { label: "Impuesto", value: t.impuesto ?? "—" },
+                { label: "TipoFactor", value: tf },
+                { label: "Base", value: t.base ?? "—" },
+                { label: "Importe", value: t.importe },
+              ],
+            });
+          }
+        }
+      }
+
+      // M) CONCEPT_TAX_AMOUNT_MISMATCH
+      for (const t of allTransferred) {
+        const tf = normalizeTipoFactor(t.tipoFactor);
+        if (
+          tf === "Tasa" &&
+          isNonEmptyString(t.base) &&
+          isNonEmptyString(t.tasaOCuota) &&
+          isNonEmptyString(t.importe)
+        ) {
+          const baseNum = toMoneyNumber(t.base);
+          const tasaNum = normalizeRate(t.tasaOCuota);
+          const importeXml = toMoneyNumber(t.importe);
+          if (baseNum > 0 && tasaNum !== null && tasaNum > 0) {
+            const calculado = calculateTaxAmount(baseNum, tasaNum);
+            const diff = moneyDiff(calculado, importeXml);
+            if (diff > 0.01) {
+              addFindingOnce({
+                severity: "CRITICAL",
+                category: "TAX",
+                code: "CONCEPT_TAX_AMOUNT_MISMATCH",
+                title: "Importe de impuesto no coincide con base por tasa",
+                message:
+                  "El importe del impuesto a nivel concepto no coincide con la base multiplicada por la tasa.",
+                recommendedAction:
+                  "Revisa Base, TasaOCuota e Importe del impuesto dentro del concepto antes de utilizar este XML.",
+                evidence: [
+                  { label: "Concepto #", value: String(cn) },
+                  { label: "Impuesto", value: t.impuesto ?? "—" },
+                  { label: "TipoFactor", value: tf },
+                  { label: "Base", value: t.base },
+                  { label: "TasaOCuota", value: t.tasaOCuota },
+                  { label: "Importe XML", value: t.importe },
+                  { label: "Importe calculado", value: formatMoney(calculado) },
+                  { label: "Diferencia", value: formatMoney(diff) },
+                  { label: "Tolerancia", value: "0.01" },
+                ],
+              });
+            }
+          }
+        }
+      }
+
+      // N) CONCEPT_WITHHELD_TAX_WITH_EXEMPT_FACTOR
+      for (const r of allWithheld) {
+        const tf = normalizeTipoFactor(r.tipoFactor);
+        if (tf === "Exento") {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_WITHHELD_TAX_WITH_EXEMPT_FACTOR",
+            title: "Retención con TipoFactor Exento",
+            message:
+              "Se detectó una retención con TipoFactor Exento, lo cual es inusual y requiere revisión.",
+            recommendedAction: "Verifica la estructura de la retención dentro del concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Impuesto", value: r.impuesto ?? "—" },
+              { label: "TipoFactor", value: tf },
+              { label: "Base", value: r.base ?? "—" },
+              { label: "Importe", value: r.importe ?? "—" },
+            ],
+          });
+        }
+      }
+    });
+  }
+
+  // ── Concept-level non-tax findings ──
+  if (concepts && concepts.length > 0) {
+    concepts.forEach((c, idx) => {
+      const cn = idx + 1;
+
+      // O) CONCEPT_NEGATIVE_IMPORT
+      if (isNonEmptyString(c.importe)) {
+        const impNum = toMoneyNumber(c.importe);
+        if (impNum < 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_NEGATIVE_IMPORT",
+            title: "Importe negativo en concepto",
+            message:
+              "Un concepto contiene importe negativo. Esto puede ser inusual dependiendo del tipo de comprobante.",
+            recommendedAction:
+              "Revisa si el importe negativo es procedente o si debe representarse mediante un CFDI de egreso.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+              { label: "Importe", value: c.importe },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // P) CONCEPT_DISCOUNT_EXCEEDS_IMPORT
+      if (isNonEmptyString(c.descuento) && isNonEmptyString(c.importe)) {
+        const descNum = toMoneyNumber(c.descuento);
+        const impNum = toMoneyNumber(c.importe);
+        if (descNum > impNum + 0.01) {
+          addFindingOnce({
+            severity: "CRITICAL",
+            category: "TAX",
+            code: "CONCEPT_DISCOUNT_EXCEEDS_IMPORT",
+            title: "Descuento mayor al importe del concepto",
+            message: "El descuento del concepto es mayor al importe del concepto.",
+            recommendedAction:
+              "Revisa Importe y Descuento del concepto antes de utilizar este XML.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Importe", value: c.importe },
+              { label: "Descuento", value: c.descuento },
+              { label: "Diferencia", value: formatMoney(descNum - impNum) },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // Q) CONCEPT_ZERO_QUANTITY_REVIEW
+      if (isNonEmptyString(c.cantidad)) {
+        const qty = parseFloat(c.cantidad!.trim());
+        if (isNaN(qty) || qty <= 0) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "CONCEPT_ZERO_QUANTITY_REVIEW",
+            title: "Cantidad inválida en concepto",
+            message: "La cantidad del concepto no tiene un valor numérico positivo.",
+            recommendedAction: "Revisa la cantidad capturada en el concepto.",
+            evidence: [
+              { label: "Concepto #", value: String(cn) },
+              { label: "Cantidad", value: c.cantidad! },
+              { label: "Clave unidad", value: c.claveUnidad ?? "—" },
+              { label: "Descripción", value: c.descripcion ?? "—" },
+            ],
+          });
+        }
+      }
+
+      // R) CONCEPT_UNIT_VALUE_MISMATCH_REVIEW
+      if (
+        isNonEmptyString(c.cantidad) &&
+        isNonEmptyString(c.valorUnitario) &&
+        isNonEmptyString(c.importe)
+      ) {
+        const qty = parseFloat(c.cantidad!.trim());
+        const unitVal = parseFloat(c.valorUnitario!.trim());
+        const impNum = toMoneyNumber(c.importe);
+        if (!isNaN(qty) && !isNaN(unitVal) && qty > 0 && unitVal > 0) {
+          const calculado = Math.round(qty * unitVal * 100) / 100;
+          const diff = moneyDiff(calculado, impNum);
+          if (diff > 0.01) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "CONCEPT_UNIT_VALUE_MISMATCH_REVIEW",
+              title: "Importe del concepto no coincide con cantidad por valor unitario",
+              message:
+                "El importe del concepto no coincide con cantidad multiplicada por valor unitario.",
+              recommendedAction: "Revisa cantidad, valor unitario e importe del concepto.",
+              evidence: [
+                { label: "Concepto #", value: String(cn) },
+                { label: "Cantidad", value: c.cantidad },
+                { label: "Valor unitario", value: c.valorUnitario },
+                { label: "Importe XML", value: c.importe },
+                { label: "Importe calculado", value: formatMoney(calculado) },
+                { label: "Diferencia", value: formatMoney(diff) },
+                { label: "Tolerancia", value: "0.01" },
+              ],
+            });
+          }
+        }
+      }
+    });
+  }
+
+  // ── Global Tax Findings ──
+  if (
+    globalTaxes !== null ||
+    (concepts &&
+      concepts.length > 0 &&
+      (hasAnyConceptTransferredTaxes(concepts) || hasAnyConceptWithheldTaxes(concepts)))
+  ) {
+    const isPagoType = isTipoComprobantePago(tipoComprobante);
+    const hasConceptTraslados = concepts ? hasAnyConceptTransferredTaxes(concepts) : false;
+    const hasConceptRetenciones = concepts ? hasAnyConceptWithheldTaxes(concepts) : false;
+    const hasGlobalNode = globalTaxes !== null;
+    const hasGlobalTransferred = hasGlobalNode && globalTaxes!.transferred.length > 0;
+    const hasGlobalWithheld = hasGlobalNode && globalTaxes!.withheld.length > 0;
+
+    const conceptTrasladosGroup = concepts
+      ? sumConceptTaxesByGroup(concepts, "TRANSFERRED")
+      : new Map<string, number>();
+    const conceptRetencionesGroup = concepts
+      ? sumConceptTaxesByGroup(concepts, "WITHHELD")
+      : new Map<string, number>();
+    const globalTrasladosGroup = hasGlobalNode
+      ? sumGlobalTaxesByGroup(globalTaxes!, "TRANSFERRED")
+      : new Map<string, number>();
+    const globalRetencionesGroup = hasGlobalNode
+      ? sumGlobalTaxesByGroup(globalTaxes!, "WITHHELD")
+      : new Map<string, number>();
+
+    const sumTrasladosConceptos = Array.from(conceptTrasladosGroup.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    const sumRetencionesConceptos = Array.from(conceptRetencionesGroup.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+
+    const sumTrasladosGlobales = Array.from(globalTrasladosGroup.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    const sumRetencionesGlobales = Array.from(globalRetencionesGroup.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+
+    // A) GLOBAL_TAXES_MISSING_WITH_CONCEPT_TAXES
+    if ((hasConceptTraslados || hasConceptRetenciones) && !hasGlobalNode) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "TAX",
+        code: "GLOBAL_TAXES_MISSING_WITH_CONCEPT_TAXES",
+        title: "Nodo global de impuestos no detectado",
+        message:
+          "El CFDI contiene impuestos a nivel concepto, pero no se detectó el nodo global de Impuestos.",
+        recommendedAction:
+          "Revisa que el XML incluya el resumen global de impuestos cuando aplique.",
+        evidence: [
+          { label: "Total traslados por concepto", value: formatMoney(sumTrasladosConceptos) },
+          { label: "Total retenciones por concepto", value: formatMoney(sumRetencionesConceptos) },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // B) GLOBAL_TRANSFERRED_TOTAL_MISMATCH
+    if (
+      hasGlobalNode &&
+      globalTaxes!.totalImpuestosTrasladados !== null &&
+      sumTrasladosGlobales > 0
+    ) {
+      const totalTrasladadosNum = toMoneyNumber(globalTaxes!.totalImpuestosTrasladados);
+      const diff = moneyDiff(totalTrasladadosNum, sumTrasladosGlobales);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "TAX",
+          code: "GLOBAL_TRANSFERRED_TOTAL_MISMATCH",
+          title: "TotalImpuestosTrasladados no coincide con traslados globales",
+          message:
+            "El TotalImpuestosTrasladados del nodo global no coincide con la suma de los traslados globales.",
+          recommendedAction:
+            "Revisa el resumen global de impuestos trasladados antes de utilizar este XML.",
+          evidence: [
+            {
+              label: "TotalImpuestosTrasladados XML",
+              value: globalTaxes!.totalImpuestosTrasladados!,
+            },
+            { label: "Suma traslados globales", value: formatMoney(sumTrasladosGlobales) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+          ],
+        });
+      }
+    }
+
+    // C) GLOBAL_WITHHELD_TOTAL_MISMATCH
+    if (
+      hasGlobalNode &&
+      globalTaxes!.totalImpuestosRetenidos !== null &&
+      sumRetencionesGlobales > 0
+    ) {
+      const totalRetenidosNum = toMoneyNumber(globalTaxes!.totalImpuestosRetenidos);
+      const diff = moneyDiff(totalRetenidosNum, sumRetencionesGlobales);
+      if (diff > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "TAX",
+          code: "GLOBAL_WITHHELD_TOTAL_MISMATCH",
+          title: "TotalImpuestosRetenidos no coincide con retenciones globales",
+          message:
+            "El TotalImpuestosRetenidos del nodo global no coincide con la suma de las retenciones globales.",
+          recommendedAction:
+            "Revisa el resumen global de impuestos retenidos antes de utilizar este XML.",
+          evidence: [
+            { label: "TotalImpuestosRetenidos XML", value: globalTaxes!.totalImpuestosRetenidos! },
+            { label: "Suma retenciones globales", value: formatMoney(sumRetencionesGlobales) },
+            { label: "Diferencia", value: formatMoney(diff) },
+            { label: "Tolerancia", value: "0.01" },
+          ],
+        });
+      }
+    }
+
+    // D) GLOBAL_TRANSFERRED_CONCEPT_SUM_MISMATCH
+    if (conceptTrasladosGroup.size > 0 && globalTrasladosGroup.size > 0) {
+      for (const [key, sumaConceptos] of conceptTrasladosGroup.entries()) {
+        const importeGlobal = globalTrasladosGroup.get(key);
+        if (importeGlobal === undefined) continue;
+        const parts = key.split("|");
+        const tipoFactor = parts[1] ?? "";
+        if (normalizeTipoFactor(tipoFactor) === "Exento") continue;
+        const diff = moneyDiff(sumaConceptos, importeGlobal);
+        if (diff > 0.01) {
+          addFindingOnce({
+            severity: "CRITICAL",
+            category: "TAX",
+            code: "GLOBAL_TRANSFERRED_CONCEPT_SUM_MISMATCH",
+            title: "Traslado global no coincide con suma de conceptos",
+            message:
+              "El importe de un traslado global no coincide con la suma de traslados por concepto para el mismo impuesto, tipo factor y tasa.",
+            recommendedAction:
+              "Revisa los impuestos trasladados por concepto y el resumen global del CFDI.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Suma conceptos", value: formatMoney(sumaConceptos) },
+              { label: "Importe global", value: formatMoney(importeGlobal) },
+              { label: "Diferencia", value: formatMoney(diff) },
+              { label: "Tolerancia", value: "0.01" },
+            ],
+          });
+        }
+      }
+    }
+
+    // E) GLOBAL_WITHHELD_CONCEPT_SUM_MISMATCH
+    if (conceptRetencionesGroup.size > 0 && globalRetencionesGroup.size > 0) {
+      for (const [key, sumaConceptos] of conceptRetencionesGroup.entries()) {
+        const importeGlobal = globalRetencionesGroup.get(key);
+        if (importeGlobal === undefined) continue;
+        const parts = key.split("|");
+        const diff = moneyDiff(sumaConceptos, importeGlobal);
+        if (diff > 0.01) {
+          addFindingOnce({
+            severity: "CRITICAL",
+            category: "TAX",
+            code: "GLOBAL_WITHHELD_CONCEPT_SUM_MISMATCH",
+            title: "Retención global no coincide con suma de conceptos",
+            message:
+              "El importe de una retención global no coincide con la suma de retenciones por concepto para el mismo impuesto, tipo factor y tasa.",
+            recommendedAction: "Revisa las retenciones por concepto y el resumen global del CFDI.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Suma conceptos", value: formatMoney(sumaConceptos) },
+              { label: "Importe global", value: formatMoney(importeGlobal) },
+              { label: "Diferencia", value: formatMoney(diff) },
+              { label: "Tolerancia", value: "0.01" },
+            ],
+          });
+        }
+      }
+    }
+
+    // F) GLOBAL_TRANSFERRED_GROUP_MISSING
+    if (conceptTrasladosGroup.size > 0) {
+      for (const [key, sumaConceptos] of conceptTrasladosGroup.entries()) {
+        const parts = key.split("|");
+        const tipoFactor = parts[1] ?? "";
+        if (normalizeTipoFactor(tipoFactor) === "Exento" && sumaConceptos <= 0) continue;
+        if (!globalTrasladosGroup.has(key)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "GLOBAL_TRANSFERRED_GROUP_MISSING",
+            title: "Traslado global faltante",
+            message:
+              "Existe un traslado por concepto que no aparece en el resumen global de impuestos.",
+            recommendedAction:
+              "Revisa si el resumen global de impuestos trasladados está completo.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Suma conceptos", value: formatMoney(sumaConceptos) },
+            ],
+          });
+        }
+      }
+    }
+
+    // G) GLOBAL_WITHHELD_GROUP_MISSING
+    if (conceptRetencionesGroup.size > 0) {
+      for (const [key, sumaConceptos] of conceptRetencionesGroup.entries()) {
+        const parts = key.split("|");
+        if (!globalRetencionesGroup.has(key)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "GLOBAL_WITHHELD_GROUP_MISSING",
+            title: "Retención global faltante",
+            message:
+              "Existe una retención por concepto que no aparece en el resumen global de impuestos.",
+            recommendedAction: "Revisa si el resumen global de impuestos retenidos está completo.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Suma conceptos", value: formatMoney(sumaConceptos) },
+            ],
+          });
+        }
+      }
+    }
+
+    // H) GLOBAL_TRANSFERRED_GROUP_WITHOUT_CONCEPTS
+    if (globalTrasladosGroup.size > 0) {
+      for (const [key, importeGlobal] of globalTrasladosGroup.entries()) {
+        const parts = key.split("|");
+        const tipoFactor = parts[1] ?? "";
+        if (normalizeTipoFactor(tipoFactor) === "Exento" && importeGlobal <= 0) continue;
+        if (!conceptTrasladosGroup.has(key)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "GLOBAL_TRANSFERRED_GROUP_WITHOUT_CONCEPTS",
+            title: "Traslado global sin respaldo en conceptos",
+            message: "Existe un traslado global que no se detectó en impuestos por concepto.",
+            recommendedAction: "Revisa si el traslado global corresponde a los conceptos del CFDI.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Importe global", value: formatMoney(importeGlobal) },
+            ],
+          });
+        }
+      }
+    }
+
+    // I) GLOBAL_WITHHELD_GROUP_WITHOUT_CONCEPTS
+    if (globalRetencionesGroup.size > 0) {
+      for (const [key, importeGlobal] of globalRetencionesGroup.entries()) {
+        const parts = key.split("|");
+        if (!conceptRetencionesGroup.has(key)) {
+          addFindingOnce({
+            severity: "WARNING",
+            category: "TAX",
+            code: "GLOBAL_WITHHELD_GROUP_WITHOUT_CONCEPTS",
+            title: "Retención global sin respaldo en conceptos",
+            message: "Existe una retención global que no se detectó en impuestos por concepto.",
+            recommendedAction:
+              "Revisa si la retención global corresponde a los conceptos del CFDI.",
+            evidence: [
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2).join("|") || "—" },
+              { label: "Importe global", value: formatMoney(importeGlobal) },
+            ],
+          });
+        }
+      }
+    }
+
+    // J) GLOBAL_TAX_NEGATIVE_AMOUNT
+    if (hasGlobalNode) {
+      for (const line of globalTaxes!.transferred) {
+        if (line.importe !== null && line.importe !== undefined) {
+          const imp = toMoneyNumber(line.importe);
+          if (imp < 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "GLOBAL_TAX_NEGATIVE_AMOUNT",
+              title: "Importe global de impuesto negativo",
+              message: "Un impuesto global contiene importe negativo.",
+              recommendedAction: "Revisa los importes del resumen global de impuestos.",
+              evidence: [
+                { label: "Tipo impuesto", value: "Traslado" },
+                { label: "Impuesto", value: line.impuesto ?? "—" },
+                { label: "TipoFactor", value: line.tipoFactor ?? "—" },
+                { label: "TasaOCuota", value: line.tasaOCuota ?? "—" },
+                { label: "Importe", value: line.importe! },
+              ],
+            });
+          }
+        }
+      }
+      for (const line of globalTaxes!.withheld) {
+        if (line.importe !== null && line.importe !== undefined) {
+          const imp = toMoneyNumber(line.importe);
+          if (imp < 0) {
+            addFindingOnce({
+              severity: "WARNING",
+              category: "TAX",
+              code: "GLOBAL_TAX_NEGATIVE_AMOUNT",
+              title: "Importe global de impuesto negativo",
+              message: "Un impuesto global contiene importe negativo.",
+              recommendedAction: "Revisa los importes del resumen global de impuestos.",
+              evidence: [
+                { label: "Tipo impuesto", value: "Retención" },
+                { label: "Impuesto", value: line.impuesto ?? "—" },
+                { label: "TipoFactor", value: line.tipoFactor ?? "—" },
+                { label: "TasaOCuota", value: line.tasaOCuota ?? "—" },
+                { label: "Importe", value: line.importe! },
+              ],
+            });
+          }
+        }
+      }
+    }
+
+    // K) GLOBAL_TAX_DUPLICATE_GROUP_REVIEW
+    if (hasGlobalNode) {
+      const countGlobalLines = new Map<string, number>();
+      for (const line of globalTaxes!.transferred) {
+        const key =
+          buildTaxGroupKey(line.impuesto, line.tipoFactor, line.tasaOCuota) + "|TRANSFERRED";
+        countGlobalLines.set(key, (countGlobalLines.get(key) ?? 0) + 1);
+      }
+      for (const line of globalTaxes!.withheld) {
+        const key = buildTaxGroupKey(line.impuesto, line.tipoFactor, line.tasaOCuota) + "|WITHHELD";
+        countGlobalLines.set(key, (countGlobalLines.get(key) ?? 0) + 1);
+      }
+      for (const [key, count] of countGlobalLines.entries()) {
+        if (count > 1) {
+          const parts = key.split("|");
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "GLOBAL_TAX_DUPLICATE_GROUP_REVIEW",
+            title: "Grupo de impuesto global duplicado",
+            message:
+              "Se detectaron múltiples líneas globales para el mismo impuesto, tipo factor y tasa. Puede ser válido en algunos escenarios, pero requiere revisión.",
+            recommendedAction:
+              "Confirma si la duplicidad del grupo global de impuestos es intencional.",
+            evidence: [
+              {
+                label: "Tipo impuesto",
+                value: parts[3] === "TRANSFERRED" ? "Traslado" : "Retención",
+              },
+              { label: "Impuesto", value: parts[0] ?? "—" },
+              { label: "TipoFactor", value: parts[1] ?? "—" },
+              { label: "TasaOCuota", value: parts.slice(2, -1).join("|") || "—" },
+              { label: "Apariciones", value: String(count) },
+            ],
+          });
+        }
+      }
+    }
+
+    // L) GLOBAL_TAX_TOTALS_NOT_PRESENT_REVIEW
+    if (hasGlobalTransferred && !isNonEmptyString(globalTaxes!.totalImpuestosTrasladados)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "TAX",
+        code: "GLOBAL_TAX_TOTALS_NOT_PRESENT_REVIEW",
+        title: "Total global de impuestos no declarado",
+        message:
+          "Se detectaron impuestos globales con importe, pero no se detectó TotalImpuestosTrasladados.",
+        recommendedAction:
+          "Revisa si el XML debe declarar TotalImpuestosTrasladados según el caso.",
+        evidence: [
+          { label: "Tipo total faltante", value: "TotalImpuestosTrasladados" },
+          { label: "Suma líneas globales", value: formatMoney(sumTrasladosGlobales) },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+    if (hasGlobalWithheld && !isNonEmptyString(globalTaxes!.totalImpuestosRetenidos)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "TAX",
+        code: "GLOBAL_TAX_TOTALS_NOT_PRESENT_REVIEW",
+        title: "Total global de impuestos no declarado",
+        message:
+          "Se detectaron impuestos globales con importe, pero no se detectó TotalImpuestosRetenidos.",
+        recommendedAction: "Revisa si el XML debe declarar TotalImpuestosRetenidos según el caso.",
+        evidence: [
+          { label: "Tipo total faltante", value: "TotalImpuestosRetenidos" },
+          { label: "Suma líneas globales", value: formatMoney(sumRetencionesGlobales) },
+          { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
+  // ── Comprobante-level Findings (A-W) ──
+  const isIngresoEgreso =
+    isTipoComprobanteIngreso(tipoComprobante) || isTipoComprobanteEgreso(tipoComprobante);
+  const isTrasladoType = isTipoComprobanteTraslado(tipoComprobante);
+  const isCfdi40 = rc(version, "4.0");
+  const subtotalNum = toMoneyNumber(subtotal);
+  const totalNum = toMoneyNumber(total);
+  const descuentoNum = toMoneyNumber(descuento);
+
+  // A) COMPROBANTE_MISSING_MONEDA
+  if (!isPagoType && !isNonEmptyString(moneda)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_MISSING_MONEDA",
+      title: "Moneda faltante en comprobante",
+      message: "El comprobante no contiene Moneda en el nodo principal.",
+      recommendedAction: "Revisa la moneda capturada en el CFDI.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Total", value: total ?? "—" },
+      ],
+    });
+  }
+
+  // B) COMPROBANTE_MONEDA_UNKNOWN_REVIEW
+  if (isNonEmptyString(moneda) && !isKnownCurrencyBasic(moneda)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_MONEDA_UNKNOWN_REVIEW",
+      title: "Moneda requiere revisión",
+      message:
+        "El comprobante utiliza una moneda no reconocida por la lista básica del motor actual.",
+      recommendedAction: "Confirma que la moneda sea válida para el CFDI.",
+      evidence: [
+        { label: "Moneda", value: moneda! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Total", value: total ?? "—" },
+      ],
+    });
+  }
+
+  // C) COMPROBANTE_MONEDA_XXX_UNEXPECTED
+  if (normalizeCurrency(moneda) === "XXX" && !isPagoType && !isTrasladoType) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_MONEDA_XXX_UNEXPECTED",
+      title: "Moneda XXX en comprobante no esperado",
+      message:
+        "El comprobante utiliza Moneda XXX en un tipo de comprobante donde normalmente se espera una moneda específica.",
+      recommendedAction: "Revisa si el tipo de comprobante y la moneda capturada son correctos.",
+      evidence: [
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // D) COMPROBANTE_TIPO_CAMBIO_REQUIRED
+  if (
+    isNonEmptyString(moneda) &&
+    normalizeCurrency(moneda) !== "MXN" &&
+    normalizeCurrency(moneda) !== "XXX" &&
+    !isNonEmptyString(tipoCambio)
+  ) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_TIPO_CAMBIO_REQUIRED",
+      title: "Tipo de cambio requerido",
+      message: "El comprobante está en moneda distinta de MXN, pero no se detectó TipoCambio.",
+      recommendedAction:
+        "Revisa si el CFDI debe incluir TipoCambio conforme a la moneda utilizada.",
+      evidence: [
+        { label: "Moneda", value: moneda! },
+        { label: "TipoCambio", value: tipoCambio ?? "—" },
+        { label: "Total", value: total ?? "—" },
+      ],
+    });
+  }
+
+  // E) COMPROBANTE_TIPO_CAMBIO_INVALID
+  if (isNonEmptyString(tipoCambio)) {
+    const tcNum = toMoneyNumber(tipoCambio);
+    if (tcNum <= 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "COMPROBANTE_TIPO_CAMBIO_INVALID",
+        title: "Tipo de cambio inválido",
+        message: "TipoCambio no tiene un valor numérico positivo.",
+        recommendedAction: "Revisa el tipo de cambio capturado en el comprobante.",
+        evidence: [
+          { label: "Moneda", value: moneda ?? "—" },
+          { label: "TipoCambio", value: tipoCambio! },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
+  // F) COMPROBANTE_TIPO_CAMBIO_MXN_REVIEW
+  if (
+    normalizeCurrency(moneda) === "MXN" &&
+    isNonEmptyString(tipoCambio) &&
+    normalizeText(tipoCambio) !== "1" &&
+    normalizeText(tipoCambio) !== "1.000000"
+  ) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_TIPO_CAMBIO_MXN_REVIEW",
+      title: "Tipo de cambio en MXN requiere revisión",
+      message:
+        "El comprobante está en MXN y contiene TipoCambio distinto de 1. Puede ser válido por estructura, pero conviene revisarlo.",
+      recommendedAction: "Confirma que el TipoCambio sea correcto para un CFDI en MXN.",
+      evidence: [
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "TipoCambio", value: tipoCambio! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // G) COMPROBANTE_MISSING_EXPORTACION
+  if (isCfdi40 && !isNonEmptyString(exportacion)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_MISSING_EXPORTACION",
+      title: "Exportación faltante",
+      message: "El CFDI 4.0 no contiene el campo Exportacion.",
+      recommendedAction: "Revisa el valor de Exportacion capturado en el comprobante.",
+      evidence: [
+        { label: "Versión", value: version ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Moneda", value: moneda ?? "—" },
+      ],
+    });
+  }
+
+  // H) COMPROBANTE_EXPORTACION_REVIEW
+  if (isNonEmptyString(exportacion) && !isKnownExportacion(exportacion)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_EXPORTACION_REVIEW",
+      title: "Valor de Exportacion requiere revisión",
+      message: "El valor de Exportacion no está reconocido por la lista básica del motor actual.",
+      recommendedAction: "Confirma que el valor de Exportacion sea válido para el CFDI.",
+      evidence: [
+        { label: "Exportacion", value: exportacion! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+      ],
+    });
+  }
+
+  // I) COMPROBANTE_FOREIGN_RFC_WITHOUT_EXPORTACION_REVIEW
+  if (
+    isNonEmptyString(exportacion) &&
+    isGenericForeignRfc(rfcReceptor) &&
+    normalizeExportacion(exportacion) === "01"
+  ) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_FOREIGN_RFC_WITHOUT_EXPORTACION_REVIEW",
+      title: "RFC extranjero con Exportacion 01",
+      message:
+        "El receptor usa RFC genérico extranjero y el CFDI indica Exportacion 01. Puede ser válido según el caso, pero requiere revisión.",
+      recommendedAction: "Confirma si la operación corresponde o no a exportación.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Exportacion", value: exportacion! },
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+      ],
+    });
+  }
+
+  // J) COMPROBANTE_MISSING_LUGAR_EXPEDICION
+  if (isCfdi40 && !isNonEmptyString(lugarExpedicion)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_MISSING_LUGAR_EXPEDICION",
+      title: "LugarExpedicion faltante",
+      message: "No se detectó LugarExpedicion en el comprobante.",
+      recommendedAction: "Revisa el código postal del lugar de expedición capturado en el CFDI.",
+      evidence: [
+        { label: "Versión", value: version ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+      ],
+    });
+  }
+
+  // K) COMPROBANTE_LUGAR_EXPEDICION_FORMAT_REVIEW
+  if (isNonEmptyString(lugarExpedicion) && !looksLikePostalCode(lugarExpedicion)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_LUGAR_EXPEDICION_FORMAT_REVIEW",
+      title: "Formato de LugarExpedicion requiere revisión",
+      message: "LugarExpedicion no tiene formato básico de código postal de 5 dígitos.",
+      recommendedAction: "Confirma que el código postal de expedición sea correcto.",
+      evidence: [
+        { label: "LugarExpedicion", value: lugarExpedicion! },
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // L) COMPROBANTE_FECHA_MISSING
+  if (!isNonEmptyString(fecha)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "COMPROBANTE_FECHA_MISSING",
+      title: "Fecha del comprobante faltante",
+      message: "No se detectó la fecha de emisión del comprobante.",
+      recommendedAction: "Verifica que el XML incluya la fecha de emisión.",
+      evidence: [
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+      ],
+    });
+  }
+
+  // M) COMPROBANTE_FECHA_INVALID
+  if (isNonEmptyString(fecha)) {
+    const parsedDate = parseCfdiDate(fecha);
+    if (parsedDate === null) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "TECHNICAL",
+        code: "COMPROBANTE_FECHA_INVALID",
+        title: "Fecha del comprobante inválida",
+        message: "La fecha de emisión del comprobante no pudo interpretarse correctamente.",
+        recommendedAction: "Revisa el formato de Fecha en el XML.",
+        evidence: [
+          { label: "Fecha", value: fecha! },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
+  // N) COMPROBANTE_FECHA_FUTURE_REVIEW
+  if (isNonEmptyString(fecha)) {
+    const parsedDate = parseCfdiDate(fecha);
+    if (parsedDate !== null && isFutureDateBeyondTolerance(parsedDate, new Date(), 10)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "TECHNICAL",
+        code: "COMPROBANTE_FECHA_FUTURE_REVIEW",
+        title: "Fecha del comprobante en el futuro",
+        message:
+          "La fecha de emisión del comprobante parece estar en el futuro respecto al momento de análisis.",
+        recommendedAction:
+          "Confirma si la fecha del equipo/emisor o la fecha del CFDI son correctas.",
+        evidence: [
+          { label: "Fecha", value: fecha! },
+          { label: "Fecha análisis", value: new Date().toISOString() },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
+  // O) COMPROBANTE_METODO_PAGO_MISSING_REVIEW
+  if (isIngresoEgreso && !isNonEmptyString(metodoPago)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_METODO_PAGO_MISSING_REVIEW",
+      title: "Método de pago no detectado",
+      message:
+        "No se detectó MetodoPago en un comprobante de ingreso/egreso. Puede ser válido según el caso, pero conviene revisarlo.",
+      recommendedAction: "Confirma si el comprobante debe incluir MetodoPago.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // P) COMPROBANTE_FORMA_PAGO_MISSING_REVIEW
+  if (isIngresoEgreso && !isNonEmptyString(formaPago)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_FORMA_PAGO_MISSING_REVIEW",
+      title: "Forma de pago no detectada",
+      message:
+        "No se detectó FormaPago en un comprobante de ingreso/egreso. Puede ser válido según el método de pago, pero conviene revisarlo.",
+      recommendedAction: "Confirma si el comprobante debe incluir FormaPago.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // Q) COMPROBANTE_PPD_WITH_FORMA_PAGO_REVIEW
+  if (
+    isNonEmptyString(metodoPago) &&
+    isNonEmptyString(formaPago) &&
+    normalizePaymentMethod(metodoPago) === "PPD" &&
+    normalizePaymentForm(formaPago) !== "99"
+  ) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_PPD_WITH_FORMA_PAGO_REVIEW",
+      title: "PPD con FormaPago distinta de 99",
+      message:
+        "El comprobante usa MetodoPago PPD y FormaPago distinta de 99. Puede requerir revisión fiscal.",
+      recommendedAction: "Revisa si la FormaPago debe corresponder a pago por definir.",
+      evidence: [
+        { label: "MetodoPago", value: metodoPago! },
+        { label: "FormaPago", value: formaPago! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // R) COMPROBANTE_PUE_WITH_FORMA_PAGO_99_REVIEW
+  if (
+    isNonEmptyString(metodoPago) &&
+    isNonEmptyString(formaPago) &&
+    normalizePaymentMethod(metodoPago) === "PUE" &&
+    normalizePaymentForm(formaPago) === "99"
+  ) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_PUE_WITH_FORMA_PAGO_99_REVIEW",
+      title: "PUE con FormaPago 99",
+      message:
+        "El comprobante usa MetodoPago PUE con FormaPago 99. Puede requerir revisión fiscal.",
+      recommendedAction: "Confirma si la forma de pago es consistente con el método de pago.",
+      evidence: [
+        { label: "MetodoPago", value: metodoPago! },
+        { label: "FormaPago", value: formaPago! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // S) COMPROBANTE_SUBTOTAL_NEGATIVE
+  if (isNonEmptyString(subtotal) && subtotalNum < 0) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TOTALS",
+      code: "COMPROBANTE_SUBTOTAL_NEGATIVE",
+      title: "Subtotal negativo",
+      message: "El subtotal del comprobante es negativo.",
+      recommendedAction: "Revisa los importes del comprobante.",
+      evidence: [
+        { label: "SubTotal", value: subtotal! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // T) COMPROBANTE_TOTAL_NEGATIVE
+  if (isNonEmptyString(total) && totalNum < 0) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TOTALS",
+      code: "COMPROBANTE_TOTAL_NEGATIVE",
+      title: "Total negativo",
+      message: "El total del comprobante es negativo.",
+      recommendedAction: "Revisa el total del CFDI.",
+      evidence: [
+        { label: "Total", value: total! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // U) COMPROBANTE_DESCUENTO_EXCEEDS_SUBTOTAL
+  if (
+    isNonEmptyString(descuento) &&
+    isNonEmptyString(subtotal) &&
+    descuentoNum > subtotalNum + 0.01
+  ) {
+    addFindingOnce({
+      severity: "CRITICAL",
+      category: "TOTALS",
+      code: "COMPROBANTE_DESCUENTO_EXCEEDS_SUBTOTAL",
+      title: "Descuento mayor al subtotal",
+      message: "El descuento global es mayor al subtotal del comprobante.",
+      recommendedAction: "Revisa SubTotal y Descuento antes de utilizar este XML.",
+      evidence: [
+        { label: "SubTotal", value: subtotal! },
+        { label: "Descuento", value: descuento! },
+        { label: "Diferencia", value: formatMoney(descuentoNum - subtotalNum) },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // V) COMPROBANTE_SUBTOTAL_CONCEPT_SUM_MISMATCH
+  if (!isPagoType && isNonEmptyString(subtotal) && concepts && concepts.length > 0) {
+    const sumaConceptos = concepts.reduce((acc, c) => acc + toMoneyNumber(c.importe), 0);
+    const diff = moneyDiff(subtotalNum, sumaConceptos);
+    if (diff > 0.01) {
+      addFindingOnce({
+        severity: "CRITICAL",
+        category: "TOTALS",
+        code: "COMPROBANTE_SUBTOTAL_CONCEPT_SUM_MISMATCH",
+        title: "Subtotal no coincide con suma de conceptos",
+        message: "El SubTotal del comprobante no coincide con la suma de importes de conceptos.",
+        recommendedAction: "Revisa los importes de conceptos y el SubTotal del CFDI.",
+        evidence: [
+          { label: "SubTotal XML", value: subtotal! },
+          { label: "Suma conceptos", value: formatMoney(sumaConceptos) },
+          { label: "Diferencia", value: formatMoney(diff) },
+          { label: "Tolerancia", value: "0.01" },
+        ],
+      });
+    }
+  }
+
+  // W) COMPROBANTE_TOTAL_ZERO_REVIEW
+  if (isNonEmptyString(total) && totalNum === 0 && !isPagoType && !isTrasladoType) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TOTALS",
+      code: "COMPROBANTE_TOTAL_ZERO_REVIEW",
+      title: "Total cero requiere revisión",
+      message:
+        "El comprobante tiene Total igual a cero en un tipo de comprobante donde puede requerir revisión.",
+      recommendedAction:
+        "Confirma si el total cero corresponde al escenario fiscal del comprobante.",
+      evidence: [
+        { label: "Total", value: total! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // ── Catalog Unknown Findings ──
+
+  // A) COMPROBANTE_TIPO_COMPROBANTE_UNKNOWN
+  if (isNonEmptyString(tipoComprobante) && !isKnownTipoComprobante(tipoComprobante)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "COMPROBANTE_TIPO_COMPROBANTE_UNKNOWN",
+      title: "Tipo de comprobante no reconocido",
+      message: "El tipo de comprobante no está reconocido por el catálogo mínimo local del motor.",
+      recommendedAction: "Verifica que TipoDeComprobante corresponda a un valor válido para CFDI.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante! },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Versión", value: version ?? "—" },
+      ],
+    });
+  }
+
+  // B) COMPROBANTE_METODO_PAGO_UNKNOWN_REVIEW
+  if (isNonEmptyString(metodoPago) && !isKnownMetodoPago(metodoPago)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_METODO_PAGO_UNKNOWN_REVIEW",
+      title: "Método de pago no reconocido",
+      message: "El método de pago no está reconocido por el catálogo mínimo local del motor.",
+      recommendedAction: "Revisa que MetodoPago sea válido para el CFDI.",
+      evidence: [
+        { label: "MetodoPago", value: metodoPago! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // C) COMPROBANTE_FORMA_PAGO_UNKNOWN_REVIEW
+  if (isNonEmptyString(formaPago) && !isKnownFormaPago(formaPago)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "COMPROBANTE_FORMA_PAGO_UNKNOWN_REVIEW",
+      title: "Forma de pago no reconocida",
+      message: "FormaPago no está reconocida por el catálogo mínimo local del motor.",
+      recommendedAction: "Revisa que FormaPago sea válida para el CFDI.",
+      evidence: [
+        { label: "FormaPago", value: formaPago! },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // D) COMPROBANTE_OBJETO_IMP_UNKNOWN_REVIEW
+  if (concepts && concepts.length > 0) {
+    for (let cn = 0; cn < concepts.length; cn++) {
+      const c = concepts[cn];
+      if (isNonEmptyString(c.objetoImp) && !isKnownObjetoImp(c.objetoImp)) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "TAX",
+          code: "COMPROBANTE_OBJETO_IMP_UNKNOWN_REVIEW",
+          title: "ObjetoImp no reconocido",
+          message:
+            "El valor de ObjetoImp del concepto no está reconocido por el catálogo mínimo local del motor.",
+          recommendedAction: "Revisa que ObjetoImp corresponda al tratamiento fiscal del concepto.",
+          evidence: [
+            { label: "Concepto #", value: String(cn + 1) },
+            { label: "ObjetoImp", value: c.objetoImp! },
+            { label: "Descripción", value: c.descripcion ?? "—" },
+          ],
+        });
+      }
+    }
+  }
+
+  // E) COMPROBANTE_TIPO_FACTOR_UNKNOWN_REVIEW
+  if (concepts && concepts.length > 0) {
+    for (let cn = 0; cn < concepts.length; cn++) {
+      const c = concepts[cn];
+      if (!c.impuestos) continue;
+      const allTransferred = getConceptTransferredTaxes(c);
+      const allWithheld = getConceptWithheldTaxes(c);
+      for (const t of allTransferred) {
+        if (isNonEmptyString(t.tipoFactor) && !isKnownTipoFactor(t.tipoFactor)) {
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "COMPROBANTE_TIPO_FACTOR_UNKNOWN_REVIEW",
+            title: "TipoFactor no reconocido",
+            message:
+              "El TipoFactor del impuesto no está reconocido por el catálogo mínimo local del motor.",
+            recommendedAction: "Revisa que TipoFactor corresponda a Tasa, Cuota o Exento.",
+            evidence: [
+              { label: "Concepto #", value: String(cn + 1) },
+              { label: "Tipo impuesto", value: "Traslado" },
+              { label: "Impuesto", value: t.impuesto ?? "—" },
+              { label: "TipoFactor", value: t.tipoFactor! },
+              { label: "TasaOCuota", value: t.tasaOCuota ?? "—" },
+            ],
+          });
+        }
+      }
+      for (const r of allWithheld) {
+        if (isNonEmptyString(r.tipoFactor) && !isKnownTipoFactor(r.tipoFactor)) {
+          addFindingOnce({
+            severity: "INFO",
+            category: "TAX",
+            code: "COMPROBANTE_TIPO_FACTOR_UNKNOWN_REVIEW",
+            title: "TipoFactor no reconocido",
+            message:
+              "El TipoFactor del impuesto no está reconocido por el catálogo mínimo local del motor.",
+            recommendedAction: "Revisa que TipoFactor corresponda a Tasa, Cuota o Exento.",
+            evidence: [
+              { label: "Concepto #", value: String(cn + 1) },
+              { label: "Tipo impuesto", value: "Retención" },
+              { label: "Impuesto", value: r.impuesto ?? "—" },
+              { label: "TipoFactor", value: r.tipoFactor! },
+              { label: "TasaOCuota", value: r.tasaOCuota ?? "—" },
+            ],
+          });
+        }
+      }
+    }
+  }
+
+  // F) CFDI_RELATION_TIPO_RELACION_UNKNOWN_REVIEW
+  if (cfdiRelations && cfdiRelations.groups.length > 0) {
+    cfdiRelations.groups.forEach((group, groupIdx) => {
+      if (isNonEmptyString(group.tipoRelacion) && !isKnownTipoRelacion(group.tipoRelacion)) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "FISCAL",
+          code: "CFDI_RELATION_TIPO_RELACION_UNKNOWN_REVIEW",
+          title: "TipoRelacion no reconocido",
+          message: "El TipoRelacion no está reconocido por el catálogo mínimo local del motor.",
+          recommendedAction:
+            "Revisa que el tipo de relación sea válido para el escenario fiscal del CFDI.",
+          evidence: [
+            { label: "Grupo #", value: String(groupIdx + 1) },
+            { label: "TipoRelacion", value: group.tipoRelacion! },
+            { label: "UUID comprobante", value: uuid ?? "—" },
+          ],
+        });
+      }
+    });
+  }
+
+  // ── Tipo Comprobante Base Rules (G-K) ──
+
+  // G) PAYMENT_CFDI_TOTAL_NOT_ZERO
+  if (isPagoType && isNonEmptyString(total) && Math.abs(totalNum) > 0.01) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "PAYMENT_CFDI_TOTAL_NOT_ZERO",
+      title: "CFDI de pago con total distinto de cero",
+      message:
+        "El comprobante de tipo Pago normalmente debe manejar Total igual a cero en el nodo principal.",
+      recommendedAction:
+        "Revisa si el XML corresponde a un REP válido y si los importes deben estar en el complemento de pagos.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Total", value: total! },
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // H) PAYMENT_CFDI_SUBTOTAL_NOT_ZERO
+  if (isPagoType && isNonEmptyString(subtotal) && Math.abs(subtotalNum) > 0.01) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "PAYMENT_CFDI_SUBTOTAL_NOT_ZERO",
+      title: "CFDI de pago con subtotal distinto de cero",
+      message:
+        "El comprobante de tipo Pago normalmente debe manejar SubTotal igual a cero en el nodo principal.",
+      recommendedAction: "Revisa si el XML corresponde a un REP válido.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "SubTotal", value: subtotal! },
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // I) PAYMENT_CFDI_MONEDA_NOT_XXX
+  if (isPagoType && isNonEmptyString(moneda) && normalizeCurrency(moneda) !== "XXX") {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "PAYMENT_CFDI_MONEDA_NOT_XXX",
+      title: "CFDI de pago con moneda distinta de XXX",
+      message: "El comprobante de tipo Pago normalmente utiliza Moneda XXX en el nodo principal.",
+      recommendedAction: "Revisa la moneda del nodo principal del REP.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "Moneda", value: moneda! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // J) NOMINA_CFDI_WITHOUT_NOMINA_COMPLEMENT
+  if (
+    isNonEmptyString(tipoComprobante) &&
+    tipoComprobante!.trim().toUpperCase() === "N" &&
+    !nomina
+  ) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "COMPLEMENT",
+      code: "NOMINA_CFDI_WITHOUT_NOMINA_COMPLEMENT",
+      title: "CFDI de Nómina sin complemento Nómina",
+      message: "El comprobante es de tipo Nómina, pero no se detectó complemento Nómina.",
+      recommendedAction: "Verifica que el XML incluya el complemento Nómina correspondiente.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+      ],
+    });
+  }
+
+  // K) TRASLADO_CFDI_WITH_PAYMENT_FIELDS_REVIEW
+  if (isTrasladoType && (isNonEmptyString(metodoPago) || isNonEmptyString(formaPago))) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "TRASLADO_CFDI_WITH_PAYMENT_FIELDS_REVIEW",
+      title: "CFDI de traslado con campos de pago",
+      message:
+        "El comprobante de traslado contiene MetodoPago o FormaPago. Puede ser válido en estructuras específicas, pero requiere revisión.",
+      recommendedAction: "Confirma si los campos de pago son procedentes para el CFDI de traslado.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // ── UsoCFDI & Payment Consistency Findings (A-H) ──
+
+  const usoCfdiLabel = getUsoCfdiLabel(usoCfdi);
+  const metodoPagoLabel = getMetodoPagoLabel(metodoPago);
+  const formaPagoLabel = getFormaPagoLabel(formaPago);
+
+  // A) RECEPTOR_USO_CFDI_UNKNOWN_REVIEW
+  if (isNonEmptyString(usoCfdi) && !isKnownUsoCfdi(usoCfdi)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RECEPTOR_USO_CFDI_UNKNOWN_REVIEW",
+      title: "UsoCFDI no reconocido",
+      message: "El UsoCFDI no está reconocido por el catálogo mínimo local del motor.",
+      recommendedAction: "Revisa que UsoCFDI corresponda a un valor válido para CFDI 4.0.",
+      evidence: [
+        { label: "UsoCFDI", value: usoCfdi! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // B) PAYMENT_USO_CFDI_NOT_CP01
+  if (isPagoType && isNonEmptyString(usoCfdi) && usoCfdi !== "CP01") {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "PAYMENT_USO_CFDI_NOT_CP01",
+      title: "CFDI de pago con UsoCFDI distinto de CP01",
+      message: "El comprobante de tipo Pago normalmente utiliza UsoCFDI CP01.",
+      recommendedAction: "Revisa si el REP fue emitido con el UsoCFDI correcto.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UsoCFDI", value: usoCfdiLabel ? `${usoCfdi!} - ${usoCfdiLabel}` : usoCfdi! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // C) NOMINA_USO_CFDI_NOT_CN01
+  if (
+    isNonEmptyString(tipoComprobante) &&
+    tipoComprobante!.trim().toUpperCase() === "N" &&
+    isNonEmptyString(usoCfdi) &&
+    usoCfdi !== "CN01"
+  ) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "NOMINA_USO_CFDI_NOT_CN01",
+      title: "CFDI de nómina con UsoCFDI distinto de CN01",
+      message: "El comprobante de tipo Nómina normalmente utiliza UsoCFDI CN01.",
+      recommendedAction: "Revisa si el CFDI de nómina fue emitido con el UsoCFDI correcto.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante! },
+        { label: "UsoCFDI", value: usoCfdiLabel ? `${usoCfdi!} - ${usoCfdiLabel}` : usoCfdi! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // E) METODO_PAGO_PPD_WITH_FORMA_PAGO_NOT_99
+  if (
+    isNonEmptyString(metodoPago) &&
+    normalizePaymentMethod(metodoPago) === "PPD" &&
+    isNonEmptyString(formaPago) &&
+    normalizePaymentForm(formaPago) !== "99"
+  ) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "METODO_PAGO_PPD_WITH_FORMA_PAGO_NOT_99",
+      title: "Método PPD con FormaPago distinta de 99",
+      message: "Cuando MetodoPago es PPD, FormaPago normalmente debe ser 99.",
+      recommendedAction: "Revisa la consistencia entre MetodoPago y FormaPago.",
+      evidence: [
+        {
+          label: "MetodoPago",
+          value: metodoPagoLabel ? `${metodoPago!} - ${metodoPagoLabel}` : metodoPago!,
+        },
+        {
+          label: "FormaPago",
+          value: formaPagoLabel ? `${formaPago!} - ${formaPagoLabel}` : formaPago!,
+        },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // F) METODO_PAGO_PUE_WITHOUT_FORMA_PAGO
+  if (
+    isNonEmptyString(metodoPago) &&
+    normalizePaymentMethod(metodoPago) === "PUE" &&
+    !isNonEmptyString(formaPago)
+  ) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "METODO_PAGO_PUE_WITHOUT_FORMA_PAGO",
+      title: "Método PUE sin FormaPago",
+      message: "Cuando MetodoPago es PUE, normalmente debe especificarse FormaPago.",
+      recommendedAction: "Revisa si falta capturar FormaPago en el comprobante.",
+      evidence: [
+        {
+          label: "MetodoPago",
+          value: metodoPagoLabel ? `${metodoPago!} - ${metodoPagoLabel}` : metodoPago!,
+        },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // G) FORMA_PAGO_PRESENT_WITHOUT_METODO_PAGO_REVIEW
+  if (
+    isNonEmptyString(formaPago) &&
+    !isNonEmptyString(metodoPago) &&
+    !isTrasladoType &&
+    !isPagoType
+  ) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "FORMA_PAGO_PRESENT_WITHOUT_METODO_PAGO_REVIEW",
+      title: "FormaPago presente sin MetodoPago",
+      message: "Se detectó FormaPago sin MetodoPago. Esto amerita revisión de consistencia.",
+      recommendedAction: "Verifica si el CFDI debe incluir MetodoPago junto con FormaPago.",
+      evidence: [
+        {
+          label: "FormaPago",
+          value: formaPagoLabel ? `${formaPago!} - ${formaPagoLabel}` : formaPago!,
+        },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // H) INGRESO_O_EGRESO_WITHOUT_METODO_FORMA_PAGO_REVIEW
+  if (isIngresoEgreso && !isNonEmptyString(metodoPago) && !isNonEmptyString(formaPago)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "INGRESO_O_EGRESO_WITHOUT_METODO_FORMA_PAGO_REVIEW",
+      title: "CFDI de ingreso/egreso sin datos de pago",
+      message: "El comprobante de ingreso o egreso no contiene MetodoPago ni FormaPago.",
+      recommendedAction: "Revisa si la omisión corresponde al escenario operativo del CFDI.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "MetodoPago", value: metodoPago ?? "—" },
+        { label: "FormaPago", value: formaPago ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // ── Emisor/Receptor Fiscal Consistency (A-R) ──
+
+  const regimenFiscalLabel = getRegimenFiscalLabel(regimenFiscal);
+  const regimenFiscalReceptorLabel = getRegimenFiscalLabel(regimenFiscalReceptor);
+  const isNominaStrict =
+    isNonEmptyString(tipoComprobante) && tipoComprobante!.trim().toUpperCase() === "N";
+
+  // A) EMISOR_REGIMEN_FISCAL_MISSING
+  if (isCfdi40 && !isNonEmptyString(regimenFiscal)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "EMISOR_REGIMEN_FISCAL_MISSING",
+      title: "Régimen fiscal del emisor faltante",
+      message: "No se detectó RégimenFiscal en el emisor del CFDI.",
+      recommendedAction: "Revisa que el nodo Emisor incluya RégimenFiscal conforme al CFDI 4.0.",
+      evidence: [
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+        { label: "Nombre emisor", value: nombreEmisor ?? "—" },
+        { label: "Versión", value: version ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // B) EMISOR_REGIMEN_FISCAL_UNKNOWN_REVIEW
+  if (isNonEmptyString(regimenFiscal) && !isKnownRegimenFiscal(regimenFiscal)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "EMISOR_REGIMEN_FISCAL_UNKNOWN_REVIEW",
+      title: "Régimen fiscal del emisor no reconocido",
+      message: "El RégimenFiscal del emisor no está reconocido por el catálogo mínimo local del motor.",
+      recommendedAction: "Revisa que el régimen fiscal del emisor sea válido para el CFDI.",
+      evidence: [
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+        { label: "RégimenFiscal", value: regimenFiscalLabel ? `${regimenFiscal!} - ${regimenFiscalLabel}` : regimenFiscal! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // C) RECEPTOR_REGIMEN_FISCAL_MISSING
+  if (isCfdi40 && !isNonEmptyString(regimenFiscalReceptor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RECEPTOR_REGIMEN_FISCAL_MISSING",
+      title: "Régimen fiscal del receptor faltante",
+      message: "No se detectó RégimenFiscalReceptor en el receptor del CFDI.",
+      recommendedAction: "Revisa que el nodo Receptor incluya RégimenFiscalReceptor conforme al CFDI 4.0.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+        { label: "UsoCFDI", value: usoCfdi ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // D) RECEPTOR_REGIMEN_FISCAL_UNKNOWN_REVIEW
+  if (isNonEmptyString(regimenFiscalReceptor) && !isKnownRegimenFiscal(regimenFiscalReceptor)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RECEPTOR_REGIMEN_FISCAL_UNKNOWN_REVIEW",
+      title: "Régimen fiscal del receptor no reconocido",
+      message: "El RégimenFiscalReceptor no está reconocido por el catálogo mínimo local del motor.",
+      recommendedAction: "Revisa que el régimen fiscal del receptor sea válido para el CFDI.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "RégimenFiscalReceptor", value: regimenFiscalReceptorLabel ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}` : regimenFiscalReceptor! },
+        { label: "UsoCFDI", value: usoCfdi ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // E) RECEPTOR_DOMICILIO_FISCAL_MISSING
+  if (isCfdi40 && !isNonEmptyString(domicilioFiscalReceptor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RECEPTOR_DOMICILIO_FISCAL_MISSING",
+      title: "Domicilio fiscal receptor faltante",
+      message: "No se detectó DomicilioFiscalReceptor en el CFDI.",
+      recommendedAction: "Revisa que el código postal fiscal del receptor esté capturado.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Nombre receptor", value: nombreReceptor ?? "—" },
+        { label: "RégimenFiscalReceptor", value: regimenFiscalReceptor ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // F) RECEPTOR_DOMICILIO_FISCAL_FORMAT_REVIEW
+  if (isNonEmptyString(domicilioFiscalReceptor) && !looksLikePostalCode(domicilioFiscalReceptor)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RECEPTOR_DOMICILIO_FISCAL_FORMAT_REVIEW",
+      title: "Formato de DomicilioFiscalReceptor requiere revisión",
+      message: "DomicilioFiscalReceptor no tiene formato básico de código postal de 5 dígitos.",
+      recommendedAction: "Confirma que el código postal fiscal del receptor sea correcto.",
+      evidence: [
+        { label: "DomicilioFiscalReceptor", value: domicilioFiscalReceptor! },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // G) EMISOR_RECEPTOR_SAME_RFC_REVIEW
+  if (isNonEmptyString(rfcEmisor) && isNonEmptyString(rfcReceptor) && normalizeRfc(rfcEmisor) === normalizeRfc(rfcReceptor) && !isNominaStrict) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "EMISOR_RECEPTOR_SAME_RFC_REVIEW",
+      title: "Emisor y receptor con el mismo RFC",
+      message: "El emisor y receptor tienen el mismo RFC. Puede ser válido en algunos escenarios, pero requiere revisión.",
+      recommendedAction: "Confirma si la operación permite que emisor y receptor sean el mismo contribuyente.",
+      evidence: [
+        { label: "RFC emisor", value: rfcEmisor! },
+        { label: "RFC receptor", value: rfcReceptor! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // K) FOREIGN_GENERIC_RFC_WITH_MXN_REVIEW
+  if (isGenericForeignRfc(rfcReceptor) && normalizeCurrency(moneda) === "MXN" && isNonEmptyString(exportacion) && ["02", "03", "04"].includes(normalizeExportacion(exportacion))) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "FOREIGN_GENERIC_RFC_WITH_MXN_REVIEW",
+      title: "RFC extranjero con exportación y moneda MXN",
+      message: "El receptor usa RFC genérico extranjero con operación marcada como exportación y moneda MXN.",
+      recommendedAction: "Confirma moneda, tipo de cambio y tratamiento de exportación.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "Moneda", value: moneda ?? "—" },
+        { label: "Exportacion", value: exportacion! },
+        { label: "TipoCambio", value: tipoCambio ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // M) RECEPTOR_NAME_EMPTY_REVIEW
+  if (isCfdi40 && !isNonEmptyString(nombreReceptor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RECEPTOR_NAME_EMPTY_REVIEW",
+      title: "Nombre del receptor faltante",
+      message: "No se detectó nombre del receptor en el CFDI.",
+      recommendedAction: "Revisa que el nodo Receptor incluya Nombre cuando aplique.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "UsoCFDI", value: usoCfdi ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // N) EMISOR_NAME_EMPTY_REVIEW
+  if (isCfdi40 && !isNonEmptyString(nombreEmisor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "EMISOR_NAME_EMPTY_REVIEW",
+      title: "Nombre del emisor faltante",
+      message: "No se detectó nombre del emisor en el CFDI.",
+      recommendedAction: "Revisa que el nodo Emisor incluya Nombre cuando aplique.",
+      evidence: [
+        { label: "RFC emisor", value: rfcEmisor ?? "—" },
+        { label: "RégimenFiscal", value: regimenFiscal ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // O) RECEPTOR_NOMINA_REGIMEN_REVIEW
+  if (isNominaStrict && isNonEmptyString(regimenFiscalReceptor) && regimenFiscalReceptor !== "605") {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RECEPTOR_NOMINA_REGIMEN_REVIEW",
+      title: "Nómina con régimen receptor distinto de sueldos y salarios",
+      message: "El CFDI de nómina tiene RégimenFiscalReceptor distinto de 605.",
+      recommendedAction: "Confirma que el régimen fiscal del receptor sea consistente con el recibo de nómina.",
+      evidence: [
+        { label: "Tipo comprobante", value: tipoComprobante! },
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "RégimenFiscalReceptor", value: regimenFiscalReceptorLabel ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}` : regimenFiscalReceptor! },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // Q) RECEPTOR_USO_CFDI_DEDUCCIONES_WITH_GENERIC_RFC_REVIEW
+  if (isNonEmptyString(usoCfdi) && isGenericRfc(rfcReceptor) && /^D\d\d$/.test(usoCfdi.trim())) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RECEPTOR_USO_CFDI_DEDUCCIONES_WITH_GENERIC_RFC_REVIEW",
+      title: "UsoCFDI de deducción personal con RFC genérico",
+      message: "El comprobante usa un UsoCFDI de deducción personal con RFC genérico, lo cual requiere revisión fiscal.",
+      recommendedAction: "Confirma que el receptor y el UsoCFDI sean correctos para efectos fiscales.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "UsoCFDI", value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // R) RECEPTOR_USO_CFDI_INVERSION_WITH_GENERIC_RFC_REVIEW
+  if (isNonEmptyString(usoCfdi) && isGenericRfc(rfcReceptor) && /^I\d\d$/.test(usoCfdi.trim())) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RECEPTOR_USO_CFDI_INVERSION_WITH_GENERIC_RFC_REVIEW",
+      title: "UsoCFDI de inversión con RFC genérico",
+      message: "El comprobante usa UsoCFDI de inversión con RFC genérico. Puede requerir revisión según el escenario.",
+      recommendedAction: "Confirma si el uso de CFDI y receptor son consistentes.",
+      evidence: [
+        { label: "RFC receptor", value: rfcReceptor ?? "—" },
+        { label: "UsoCFDI", value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi! },
+        { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
   // ── Executive Summary ──
   let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
   let summaryTitle: string;
   let summaryMessage: string;
   let summaryAction: string;
 
-  const hasCritical = findings.some(f => f.severity === "CRITICAL");
-  const hasWarning = findings.some(f => f.severity === "WARNING");
+  const hasCritical = findings.some((f) => f.severity === "CRITICAL");
+  const hasWarning = findings.some((f) => f.severity === "WARNING");
   const hasInfoOnly = findings.length > 0 && !hasCritical && !hasWarning;
 
   if (hasCritical) {
     riskLevel = "CRITICAL";
     summaryTitle = "XML con incidencias críticas";
-    summaryMessage = "Se detectaron hallazgos críticos que pueden afectar la lectura, consistencia fiscal o uso operativo del comprobante.";
-    summaryAction = "Revisa los hallazgos críticos antes de usar este XML en procesos fiscales, contables u operativos.";
+    summaryMessage =
+      "Se detectaron hallazgos críticos que pueden afectar la lectura, consistencia fiscal o uso operativo del comprobante.";
+    summaryAction =
+      "Revisa los hallazgos críticos antes de usar este XML en procesos fiscales, contables u operativos.";
   } else if (hasWarning) {
     riskLevel = "WARNING";
     summaryTitle = "XML con advertencias";
-    summaryMessage = "El comprobante pudo leerse, pero se detectaron advertencias que conviene revisar.";
-    summaryAction = "Revisa las advertencias para confirmar que corresponden al caso fiscal u operativo.";
+    summaryMessage =
+      "El comprobante pudo leerse, pero se detectaron advertencias que conviene revisar.";
+    summaryAction =
+      "Revisa las advertencias para confirmar que corresponden al caso fiscal u operativo.";
   } else {
     riskLevel = "OK";
     summaryTitle = "XML sin incidencias críticas detectadas";
-    summaryMessage = "El comprobante pudo leerse correctamente y no se detectaron hallazgos críticos ni advertencias.";
+    summaryMessage =
+      "El comprobante pudo leerse correctamente y no se detectaron hallazgos críticos ni advertencias.";
     summaryAction = "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
   }
 
@@ -3327,17 +6795,26 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   if (riskLevel !== "CRITICAL") {
-    if (findings.some(f => f.code === "BOM_UTF8_DETECTED")) {
-      summaryAction += " La normalización aplicada fue solo técnica (BOM/contenido previo), no fiscal.";
+    if (findings.some((f) => f.code === "BOM_UTF8_DETECTED")) {
+      summaryAction +=
+        " La normalización aplicada fue solo técnica (BOM/contenido previo), no fiscal.";
     }
-    if (findings.some(f => f.code === "UNSTAMPED_XML")) {
+    if (findings.some((f) => f.code === "UNSTAMPED_XML")) {
       summaryMessage += " El XML no está timbrado, lo que puede afectar su validez fiscal.";
-      summaryAction += " Verifica que el comprobante haya sido timbrado ante el SAT antes de utilizarlo.";
+      summaryAction +=
+        " Verifica que el comprobante haya sido timbrado ante el SAT antes de utilizarlo.";
     }
   }
 
   const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
-  const categoryOrder: Record<string, number> = { TOTALS: 0, FISCAL: 1, TAX: 2, TECHNICAL: 3, STRUCTURE: 4, COMPLEMENT: 5 };
+  const categoryOrder: Record<string, number> = {
+    TOTALS: 0,
+    FISCAL: 1,
+    TAX: 2,
+    TECHNICAL: 3,
+    STRUCTURE: 4,
+    COMPLEMENT: 5,
+  };
   findings.sort((a, b) => {
     const svA = severityOrder[a.severity] ?? 99;
     const svB = severityOrder[b.severity] ?? 99;
@@ -3362,7 +6839,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       : "cfdi-normalizado.xml";
     normalizedXml = {
       available: true,
-      reason: "Se detectó un problema técnico de codificación o contenido previo al XML. Fiscora generó una versión normalizada sin modificar el contenido fiscal ni el timbre del CFDI.",
+      reason:
+        "Se detectó un problema técnico de codificación o contenido previo al XML. Fiscora generó una versión normalizada sin modificar el contenido fiscal ni el timbre del CFDI.",
       filename: normalizedFilename,
       content: xmlContent,
       originalSha256,
@@ -3385,6 +6863,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     total,
     rfcEmisor,
     nombreEmisor,
+    regimenFiscal: regimenFiscal ?? undefined,
     rfcReceptor,
     nombreReceptor,
     fechaTimbrado,
@@ -3401,14 +6880,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     paymentComplement: paymentComplement ?? undefined,
     cfdiRelations,
     cartaPorte,
+    nomina,
+    comercioExterior,
     structureDiagnostics,
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,
     taxSummary: taxSummary ?? undefined,
+    globalTaxes: globalTaxes ?? undefined,
     normalizedXml,
     regimenFiscalReceptor: regimenFiscalReceptor ?? undefined,
     domicilioFiscalReceptor: domicilioFiscalReceptor ?? undefined,
     lugarExpedicion: lugarExpedicion ?? undefined,
+    exportacion: exportacion ?? undefined,
+    tipoCambio: tipoCambio ?? undefined,
     sello: sello ?? undefined,
     certificado: certificado ?? undefined,
     noCertificado: noCertificado ?? undefined,
@@ -3426,6 +6910,7 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     tipoComprobante: result.tipoComprobante,
     rfcEmisor: result.rfcEmisor,
     nombreEmisor: result.nombreEmisor,
+    regimenFiscal: result.regimenFiscal,
     rfcReceptor: result.rfcReceptor,
     nombreReceptor: result.nombreReceptor,
     fecha: result.fecha,
@@ -3449,14 +6934,19 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     paymentComplement: result.paymentComplement,
     cfdiRelations: result.cfdiRelations,
     cartaPorte: result.cartaPorte,
+    nomina: result.nomina,
+    comercioExterior: result.comercioExterior,
     structureDiagnostics: result.structureDiagnostics,
     concepts: result.concepts,
     totalsValidation: result.totalsValidation,
     taxSummary: result.taxSummary,
+    globalTaxes: result.globalTaxes,
     normalizedXml: result.normalizedXml,
     regimenFiscalReceptor: result.regimenFiscalReceptor,
     domicilioFiscalReceptor: result.domicilioFiscalReceptor,
     lugarExpedicion: result.lugarExpedicion,
+    exportacion: result.exportacion,
+    tipoCambio: result.tipoCambio,
     sello: result.sello,
     certificado: result.certificado,
     noCertificado: result.noCertificado,

@@ -132,7 +132,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       try {
         // Find user by email using the prisma instance from the plugin
-          const user = await fastify.prisma.user.findUnique({
+        const user = await fastify.prisma.user.findUnique({
           where: { email },
           select: {
             id: true,

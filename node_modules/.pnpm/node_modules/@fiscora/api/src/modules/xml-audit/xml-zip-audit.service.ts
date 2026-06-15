@@ -1,5 +1,10 @@
 import AdmZip from "adm-zip";
-import { analyzeCfdi, type CfdiAnalysisResult, type AnalysisResponse, type NormalizedXml } from "./xml-audit.service.js";
+import {
+  analyzeCfdi,
+  type CfdiAnalysisResult,
+  type AnalysisResponse,
+  type NormalizedXml,
+} from "./xml-audit.service.js";
 
 export interface FileTechnicalDiagnostics {
   bomDetected: boolean;
@@ -52,12 +57,7 @@ function inspectXmlBuffer(buffer: Buffer): FileTechnicalDiagnostics {
   let leadingContentBeforeXml = false;
   let startsWithXml = false;
 
-  if (
-    buffer.length >= 3 &&
-    buffer[0] === BOM_B1 &&
-    buffer[1] === BOM_B2 &&
-    buffer[2] === BOM_B3
-  ) {
+  if (buffer.length >= 3 && buffer[0] === BOM_B1 && buffer[1] === BOM_B2 && buffer[2] === BOM_B3) {
     bomDetected = true;
     notes.push("BOM UTF-8 detectado.");
   }
@@ -100,7 +100,9 @@ export interface ZipFullAnalysisFileResult {
   status: "ANALYZED" | "FAILED";
   errorCode?: string;
   errorMessage?: string;
-  analysis?: Omit<AnalysisResponse, "normalizedXml"> & { normalizedXml?: Omit<NormalizedXml, "content"> };
+  analysis?: Omit<AnalysisResponse, "normalizedXml"> & {
+    normalizedXml?: Omit<NormalizedXml, "content">;
+  };
 }
 
 export interface ZipFullAnalysisSummary {
@@ -141,7 +143,9 @@ export interface ZipFullAnalysisResult {
   };
 }
 
-function sanitizeNormalizedXml(nx: NormalizedXml | undefined): (Omit<NormalizedXml, "content">) | undefined {
+function sanitizeNormalizedXml(
+  nx: NormalizedXml | undefined,
+): Omit<NormalizedXml, "content"> | undefined {
   if (!nx) return undefined;
   return {
     available: nx.available,
@@ -263,7 +267,8 @@ export function analyzeZipFull(buffer: Buffer, originalFilename: string): ZipFul
       const cfdiResult = analyzeCfdi(content, entry.entryName);
 
       if (cfdiResult.technicalDiagnostics.bomDetected) summary.filesWithBom++;
-      if (cfdiResult.technicalDiagnostics.safeNormalizationApplied) summary.filesWithTechnicalNormalization++;
+      if (cfdiResult.technicalDiagnostics.safeNormalizationApplied)
+        summary.filesWithTechnicalNormalization++;
 
       const riskLevel = cfdiResult.executiveSummary.riskLevel;
       if (riskLevel === "CRITICAL") summary.criticalCount++;
@@ -535,21 +540,46 @@ export function generateNormalizedZip(buffer: Buffer, originalFilename: string):
 
   const bom = "\uFEFF";
   const csvHeader = [
-    "Archivo original", "Archivo salida", "Estado", "Motivo",
-    "UUID", "Tipo comprobante", "RFC emisor", "RFC receptor",
-    "Timbrado", "Tipo normalización", "Contenido fiscal modificado",
-    "Riesgo timbre/sello", "Hash original SHA-256", "Hash normalizado SHA-256",
-    "Código error", "Mensaje error",
-  ].map(h => escCsvManifest(h)).join(",");
-  const csvRows = manifestFiles.map(f =>
+    "Archivo original",
+    "Archivo salida",
+    "Estado",
+    "Motivo",
+    "UUID",
+    "Tipo comprobante",
+    "RFC emisor",
+    "RFC receptor",
+    "Timbrado",
+    "Tipo normalización",
+    "Contenido fiscal modificado",
+    "Riesgo timbre/sello",
+    "Hash original SHA-256",
+    "Hash normalizado SHA-256",
+    "Código error",
+    "Mensaje error",
+  ]
+    .map((h) => escCsvManifest(h))
+    .join(",");
+  const csvRows = manifestFiles.map((f) =>
     [
-      f.originalName, f.outputName ?? "", f.status, f.reason,
-      f.uuid ?? "", f.tipoComprobante ?? "", f.rfcEmisor ?? "", f.rfcReceptor ?? "",
+      f.originalName,
+      f.outputName ?? "",
+      f.status,
+      f.reason,
+      f.uuid ?? "",
+      f.tipoComprobante ?? "",
+      f.rfcEmisor ?? "",
+      f.rfcReceptor ?? "",
       f.isStamped === true ? "Sí" : f.isStamped === false ? "No" : "",
-      f.normalizationType ?? "", f.fiscalContentModified === true ? "Sí" : f.fiscalContentModified === false ? "No" : "",
-      f.stampRisk ?? "", f.originalSha256 ?? "", f.normalizedSha256 ?? "",
-      f.errorCode ?? "", f.errorMessage ?? "",
-    ].map(v => escCsvManifest(v)).join(","),
+      f.normalizationType ?? "",
+      f.fiscalContentModified === true ? "Sí" : f.fiscalContentModified === false ? "No" : "",
+      f.stampRisk ?? "",
+      f.originalSha256 ?? "",
+      f.normalizedSha256 ?? "",
+      f.errorCode ?? "",
+      f.errorMessage ?? "",
+    ]
+      .map((v) => escCsvManifest(v))
+      .join(","),
   );
   const csv = bom + csvHeader + "\r\n" + csvRows.join("\r\n");
   outZip.addFile("manifest/manifest.csv", Buffer.from(csv, "utf-8"));
@@ -633,7 +663,9 @@ export function analyzeZip(buffer: Buffer, originalFilename: string): AnalyzeZip
   }
 
   if (ts.filesWithBom > 0 || ts.filesWithLeadingContent > 0) {
-    warnings.push("Se detectaron XMLs con problemas técnicos reparables. En una fase posterior se podrá generar descarga normalizada masiva.");
+    warnings.push(
+      "Se detectaron XMLs con problemas técnicos reparables. En una fase posterior se podrá generar descarga normalizada masiva.",
+    );
   }
 
   return {

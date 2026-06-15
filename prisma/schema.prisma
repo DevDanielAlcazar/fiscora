@@ -8,60 +8,60 @@ generator client {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
-  passwordHash   String
-  name           String
-  role           String          @default("ORG_USER") // SUPER_ADMIN, ORG_ADMIN, ORG_USER, EXTERNAL_AUDITOR
-  status         String          @default("ACTIVE") // ACTIVE, BANNED, DELETED
-  bannedAt       DateTime?
-  bannedReason   String?
-  deletedAt      DateTime?
-  deletedReason  String?
-  organizationId String?
-  organization   Organization?   @relation(fields: [organizationId], references: [id])
-  auditLogs      AdminAuditLog[]
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  passwordHash       String
+  name               String
+  role               String              @default("ORG_USER") // SUPER_ADMIN, ORG_ADMIN, ORG_USER, EXTERNAL_AUDITOR
+  status             String              @default("ACTIVE") // ACTIVE, BANNED, DELETED
+  bannedAt           DateTime?
+  bannedReason       String?
+  deletedAt          DateTime?
+  deletedReason      String?
+  organizationId     String?
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  auditLogs          AdminAuditLog[]
   xmlAnalysisRecords XmlAnalysisRecord[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Organization {
-  id               String                    @id @default(uuid())
-  name             String
-  stripeCustomerId String?
-  accountType      String? // INDIVIDUAL, ORGANIZATION
-  rfc              String?
-  users            User[]
-  subscription     Subscription?
-  rfcProfiles      RfcProfile[]
-  usageEvents      UsageEvent[]
-  branding         AccountBranding?
-  xmlSessions      XmlAnalysisSession[]
-  laborSessions    LaborCalculationSession[]
+  id                 String                    @id @default(uuid())
+  name               String
+  stripeCustomerId   String?
+  accountType        String? // INDIVIDUAL, ORGANIZATION
+  rfc                String?
+  users              User[]
+  subscription       Subscription?
+  rfcProfiles        RfcProfile[]
+  usageEvents        UsageEvent[]
+  branding           AccountBranding?
+  xmlSessions        XmlAnalysisSession[]
+  laborSessions      LaborCalculationSession[]
   xmlAnalysisRecords XmlAnalysisRecord[]
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 }
 
 model Plan {
-  id             String            @id @default(uuid())
-  key            String            @unique // ESSENTIAL, PROFESSIONAL, CORPORATION, FORENSIC_AUDITOR
-  name           String
-  description    String?
-  stripePriceId  String            @unique
-  monthlyPriceCents Int?
-  yearlyPriceCents Int?
-  currency       String            @default("MXN")
+  id                   String             @id @default(uuid())
+  key                  String             @unique // ESSENTIAL, PROFESSIONAL, CORPORATION, FORENSIC_AUDITOR
+  name                 String
+  description          String?
+  stripePriceId        String             @unique
+  monthlyPriceCents    Int?
+  yearlyPriceCents     Int?
+  currency             String             @default("MXN")
   stripeMonthlyPriceId String?
-  stripeYearlyPriceId String?
-  features       Json?
-  isPublic       Boolean           @default(true)
-  maxUsers       Int               @default(1)
-  maxRfcProfiles Int               @default(1)
-  monthlyUsageLimit Int?
-  subscriptions  Subscription[]
-  moduleAccess   PlanModuleAccess[]
+  stripeYearlyPriceId  String?
+  features             Json?
+  isPublic             Boolean            @default(true)
+  maxUsers             Int                @default(1)
+  maxRfcProfiles       Int                @default(1)
+  monthlyUsageLimit    Int?
+  subscriptions        Subscription[]
+  moduleAccess         PlanModuleAccess[]
 }
 
 model Subscription {
@@ -81,29 +81,29 @@ model Subscription {
 }
 
 model Module {
-  id              String            @id @default(uuid())
-  key             String            @unique // AUDITORIA_XML, LABORAL, ADMIN_*
+  id              String             @id @default(uuid())
+  key             String             @unique // AUDITORIA_XML, LABORAL, ADMIN_*
   name            String
   description     String?
-  enabledGlobally Boolean           @default(true)
+  enabledGlobally Boolean            @default(true)
   planAccess      PlanModuleAccess[]
 }
 
 model PlanModuleAccess {
-  id              String   @id @default(uuid())
-  planId          String
-  moduleId        String
-  enabled         Boolean  @default(true)
-  adminOnly       Boolean  @default(false)
-  beta            Boolean  @default(false)
-  consumesUsage   Boolean  @default(true)
-  allowSingleXml  Boolean  @default(false)
-  allowZip        Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  planId         String
+  moduleId       String
+  enabled        Boolean  @default(true)
+  adminOnly      Boolean  @default(false)
+  beta           Boolean  @default(false)
+  consumesUsage  Boolean  @default(true)
+  allowSingleXml Boolean  @default(false)
+  allowZip       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  plan            Plan     @relation(fields: [planId], references: [id])
-  module          Module   @relation(fields: [moduleId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
 
   @@unique([planId, moduleId])
 }
@@ -166,10 +166,10 @@ model XmlAnalysisSession {
 }
 
 model XmlAnalysisRecord {
-  id                        String    @id @default(uuid())
+  id                        String   @id @default(uuid())
   organizationId            String?
   userId                    String
-  analysisStatus            String    @default("ANALYZED")
+  analysisStatus            String   @default("ANALYZED")
   errorCode                 String?
   errorMessage              String?
   uuid                      String?
@@ -186,29 +186,29 @@ model XmlAnalysisRecord {
   serie                     String?
   folio                     String?
   riskLevel                 String?
-  findingsCount             Int       @default(0)
-  criticalCount             Int       @default(0)
-  warningCount              Int       @default(0)
-  infoCount                 Int       @default(0)
-  hasBom                    Boolean   @default(false)
-  hasTechnicalNormalization Boolean   @default(false)
-  hasNormalizedXml          Boolean   @default(false)
+  findingsCount             Int      @default(0)
+  criticalCount             Int      @default(0)
+  warningCount              Int      @default(0)
+  infoCount                 Int      @default(0)
+  hasBom                    Boolean  @default(false)
+  hasTechnicalNormalization Boolean  @default(false)
+  hasNormalizedXml          Boolean  @default(false)
   normalizedFilename        String?
   originalSha256            String?
   normalizedSha256          String?
   analysisJson              Json
   expiresAt                 DateTime
-  createdAt                 DateTime  @default(now())
+  createdAt                 DateTime @default(now())
 
-  sourceType        String?
-  sourceFilename    String?
-  batchId           String?
-  zipFilename       String?
-  zipEntryName      String?
-  zipEntryIndex     Int?
+  sourceType     String?
+  sourceFilename String?
+  batchId        String?
+  zipFilename    String?
+  zipEntryName   String?
+  zipEntryIndex  Int?
 
-  user          User          @relation(fields: [userId], references: [id])
-  organization  Organization? @relation(fields: [organizationId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([userId])
   @@index([organizationId])

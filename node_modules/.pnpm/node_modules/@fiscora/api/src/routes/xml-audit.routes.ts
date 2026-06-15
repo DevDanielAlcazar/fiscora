@@ -2,9 +2,17 @@ import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { ModuleAccessService } from "../modules/modules/module-access.service.js";
 import { UsageService } from "../modules/usage/usage.service.js";
-import { analyzeCfdi, toAnalysisResponse, type AnalysisResponse } from "../modules/xml-audit/xml-audit.service.js";
+import {
+  analyzeCfdi,
+  toAnalysisResponse,
+  type AnalysisResponse,
+} from "../modules/xml-audit/xml-audit.service.js";
 import { XmlAnalysisRecordService } from "../modules/xml-audit/xml-analysis-record.service.js";
-import { analyzeZip, analyzeZipFull, generateNormalizedZip } from "../modules/xml-audit/xml-zip-audit.service.js";
+import {
+  analyzeZip,
+  analyzeZipFull,
+  generateNormalizedZip,
+} from "../modules/xml-audit/xml-zip-audit.service.js";
 
 const MODULE_KEY = "AUDITORIA_XML";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -33,7 +41,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         const error = err as { code?: string; message: string };
         if (error.code === "MODULE_NOT_ALLOWED") {
           return reply.code(403).send({
-            error: { code: "MODULE_NOT_ALLOWED", message: "No tienes acceso al módulo de Auditoría XML." },
+            error: {
+              code: "MODULE_NOT_ALLOWED",
+              message: "No tienes acceso al módulo de Auditoría XML.",
+            },
           });
         }
         if (error.code === "MODULE_NOT_FOUND") {
@@ -48,7 +59,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       if (!modulePermissions.allowSingleXml) {
         return reply.code(403).send({
-          error: { code: "MODULE_NOT_ALLOWED", message: "Tu plan no permite el análisis de XML individual." },
+          error: {
+            code: "MODULE_NOT_ALLOWED",
+            message: "Tu plan no permite el análisis de XML individual.",
+          },
         });
       }
 
@@ -73,7 +87,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         totalSize += chunk.length;
         if (totalSize > MAX_FILE_SIZE) {
           return reply.code(400).send({
-            error: { code: "FILE_TOO_LARGE", message: "El archivo excede el tamaño máximo de 5 MB." },
+            error: {
+              code: "FILE_TOO_LARGE",
+              message: "El archivo excede el tamaño máximo de 5 MB.",
+            },
           });
         }
         chunks.push(chunk);
@@ -117,7 +134,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
           const error = err as { code?: string; message: string };
           if (error.code === "USAGE_LIMIT_EXCEEDED") {
             return reply.code(403).send({
-              error: { code: "USAGE_LIMIT_EXCEEDED", message: "Has alcanzado el límite mensual de usos." },
+              error: {
+                code: "USAGE_LIMIT_EXCEEDED",
+                message: "Has alcanzado el límite mensual de usos.",
+              },
             });
           }
           return reply.code(500).send({
@@ -177,7 +197,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         const error = err as { code?: string; message: string };
         if (error.code === "MODULE_NOT_ALLOWED") {
           return reply.code(403).send({
-            error: { code: "MODULE_NOT_ALLOWED", message: "No tienes acceso al módulo de Auditoría XML." },
+            error: {
+              code: "MODULE_NOT_ALLOWED",
+              message: "No tienes acceso al módulo de Auditoría XML.",
+            },
           });
         }
         if (error.code === "MODULE_NOT_FOUND") {
@@ -192,7 +215,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       if (!modulePermissions.allowZip) {
         return reply.code(403).send({
-          error: { code: "ZIP_NOT_ALLOWED", message: "Tu plan no permite la carga de archivos ZIP." },
+          error: {
+            code: "ZIP_NOT_ALLOWED",
+            message: "Tu plan no permite la carga de archivos ZIP.",
+          },
         });
       }
 
@@ -217,7 +243,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         totalSize += chunk.length;
         if (totalSize > MAX_ZIP_FILE_SIZE) {
           return reply.code(400).send({
-            error: { code: "FILE_TOO_LARGE", message: "El archivo ZIP excede el tamaño máximo de 25 MB." },
+            error: {
+              code: "FILE_TOO_LARGE",
+              message: "El archivo ZIP excede el tamaño máximo de 25 MB.",
+            },
           });
         }
         chunks.push(chunk);
@@ -248,7 +277,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
           const error = err as { code?: string; message: string };
           if (error.code === "USAGE_LIMIT_EXCEEDED") {
             return reply.code(403).send({
-              error: { code: "USAGE_LIMIT_EXCEEDED", message: "Has alcanzado el límite mensual de usos." },
+              error: {
+                code: "USAGE_LIMIT_EXCEEDED",
+                message: "Has alcanzado el límite mensual de usos.",
+              },
             });
           }
           return reply.code(500).send({
@@ -332,7 +364,14 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
       };
 
       fastify.log.info(
-        { organizationId: request.user.organizationId, filename: file.filename, analyzedCount: result.analyzedCount, failedCount: result.failedCount, usageConsumed: !!result.usage, recordsSaved },
+        {
+          organizationId: request.user.organizationId,
+          filename: file.filename,
+          analyzedCount: result.analyzedCount,
+          failedCount: result.failedCount,
+          usageConsumed: !!result.usage,
+          recordsSaved,
+        },
         "ZIP full analysis completed",
       );
 
@@ -360,7 +399,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         const error = err as { code?: string; message: string };
         if (error.code === "MODULE_NOT_ALLOWED") {
           return reply.code(403).send({
-            error: { code: "MODULE_NOT_ALLOWED", message: "No tienes acceso al módulo de Auditoría XML." },
+            error: {
+              code: "MODULE_NOT_ALLOWED",
+              message: "No tienes acceso al módulo de Auditoría XML.",
+            },
           });
         }
         if (error.code === "MODULE_NOT_FOUND") {
@@ -375,7 +417,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       if (!modulePermissions.allowZip) {
         return reply.code(403).send({
-          error: { code: "ZIP_NOT_ALLOWED", message: "Tu plan no permite la carga de archivos ZIP." },
+          error: {
+            code: "ZIP_NOT_ALLOWED",
+            message: "Tu plan no permite la carga de archivos ZIP.",
+          },
         });
       }
 
@@ -399,7 +444,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         totalSize += chunk.length;
         if (totalSize > MAX_ZIP_FILE_SIZE) {
           return reply.code(400).send({
-            error: { code: "FILE_TOO_LARGE", message: "El archivo ZIP excede el tamaño máximo de 25 MB." },
+            error: {
+              code: "FILE_TOO_LARGE",
+              message: "El archivo ZIP excede el tamaño máximo de 25 MB.",
+            },
           });
         }
         chunks.push(chunk);
@@ -420,17 +468,26 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         const error = err as { code?: string; message: string };
         if (error.code === "NO_NORMALIZED_XMLS_AVAILABLE") {
           return reply.code(400).send({
-            error: { code: "NO_NORMALIZED_XMLS_AVAILABLE", message: "No se encontraron XMLs con normalización técnica segura disponible." },
+            error: {
+              code: "NO_NORMALIZED_XMLS_AVAILABLE",
+              message: "No se encontraron XMLs con normalización técnica segura disponible.",
+            },
           });
         }
         return reply.code(500).send({
-          error: { code: "INTERNAL_ERROR", message: error.message ?? "Error al generar ZIP de XMLs normalizados." },
+          error: {
+            code: "INTERNAL_ERROR",
+            message: error.message ?? "Error al generar ZIP de XMLs normalizados.",
+          },
         });
       }
 
       const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       reply.header("Content-Type", "application/zip");
-      reply.header("Content-Disposition", `attachment; filename="fiscora-xml-normalizados-${ts}.zip"`);
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename="fiscora-xml-normalizados-${ts}.zip"`,
+      );
       return reply.send(outZipBuffer);
     },
   });
@@ -456,7 +513,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         const error = err as { code?: string; message: string };
         if (error.code === "MODULE_NOT_ALLOWED") {
           return reply.code(403).send({
-            error: { code: "MODULE_NOT_ALLOWED", message: "No tienes acceso al módulo de Auditoría XML." },
+            error: {
+              code: "MODULE_NOT_ALLOWED",
+              message: "No tienes acceso al módulo de Auditoría XML.",
+            },
           });
         }
         if (error.code === "MODULE_NOT_FOUND") {
@@ -471,7 +531,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
 
       if (!modulePermissions.allowZip) {
         return reply.code(403).send({
-          error: { code: "ZIP_NOT_ALLOWED", message: "Tu plan no permite la carga de archivos ZIP." },
+          error: {
+            code: "ZIP_NOT_ALLOWED",
+            message: "Tu plan no permite la carga de archivos ZIP.",
+          },
         });
       }
 
@@ -496,7 +559,10 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
         totalSize += chunk.length;
         if (totalSize > MAX_ZIP_FILE_SIZE) {
           return reply.code(400).send({
-            error: { code: "FILE_TOO_LARGE", message: "El archivo ZIP excede el tamaño máximo de 25 MB." },
+            error: {
+              code: "FILE_TOO_LARGE",
+              message: "El archivo ZIP excede el tamaño máximo de 25 MB.",
+            },
           });
         }
         chunks.push(chunk);
@@ -516,7 +582,11 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
       const result = analyzeZip(buffer, file.filename);
 
       fastify.log.info(
-        { organizationId: request.user.organizationId, filename: file.filename, xmlFilesFound: result.xmlFilesFound },
+        {
+          organizationId: request.user.organizationId,
+          filename: file.filename,
+          xmlFilesFound: result.xmlFilesFound,
+        },
         "ZIP analyzed successfully",
       );
 

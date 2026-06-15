@@ -69,9 +69,7 @@ export default function AdminPlansPage() {
   }
 
   function updateField(planKey: string, field: string, value: unknown) {
-    setPlans((prev) =>
-      prev.map((p) => (p.key === planKey ? { ...p, [field]: value } : p)),
-    );
+    setPlans((prev) => prev.map((p) => (p.key === planKey ? { ...p, [field]: value } : p)));
   }
 
   if (loading) {
@@ -101,19 +99,21 @@ export default function AdminPlansPage() {
           </p>
         )}
         {error && (
-          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">
-            {error}
-          </p>
+          <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-4 py-3">{error}</p>
         )}
 
         <div className="space-y-6">
           {plans.map((plan) => (
             <div key={plan.key} className="p-6 rounded-xl border border-border bg-card space-y-4">
-              <h2 className="text-lg font-bold">{plan.key} — {plan.name}</h2>
+              <h2 className="text-lg font-bold">
+                {plan.key} — {plan.name}
+              </h2>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Nombre
+                  </label>
                   <input
                     type="text"
                     value={plan.name}
@@ -122,7 +122,9 @@ export default function AdminPlansPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Moneda</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Moneda
+                  </label>
                   <input
                     type="text"
                     value={plan.currency}
@@ -131,7 +133,9 @@ export default function AdminPlansPage() {
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Descripción</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Descripción
+                  </label>
                   <input
                     type="text"
                     value={plan.description ?? ""}
@@ -140,43 +144,69 @@ export default function AdminPlansPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Precio mensual (cents)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Precio mensual (cents)
+                  </label>
                   <input
                     type="number"
                     value={plan.monthlyPriceCents ?? ""}
-                    onChange={(e) => updateField(plan.key, "monthlyPriceCents", e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) =>
+                      updateField(
+                        plan.key,
+                        "monthlyPriceCents",
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Precio anual (cents)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Precio anual (cents)
+                  </label>
                   <input
                     type="number"
                     value={plan.yearlyPriceCents ?? ""}
-                    onChange={(e) => updateField(plan.key, "yearlyPriceCents", e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) =>
+                      updateField(
+                        plan.key,
+                        "yearlyPriceCents",
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Stripe Price ID (mensual)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Stripe Price ID (mensual)
+                  </label>
                   <input
                     type="text"
                     value={plan.stripeMonthlyPriceId ?? ""}
-                    onChange={(e) => updateField(plan.key, "stripeMonthlyPriceId", e.target.value || null)}
+                    onChange={(e) =>
+                      updateField(plan.key, "stripeMonthlyPriceId", e.target.value || null)
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Stripe Price ID (anual)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Stripe Price ID (anual)
+                  </label>
                   <input
                     type="text"
                     value={plan.stripeYearlyPriceId ?? ""}
-                    onChange={(e) => updateField(plan.key, "stripeYearlyPriceId", e.target.value || null)}
+                    onChange={(e) =>
+                      updateField(plan.key, "stripeYearlyPriceId", e.target.value || null)
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Máx. usuarios</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Máx. usuarios
+                  </label>
                   <input
                     type="number"
                     value={plan.maxUsers}
@@ -185,20 +215,32 @@ export default function AdminPlansPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Máx. RFCs</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Máx. RFCs
+                  </label>
                   <input
                     type="number"
                     value={plan.maxRfcProfiles}
-                    onChange={(e) => updateField(plan.key, "maxRfcProfiles", Number(e.target.value))}
+                    onChange={(e) =>
+                      updateField(plan.key, "maxRfcProfiles", Number(e.target.value))
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Límite usos mensuales</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Límite usos mensuales
+                  </label>
                   <input
                     type="number"
                     value={plan.monthlyUsageLimit ?? ""}
-                    onChange={(e) => updateField(plan.key, "monthlyUsageLimit", e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) =>
+                      updateField(
+                        plan.key,
+                        "monthlyUsageLimit",
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
                     className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                   />
                 </div>
@@ -210,18 +252,25 @@ export default function AdminPlansPage() {
                     onChange={(e) => updateField(plan.key, "isPublic", e.target.checked)}
                     className="rounded border-border"
                   />
-                  <label htmlFor={`public-${plan.key}`} className="text-xs font-medium text-muted-foreground">
+                  <label
+                    htmlFor={`public-${plan.key}`}
+                    className="text-xs font-medium text-muted-foreground"
+                  >
                     Público
                   </label>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Características (una por línea)</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Características (una por línea)
+                </label>
                 <textarea
                   rows={4}
                   value={plan.features?.join("\n") ?? ""}
-                  onChange={(e) => updateField(plan.key, "features", e.target.value.split("\n").filter(Boolean))}
+                  onChange={(e) =>
+                    updateField(plan.key, "features", e.target.value.split("\n").filter(Boolean))
+                  }
                   className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm"
                 />
               </div>

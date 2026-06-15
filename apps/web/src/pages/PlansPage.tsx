@@ -33,7 +33,9 @@ export default function PlansPage() {
       .finally(() => {
         getPlans()
           .then((data) => setPlans(data.plans))
-          .catch((err) => setFetchError(err instanceof Error ? err.message : "Error al cargar planes"))
+          .catch((err) =>
+            setFetchError(err instanceof Error ? err.message : "Error al cargar planes"),
+          )
           .finally(() => setLoading(false));
       });
   }, [navigate]);

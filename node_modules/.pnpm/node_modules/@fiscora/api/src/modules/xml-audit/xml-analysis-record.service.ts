@@ -46,9 +46,9 @@ export class XmlAnalysisRecordService {
     const { prisma, userId, organizationId, analysis, source } = params;
 
     const findings = analysis.findings ?? [];
-    const criticalCount = findings.filter(f => f.severity === "CRITICAL").length;
-    const warningCount = findings.filter(f => f.severity === "WARNING").length;
-    const infoCount = findings.filter(f => f.severity === "INFO").length;
+    const criticalCount = findings.filter((f) => f.severity === "CRITICAL").length;
+    const warningCount = findings.filter((f) => f.severity === "WARNING").length;
+    const infoCount = findings.filter((f) => f.severity === "INFO").length;
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -94,8 +94,22 @@ export class XmlAnalysisRecordService {
     });
   }
 
-  static async saveFailedXmlAnalysisRecord(params: SaveFailedXmlAnalysisRecordParams): Promise<void> {
-    const { prisma, userId, organizationId, sourceType, batchId, zipFilename, zipEntryName, zipEntryIndex, sourceFilename, errorCode, errorMessage } = params;
+  static async saveFailedXmlAnalysisRecord(
+    params: SaveFailedXmlAnalysisRecordParams,
+  ): Promise<void> {
+    const {
+      prisma,
+      userId,
+      organizationId,
+      sourceType,
+      batchId,
+      zipFilename,
+      zipEntryName,
+      zipEntryIndex,
+      sourceFilename,
+      errorCode,
+      errorMessage,
+    } = params;
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);

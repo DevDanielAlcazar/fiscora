@@ -20,21 +20,31 @@ const updateUserStatusBodySchema = z.object({
   reason: z.string().optional(),
 });
 
-const createUserBodySchema = z.object({
-  name: z.string().min(1, "El nombre es requerido"),
-  email: z.string().email("Email inválido"),
-  password: z.string().min(12, "La contraseña debe tener al menos 12 caracteres"),
-  accountType: z.enum(["INDIVIDUAL", "ORGANIZATION"]),
-  organizationName: z.string().optional(),
-}).refine(
-  (data) => data.accountType !== "ORGANIZATION" || (data.organizationName && data.organizationName.length > 0),
-  { message: "organizationName es requerido para cuentas ORGANIZATION", path: ["organizationName"] },
-);
+const createUserBodySchema = z
+  .object({
+    name: z.string().min(1, "El nombre es requerido"),
+    email: z.string().email("Email inválido"),
+    password: z.string().min(12, "La contraseña debe tener al menos 12 caracteres"),
+    accountType: z.enum(["INDIVIDUAL", "ORGANIZATION"]),
+    organizationName: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      data.accountType !== "ORGANIZATION" ||
+      (data.organizationName && data.organizationName.length > 0),
+    {
+      message: "organizationName es requerido para cuentas ORGANIZATION",
+      path: ["organizationName"],
+    },
+  );
 
 const updateUserBodySchema = z.object({
   name: z.string().min(1, "El nombre no puede estar vacío").optional(),
   email: z.string().email("Email inválido").optional(),
-  organizationName: z.string().min(1, "El nombre de la organización no puede estar vacío").optional(),
+  organizationName: z
+    .string()
+    .min(1, "El nombre de la organización no puede estar vacío")
+    .optional(),
 });
 
 const adminUpdatePlanSchema = z.object({
@@ -354,7 +364,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const buffer = await workbook.xlsx.writeBuffer();
 
-      reply.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      reply.header(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
       reply.header("Content-Disposition", 'attachment; filename="fiscora-usuarios.xlsx"');
       return reply.send(buffer);
     },
@@ -522,7 +535,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         ok: true,
-        message: status === "BANNED" ? "Usuario suspendido correctamente." : "Usuario reactivado correctamente.",
+        message:
+          status === "BANNED"
+            ? "Usuario suspendido correctamente."
+            : "Usuario reactivado correctamente.",
       });
     },
   });
@@ -578,8 +594,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const passwordHash = await PasswordService.hashPassword(password);
-      const orgName =
-        accountType === "ORGANIZATION" ? organizationName || name : name;
+      const orgName = accountType === "ORGANIZATION" ? organizationName || name : name;
 
       const result = await fastify.prisma.$transaction(async (tx) => {
         const org = await tx.organization.create({
@@ -622,10 +637,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         },
       });
 
-      fastify.log.info(
-        { userId: createdUser!.id, email, accountType },
-        "User created by admin",
-      );
+      fastify.log.info({ userId: createdUser!.id, email, accountType }, "User created by admin");
 
       return reply.code(201).send({ ok: true, user: createdUser });
     },
@@ -799,7 +811,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       if (query.riskLevel) where.riskLevel = query.riskLevel;
       if (query.rfcEmisor) where.rfcEmisor = { contains: query.rfcEmisor, mode: "insensitive" };
-      if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
+      if (query.rfcReceptor)
+        where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
       if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
       if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
       if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
@@ -935,7 +948,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const where: Record<string, unknown> = {};
       if (query.riskLevel) where.riskLevel = query.riskLevel;
       if (query.rfcEmisor) where.rfcEmisor = { contains: query.rfcEmisor, mode: "insensitive" };
-      if (query.rfcReceptor) where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
+      if (query.rfcReceptor)
+        where.rfcReceptor = { contains: query.rfcReceptor, mode: "insensitive" };
       if (query.uuid) where.uuid = { contains: query.uuid, mode: "insensitive" };
       if (query.tipoComprobante) where.tipoComprobante = query.tipoComprobante;
       if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
@@ -1000,16 +1014,45 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const header = [
-        "ID", "Fecha analisis", "Expira", "Usuario ID", "Usuario email",
-        "Organizacion ID", "Organizacion", "Estado analisis",
-        "Codigo error", "Mensaje error",
-        "UUID", "Tipo comprobante",
-        "RFC emisor", "Nombre emisor", "RFC receptor", "Nombre receptor",
-        "Fecha CFDI", "Subtotal", "Total", "Moneda", "Version", "Serie",
-        "Folio", "Riesgo", "Hallazgos", "Criticos", "Advertencias",
-        "Informativos", "BOM", "Normalizacion tecnica", "XML normalizado",
-        "Archivo normalizado", "Hash original SHA-256", "Hash normalizado SHA-256",
-        "Origen", "Archivo fuente", "Batch ID", "ZIP filename", "ZIP entry",
+        "ID",
+        "Fecha analisis",
+        "Expira",
+        "Usuario ID",
+        "Usuario email",
+        "Organizacion ID",
+        "Organizacion",
+        "Estado analisis",
+        "Codigo error",
+        "Mensaje error",
+        "UUID",
+        "Tipo comprobante",
+        "RFC emisor",
+        "Nombre emisor",
+        "RFC receptor",
+        "Nombre receptor",
+        "Fecha CFDI",
+        "Subtotal",
+        "Total",
+        "Moneda",
+        "Version",
+        "Serie",
+        "Folio",
+        "Riesgo",
+        "Hallazgos",
+        "Criticos",
+        "Advertencias",
+        "Informativos",
+        "BOM",
+        "Normalizacion tecnica",
+        "XML normalizado",
+        "Archivo normalizado",
+        "Hash original SHA-256",
+        "Hash normalizado SHA-256",
+        "Origen",
+        "Archivo fuente",
+        "Batch ID",
+        "ZIP filename",
+        "ZIP entry",
         "ZIP entry index",
       ].join(",");
 
@@ -1062,7 +1105,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const csv = bom + header + "\r\n" + rows.join("\r\n");
 
       reply.header("Content-Type", "text/csv; charset=utf-8");
-      reply.header("Content-Disposition", 'attachment; filename="fiscora-analisis-xml-recientes.csv"');
+      reply.header(
+        "Content-Disposition",
+        'attachment; filename="fiscora-analisis-xml-recientes.csv"',
+      );
       return reply.send(csv);
     },
   });
@@ -1210,7 +1256,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
       };
 
       if (query.batchId) recordWhere.batchId = query.batchId;
-      if (query.zipFilename) recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
+      if (query.zipFilename)
+        recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
       if (query.from || query.to) {
         const createdAt: Record<string, Date> = {};
         if (query.from) createdAt.gte = new Date(query.from);
@@ -1270,19 +1317,21 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       // Build batch summary items
       const allBatches = Array.from(groups.entries()).map(([batchId, records]) => {
-        const first = records.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
-        const last = records.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
-        const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
+        const first = records.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
+        const last = records.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+        const expiresAt = records.reduce((a, b) => (a.expiresAt < b.expiresAt ? a : b)).expiresAt;
 
-        const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
-        const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+        const analyzedCount = records.filter((r) => r.analysisStatus === "ANALYZED").length;
+        const failedCount = records.filter((r) => r.analysisStatus === "FAILED").length;
         const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
         const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
         const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
-        const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
-        const recordsWithBom = records.filter(r => r.hasBom).length;
-        const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
-        const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+        const okCount = records.filter(
+          (r) => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK",
+        ).length;
+        const recordsWithBom = records.filter((r) => r.hasBom).length;
+        const recordsWithNormalization = records.filter((r) => r.hasTechnicalNormalization).length;
+        const recordsWithNormalizedXml = records.filter((r) => r.hasNormalizedXml).length;
 
         const tiposComprobante: Record<string, number> = {};
         for (const r of records) {
@@ -1319,14 +1368,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
       let filtered = allBatches;
       if (query.userEmail) {
         const q = query.userEmail.toLowerCase();
-        filtered = filtered.filter(b => b.userEmail.toLowerCase().includes(q));
+        filtered = filtered.filter((b) => b.userEmail.toLowerCase().includes(q));
       }
       if (query.organizationName) {
         const q = query.organizationName.toLowerCase();
-        filtered = filtered.filter(b => b.organizationName?.toLowerCase().includes(q) ?? false);
+        filtered = filtered.filter((b) => b.organizationName?.toLowerCase().includes(q) ?? false);
       }
-      if (query.hasFailed === "true") filtered = filtered.filter(b => b.failedCount > 0);
-      if (query.hasCritical === "true") filtered = filtered.filter(b => b.criticalCount > 0);
+      if (query.hasFailed === "true") filtered = filtered.filter((b) => b.failedCount > 0);
+      if (query.hasCritical === "true") filtered = filtered.filter((b) => b.criticalCount > 0);
 
       // Sort by most recent first
       filtered.sort((a, b) => b.createdAtFirst.getTime() - a.createdAtFirst.getTime());
@@ -1373,7 +1422,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
       };
 
       if (query.batchId) recordWhere.batchId = query.batchId;
-      if (query.zipFilename) recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
+      if (query.zipFilename)
+        recordWhere.zipFilename = { contains: query.zipFilename, mode: "insensitive" };
       if (query.from || query.to) {
         const createdAt: Record<string, Date> = {};
         if (query.from) createdAt.gte = new Date(query.from);
@@ -1415,29 +1465,47 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const allBatches = Array.from(groups.entries()).map(([batchId, records]) => {
-        const first = records.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
-        const last = records.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
-        const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
-        const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
-        const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+        const first = records.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
+        const last = records.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+        const expiresAt = records.reduce((a, b) => (a.expiresAt < b.expiresAt ? a : b)).expiresAt;
+        const analyzedCount = records.filter((r) => r.analysisStatus === "ANALYZED").length;
+        const failedCount = records.filter((r) => r.analysisStatus === "FAILED").length;
         const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
         const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
         const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
-        const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
-        const recordsWithBom = records.filter(r => r.hasBom).length;
-        const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
-        const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+        const okCount = records.filter(
+          (r) => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK",
+        ).length;
+        const recordsWithBom = records.filter((r) => r.hasBom).length;
+        const recordsWithNormalization = records.filter((r) => r.hasTechnicalNormalization).length;
+        const recordsWithNormalizedXml = records.filter((r) => r.hasNormalizedXml).length;
         const tipos: Record<string, number> = {};
-        for (const r of records) if (r.tipoComprobante) tipos[r.tipoComprobante] = (tipos[r.tipoComprobante] ?? 0) + 1;
+        for (const r of records)
+          if (r.tipoComprobante) tipos[r.tipoComprobante] = (tipos[r.tipoComprobante] ?? 0) + 1;
 
         return {
-          batchId, zipFilename: first.zipFilename ?? "—",
-          createdAtFirst: first.createdAt, createdAtLast: last.createdAt, expiresAt,
-          userId: first.userId, userEmail: first.user.email,
-          organizationId: first.organizationId, organizationName: first.organization?.name ?? null,
-          totalRecords: records.length, analyzedCount, failedCount, criticalCount, warningCount, infoCount, okCount,
-          recordsWithBom, recordsWithNormalization, recordsWithNormalizedXml,
-          tiposComprobante: Object.entries(tipos).map(([k, v]) => `${k}: ${v}`).join(" | "),
+          batchId,
+          zipFilename: first.zipFilename ?? "—",
+          createdAtFirst: first.createdAt,
+          createdAtLast: last.createdAt,
+          expiresAt,
+          userId: first.userId,
+          userEmail: first.user.email,
+          organizationId: first.organizationId,
+          organizationName: first.organization?.name ?? null,
+          totalRecords: records.length,
+          analyzedCount,
+          failedCount,
+          criticalCount,
+          warningCount,
+          infoCount,
+          okCount,
+          recordsWithBom,
+          recordsWithNormalization,
+          recordsWithNormalizedXml,
+          tiposComprobante: Object.entries(tipos)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" | "),
           hasFailed: failedCount > 0 ? "Sí" : "No",
           hasCritical: criticalCount > 0 ? "Sí" : "No",
         };
@@ -1446,14 +1514,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
       let filtered = allBatches;
       if (query.userEmail) {
         const q = query.userEmail.toLowerCase();
-        filtered = filtered.filter(b => b.userEmail.toLowerCase().includes(q));
+        filtered = filtered.filter((b) => b.userEmail.toLowerCase().includes(q));
       }
       if (query.organizationName) {
         const q = query.organizationName.toLowerCase();
-        filtered = filtered.filter(b => b.organizationName?.toLowerCase().includes(q) ?? false);
+        filtered = filtered.filter((b) => b.organizationName?.toLowerCase().includes(q) ?? false);
       }
-      if (query.hasFailed === "true") filtered = filtered.filter(b => b.failedCount > 0);
-      if (query.hasCritical === "true") filtered = filtered.filter(b => b.criticalCount > 0);
+      if (query.hasFailed === "true") filtered = filtered.filter((b) => b.failedCount > 0);
+      if (query.hasCritical === "true") filtered = filtered.filter((b) => b.criticalCount > 0);
 
       filtered.sort((a, b) => b.createdAtFirst.getTime() - a.createdAtFirst.getTime());
       const exportItems = filtered.slice(0, 5000);
@@ -1465,23 +1533,54 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const header = [
-        "Batch ID", "ZIP", "Fecha inicio", "Fecha fin", "Expira",
-        "Usuario ID", "Usuario email", "Organizacion ID", "Organizacion",
-        "Total registros", "Analizados", "Fallidos",
-        "Criticos", "Advertencias", "Informativos", "OK",
-        "XMLs con BOM", "XMLs con normalizacion tecnica", "XMLs normalizados",
-        "Tipos de comprobante", "Tiene fallidos", "Tiene criticos",
+        "Batch ID",
+        "ZIP",
+        "Fecha inicio",
+        "Fecha fin",
+        "Expira",
+        "Usuario ID",
+        "Usuario email",
+        "Organizacion ID",
+        "Organizacion",
+        "Total registros",
+        "Analizados",
+        "Fallidos",
+        "Criticos",
+        "Advertencias",
+        "Informativos",
+        "OK",
+        "XMLs con BOM",
+        "XMLs con normalizacion tecnica",
+        "XMLs normalizados",
+        "Tipos de comprobante",
+        "Tiene fallidos",
+        "Tiene criticos",
       ].join(",");
 
       const rows = exportItems.map((b) =>
         [
-          esc(b.batchId), esc(b.zipFilename),
-          esc(b.createdAtFirst.toISOString()), esc(b.createdAtLast.toISOString()), esc(b.expiresAt.toISOString()),
-          esc(b.userId), esc(b.userEmail), esc(b.organizationId), esc(b.organizationName),
-          String(b.totalRecords), String(b.analyzedCount), String(b.failedCount),
-          String(b.criticalCount), String(b.warningCount), String(b.infoCount), String(b.okCount),
-          String(b.recordsWithBom), String(b.recordsWithNormalization), String(b.recordsWithNormalizedXml),
-          esc(b.tiposComprobante), esc(b.hasFailed), esc(b.hasCritical),
+          esc(b.batchId),
+          esc(b.zipFilename),
+          esc(b.createdAtFirst.toISOString()),
+          esc(b.createdAtLast.toISOString()),
+          esc(b.expiresAt.toISOString()),
+          esc(b.userId),
+          esc(b.userEmail),
+          esc(b.organizationId),
+          esc(b.organizationName),
+          String(b.totalRecords),
+          String(b.analyzedCount),
+          String(b.failedCount),
+          String(b.criticalCount),
+          String(b.warningCount),
+          String(b.infoCount),
+          String(b.okCount),
+          String(b.recordsWithBom),
+          String(b.recordsWithNormalization),
+          String(b.recordsWithNormalizedXml),
+          esc(b.tiposComprobante),
+          esc(b.hasFailed),
+          esc(b.hasCritical),
         ].join(","),
       );
 
@@ -1557,17 +1656,19 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const first = records[0];
       const last = records[records.length - 1];
-      const expiresAt = records.reduce((a, b) => a.expiresAt < b.expiresAt ? a : b).expiresAt;
+      const expiresAt = records.reduce((a, b) => (a.expiresAt < b.expiresAt ? a : b)).expiresAt;
 
-      const analyzedCount = records.filter(r => r.analysisStatus === "ANALYZED").length;
-      const failedCount = records.filter(r => r.analysisStatus === "FAILED").length;
+      const analyzedCount = records.filter((r) => r.analysisStatus === "ANALYZED").length;
+      const failedCount = records.filter((r) => r.analysisStatus === "FAILED").length;
       const criticalCount = records.reduce((s, r) => s + r.criticalCount, 0);
       const warningCount = records.reduce((s, r) => s + r.warningCount, 0);
       const infoCount = records.reduce((s, r) => s + r.infoCount, 0);
-      const okCount = records.filter(r => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK").length;
-      const recordsWithBom = records.filter(r => r.hasBom).length;
-      const recordsWithNormalization = records.filter(r => r.hasTechnicalNormalization).length;
-      const recordsWithNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+      const okCount = records.filter(
+        (r) => r.analysisStatus === "ANALYZED" && r.riskLevel === "OK",
+      ).length;
+      const recordsWithBom = records.filter((r) => r.hasBom).length;
+      const recordsWithNormalization = records.filter((r) => r.hasTechnicalNormalization).length;
+      const recordsWithNormalizedXml = records.filter((r) => r.hasNormalizedXml).length;
 
       const tiposComprobante: Record<string, number> = {};
       for (const r of records) {
@@ -1707,16 +1808,43 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const header = [
-        "Batch ID", "ZIP", "Indice ZIP", "Entrada ZIP",
-        "Estado analisis", "Codigo error", "Mensaje error",
-        "Fecha analisis", "Expira",
-        "Usuario ID", "Usuario email", "Organizacion ID", "Organizacion",
-        "UUID", "Tipo comprobante", "RFC emisor", "Nombre emisor",
-        "RFC receptor", "Nombre receptor", "Fecha CFDI",
-        "Subtotal", "Total", "Moneda", "Version", "Serie", "Folio",
-        "Riesgo", "Hallazgos", "Criticos", "Advertencias", "Informativos",
-        "BOM", "Normalizacion tecnica", "XML normalizado",
-        "Archivo normalizado", "Hash original SHA-256", "Hash normalizado SHA-256",
+        "Batch ID",
+        "ZIP",
+        "Indice ZIP",
+        "Entrada ZIP",
+        "Estado analisis",
+        "Codigo error",
+        "Mensaje error",
+        "Fecha analisis",
+        "Expira",
+        "Usuario ID",
+        "Usuario email",
+        "Organizacion ID",
+        "Organizacion",
+        "UUID",
+        "Tipo comprobante",
+        "RFC emisor",
+        "Nombre emisor",
+        "RFC receptor",
+        "Nombre receptor",
+        "Fecha CFDI",
+        "Subtotal",
+        "Total",
+        "Moneda",
+        "Version",
+        "Serie",
+        "Folio",
+        "Riesgo",
+        "Hallazgos",
+        "Criticos",
+        "Advertencias",
+        "Informativos",
+        "BOM",
+        "Normalizacion tecnica",
+        "XML normalizado",
+        "Archivo normalizado",
+        "Hash original SHA-256",
+        "Hash normalizado SHA-256",
       ].join(",");
 
       const rows = records.map((r) =>
@@ -1765,7 +1893,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const csv = bom + header + "\r\n" + rows.join("\r\n");
 
       reply.header("Content-Type", "text/csv; charset=utf-8");
-      reply.header("Content-Disposition", `attachment; filename="fiscora-lote-xml-zip-${batchId}.csv"`);
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename="fiscora-lote-xml-zip-${batchId}.csv"`,
+      );
       return reply.send(csv);
     },
   });
@@ -1840,35 +1971,37 @@ export async function adminRoutes(fastify: FastifyInstance) {
         },
       });
 
-      const rangeFrom = records.length > 0
-        ? records.reduce((a, b) => a.createdAt < b.createdAt ? a : b).createdAt.toISOString()
-        : null;
-      const rangeTo = records.length > 0
-        ? records.reduce((a, b) => a.createdAt > b.createdAt ? a : b).createdAt.toISOString()
-        : null;
+      const rangeFrom =
+        records.length > 0
+          ? records.reduce((a, b) => (a.createdAt < b.createdAt ? a : b)).createdAt.toISOString()
+          : null;
+      const rangeTo =
+        records.length > 0
+          ? records.reduce((a, b) => (a.createdAt > b.createdAt ? a : b)).createdAt.toISOString()
+          : null;
 
-      const analyzed = records.filter(r => r.analysisStatus === "ANALYZED").length;
-      const failed = records.filter(r => r.analysisStatus === "FAILED").length;
-      const individual = records.filter(r => r.sourceType === "INDIVIDUAL").length;
-      const zip = records.filter(r => r.sourceType === "ZIP").length;
+      const analyzed = records.filter((r) => r.analysisStatus === "ANALYZED").length;
+      const failed = records.filter((r) => r.analysisStatus === "FAILED").length;
+      const individual = records.filter((r) => r.sourceType === "INDIVIDUAL").length;
+      const zip = records.filter((r) => r.sourceType === "ZIP").length;
 
-      const batchIds = new Set(records.filter(r => r.batchId).map(r => r.batchId!));
-      const userIds = new Set(records.map(r => r.userId));
-      const orgIds = new Set(records.filter(r => r.organizationId).map(r => r.organizationId!));
+      const batchIds = new Set(records.filter((r) => r.batchId).map((r) => r.batchId!));
+      const userIds = new Set(records.map((r) => r.userId));
+      const orgIds = new Set(records.filter((r) => r.organizationId).map((r) => r.organizationId!));
 
-      const riskCritical = records.filter(r => r.riskLevel === "CRITICAL").length;
-      const riskWarning = records.filter(r => r.riskLevel === "WARNING").length;
-      const riskOk = records.filter(r => r.riskLevel === "OK").length;
-      const riskNull = records.filter(r => !r.riskLevel).length;
+      const riskCritical = records.filter((r) => r.riskLevel === "CRITICAL").length;
+      const riskWarning = records.filter((r) => r.riskLevel === "WARNING").length;
+      const riskOk = records.filter((r) => r.riskLevel === "OK").length;
+      const riskNull = records.filter((r) => !r.riskLevel).length;
 
       const totalFindings = records.reduce((s, r) => s + r.findingsCount, 0);
       const totalCritical = records.reduce((s, r) => s + r.criticalCount, 0);
       const totalWarnings = records.reduce((s, r) => s + r.warningCount, 0);
       const totalInfo = records.reduce((s, r) => s + r.infoCount, 0);
 
-      const withBom = records.filter(r => r.hasBom).length;
-      const withTechnicalNormalization = records.filter(r => r.hasTechnicalNormalization).length;
-      const withNormalizedXml = records.filter(r => r.hasNormalizedXml).length;
+      const withBom = records.filter((r) => r.hasBom).length;
+      const withTechnicalNormalization = records.filter((r) => r.hasTechnicalNormalization).length;
+      const withNormalizedXml = records.filter((r) => r.hasNormalizedXml).length;
 
       // Group by tipoComprobante
       const tipoMap = new Map<string, number>();
@@ -1901,7 +2034,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
         .sort((a, b) => b.count - a.count);
 
       // Top organizations
-      const orgMap = new Map<string, { organizationName: string; records: number; failed: number; critical: number; withBom: number }>();
+      const orgMap = new Map<
+        string,
+        {
+          organizationName: string;
+          records: number;
+          failed: number;
+          critical: number;
+          withBom: number;
+        }
+      >();
       for (const r of records) {
         if (!r.organizationId) continue;
         const key = r.organizationId;
@@ -1927,7 +2069,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
         .slice(0, 10);
 
       // Top users
-      const userMap = new Map<string, { userEmail: string; records: number; failed: number; critical: number; withBom: number }>();
+      const userMap = new Map<
+        string,
+        { userEmail: string; records: number; failed: number; critical: number; withBom: number }
+      >();
       for (const r of records) {
         const key = r.userId;
         const entry = userMap.get(key);
@@ -1952,7 +2097,19 @@ export async function adminRoutes(fastify: FastifyInstance) {
         .slice(0, 10);
 
       // Recent batches (deduplicate by batchId, keep first occurrence sorted by createdAt desc)
-      const batchMap = new Map<string, { batchId: string; zipFilename: string; createdAt: Date; organizationName: string | null; userEmail: string; totalRecords: number; failed: number; critical: number }>();
+      const batchMap = new Map<
+        string,
+        {
+          batchId: string;
+          zipFilename: string;
+          createdAt: Date;
+          organizationName: string | null;
+          userEmail: string;
+          totalRecords: number;
+          failed: number;
+          critical: number;
+        }
+      >();
       for (const r of records) {
         if (!r.batchId) continue;
         const key = r.batchId;
@@ -1977,7 +2134,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const recentBatches = Array.from(batchMap.values())
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 10)
-        .map(b => ({ ...b, createdAt: b.createdAt.toISOString() }));
+        .map((b) => ({ ...b, createdAt: b.createdAt.toISOString() }));
 
       return reply.send({
         range: { from: rangeFrom, to: rangeTo },

@@ -177,6 +177,94 @@ export interface Finding {
   evidence?: { label: string; value?: string }[];
 }
 
+export interface GlobalTaxLine {
+  type: "TRANSFERRED" | "WITHHELD";
+  impuesto?: string | null;
+  tipoFactor?: string | null;
+  tasaOCuota?: string | null;
+  base?: string | null;
+  importe?: string | null;
+}
+
+export interface GlobalTaxesInfo {
+  totalImpuestosTrasladados?: string | null;
+  totalImpuestosRetenidos?: string | null;
+  transferred: GlobalTaxLine[];
+  withheld: GlobalTaxLine[];
+}
+
+export interface NominaReceptorInfo {
+  curp?: string | null;
+  numSeguridadSocial?: string | null;
+  fechaInicioRelLaboral?: string | null;
+  antiguedad?: string | null;
+  tipoContrato?: string | null;
+  sindicalizado?: string | null;
+  tipoJornada?: string | null;
+  tipoRegimen?: string | null;
+  numEmpleado?: string | null;
+  departamento?: string | null;
+  puesto?: string | null;
+  riesgoPuesto?: string | null;
+  periodicidadPago?: string | null;
+  banco?: string | null;
+  cuentaBancaria?: string | null;
+  salarioBaseCotApor?: string | null;
+  salarioDiarioIntegrado?: string | null;
+  claveEntFed?: string | null;
+}
+
+export interface NominaPercepcionInfo {
+  tipoPercepcion?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importeGravado?: string | null;
+  importeExento?: string | null;
+}
+
+export interface NominaDeduccionInfo {
+  tipoDeduccion?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importe?: string | null;
+}
+
+export interface NominaOtroPagoInfo {
+  tipoOtroPago?: string | null;
+  clave?: string | null;
+  concepto?: string | null;
+  importe?: string | null;
+}
+
+export interface NominaInfo {
+  version?: string | null;
+  tipoNomina?: string | null;
+  fechaPago?: string | null;
+  fechaInicialPago?: string | null;
+  fechaFinalPago?: string | null;
+  numDiasPagados?: string | null;
+  totalPercepciones?: string | null;
+  totalDeducciones?: string | null;
+  totalOtrosPagos?: string | null;
+  receptor?: NominaReceptorInfo;
+  percepciones: NominaPercepcionInfo[];
+  deducciones: NominaDeduccionInfo[];
+  otrosPagos: NominaOtroPagoInfo[];
+}
+
+export interface ComercioExteriorInfo {
+  version?: string | null;
+  tipoOperacion?: string | null;
+  claveDePedimento?: string | null;
+  certificadoOrigen?: string | null;
+  numeroExportadorConfiable?: string | null;
+  incoterm?: string | null;
+  subDivision?: string | null;
+  observaciones?: string | null;
+  tipoCambioUSD?: string | null;
+  totalUSD?: string | null;
+}
+
 export interface NormalizedXml {
   available: boolean;
   reason: string;
@@ -194,6 +282,7 @@ export interface AnalysisResult {
   tipoComprobante: string | null;
   rfcEmisor: string | null;
   nombreEmisor: string | null;
+  regimenFiscal?: string | null;
   rfcReceptor: string | null;
   nombreReceptor: string | null;
   fecha: string | null;
@@ -217,14 +306,19 @@ export interface AnalysisResult {
   paymentComplement?: PaymentComplement;
   cfdiRelations?: CfdiRelations;
   cartaPorte?: CartaPorteInfo;
+  nomina?: NominaInfo;
+  comercioExterior?: ComercioExteriorInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;
   taxSummary?: TaxSummary;
+  globalTaxes?: GlobalTaxesInfo;
   normalizedXml?: NormalizedXml;
   regimenFiscalReceptor?: string | null;
   domicilioFiscalReceptor?: string | null;
   lugarExpedicion?: string | null;
+  exportacion?: string | null;
+  tipoCambio?: string | null;
   sello?: string | null;
   certificado?: string | null;
   noCertificado?: string | null;

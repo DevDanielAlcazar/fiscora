@@ -378,7 +378,10 @@ export async function getXmlAnalyses(
   return res.json();
 }
 
-export async function getXmlAnalysisDetail(token: string, id: string): Promise<XmlAnalysisDetailResponse> {
+export async function getXmlAnalysisDetail(
+  token: string,
+  id: string,
+): Promise<XmlAnalysisDetailResponse> {
   const res = await fetch(`/api/admin/xml-analyses/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -398,7 +401,10 @@ export async function getXmlAnalysisDetail(token: string, id: string): Promise<X
   return res.json();
 }
 
-export async function exportXmlAnalyses(token: string, query: XmlAnalysesQuery = {}): Promise<Blob> {
+export async function exportXmlAnalyses(
+  token: string,
+  query: XmlAnalysesQuery = {},
+): Promise<Blob> {
   const params = new URLSearchParams();
   if (query.riskLevel) params.set("riskLevel", query.riskLevel);
   if (query.rfcEmisor) params.set("rfcEmisor", query.rfcEmisor);
@@ -697,7 +703,10 @@ export async function getXmlAnalyticsSummary(
   return res.json();
 }
 
-export async function getXmlAnalysisBatchDetail(token: string, batchId: string): Promise<XmlAnalysisBatchDetailResponse> {
+export async function getXmlAnalysisBatchDetail(
+  token: string,
+  batchId: string,
+): Promise<XmlAnalysisBatchDetailResponse> {
   const res = await fetch(`/api/admin/xml-analysis-batches/${encodeURIComponent(batchId)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

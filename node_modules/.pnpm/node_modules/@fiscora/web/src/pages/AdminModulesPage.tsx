@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api/auth";
-import { getModuleAccessMatrix, updateModuleAccess, type PlanModuleAccessEntry } from "../api/admin";
+import {
+  getModuleAccessMatrix,
+  updateModuleAccess,
+  type PlanModuleAccessEntry,
+} from "../api/admin";
 
 export default function AdminModulesPage() {
   const navigate = useNavigate();
@@ -57,7 +61,14 @@ export default function AdminModulesPage() {
     return labels[field] ?? field;
   }
 
-  const checkboxFields = ["enabled", "adminOnly", "beta", "consumesUsage", "allowSingleXml", "allowZip"] as const;
+  const checkboxFields = [
+    "enabled",
+    "adminOnly",
+    "beta",
+    "consumesUsage",
+    "allowSingleXml",
+    "allowZip",
+  ] as const;
 
   if (loading) {
     return (
@@ -90,7 +101,9 @@ export default function AdminModulesPage() {
         <h1 className="text-2xl font-extrabold tracking-tight">Permisos de módulos</h1>
 
         {successMsg && (
-          <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-4 py-3">{successMsg}</p>
+          <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-4 py-3">
+            {successMsg}
+          </p>
         )}
 
         {error && (
