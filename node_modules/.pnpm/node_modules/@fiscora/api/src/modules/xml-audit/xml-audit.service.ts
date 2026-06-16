@@ -332,6 +332,49 @@ export interface ImpuestosLocalesInfo {
   traslados: ImpuestoLocalTrasladoInfo[];
 }
 
+export interface AddendaSignal {
+  key: string;
+  label: string;
+  value: string;
+  path: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+}
+
+export interface AddendaNodeSummary {
+  path: string;
+  name: string;
+  childCount: number;
+  scalarFields: number;
+}
+
+export interface AddendaInfo {
+  detected: boolean;
+  rootKeys: string[];
+  nodeCount: number;
+  maxDepth: number;
+  signals: AddendaSignal[];
+  nodeSummary: AddendaNodeSummary[];
+  truncated: boolean;
+}
+
+export interface LeyendaFiscalInfo {
+  disposicionFiscal?: string | null;
+  norma?: string | null;
+  textoLeyenda?: string | null;
+}
+
+export interface LeyendasFiscalesInfo {
+  version?: string | null;
+  leyendas: LeyendaFiscalInfo[];
+}
+
+export interface DonatariasInfo {
+  version?: string | null;
+  noAutorizacion?: string | null;
+  fechaAutorizacion?: string | null;
+  leyenda?: string | null;
+}
+
 export interface CfdiAnalysisResult {
   uuid: string | null;
   version: string | null;
@@ -364,6 +407,9 @@ export interface CfdiAnalysisResult {
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
   impuestosLocales?: ImpuestosLocalesInfo;
+  leyendasFiscales?: LeyendasFiscalesInfo;
+  donatarias?: DonatariasInfo;
+  addenda?: AddendaInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -417,6 +463,9 @@ export interface AnalysisResponse {
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
   impuestosLocales?: ImpuestosLocalesInfo;
+  leyendasFiscales?: LeyendasFiscalesInfo;
+  donatarias?: DonatariasInfo;
+  addenda?: AddendaInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
   totalsValidation?: TotalsValidation | null;
@@ -551,6 +600,20 @@ function isTipoComprobanteTraslado(tipo: string | null | undefined): boolean {
 function normalizeText(value: string | null | undefined): string {
   if (!value) return "";
   return value.trim();
+}
+
+function truncateStr(value: string | null | undefined, maxLength: number): string {
+  if (!value) return "—";
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return trimmed.slice(0, maxLength) + "...";
+}
+
+function looksLikeAuthorizationNumber(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const cleaned = value.trim();
+  if (cleaned.length < 3 || cleaned.length > 30) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9\s\-/.]{1,28}[A-Za-z0-9]$/.test(cleaned);
 }
 
 function looksLikeCurp(value: string | null | undefined): boolean {
@@ -795,6 +858,158 @@ function extractGlobalTaxes(comprobante: Record<string, unknown>): GlobalTaxesIn
   return { totalImpuestosTrasladados, totalImpuestosRetenidos, transferred, withheld };
 }
 
+const MAX_ADDENDA_DEPTH = 6;
+const MAX_ADDENDA_SIGNALS = 50;
+const MAX_ADDENDA_NODE_SUMMARY = 30;
+const ADDENDA_VALUE_TRUNCATE = 120;
+
+function normalizeAddendaKey(key: string): string {
+  return key
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .replace(/[_\-:.\s]+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function classifyAddendaSignal(normalizedKey: string, path: string, value: string): { label: string; confidence: "HIGH" | "MEDIUM" | "LOW" } | null {
+  const highKeywords: Record<string, string[]> = {
+    PURCHASE_ORDER: ["ordencompra", "ordendecompra", "purchaseorder", "purchaseordernumber", "po", "ponumber", "pedido", "pedidoexterno", "numpedido", "numeropedido", "ordernumber"],
+    GOODS_RECEIPT: ["entradamercancia", "entrada", "recepcion", "receipt", "goodsreceipt", "gr", "grnumber", "remision", "deliverynote", "recepcionmercancia"],
+    VENDOR_ID: ["proveedor", "vendor", "supplier", "supplierid", "vendorid", "numeroproveedor", "numproveedor"],
+    CUSTOMER_ID: ["cliente", "customer", "customerid", "shipto", "soldto", "billto"],
+    REFERENCE: ["referencia", "reference", "ref", "foliointerno", "documentref", "documentreference"],
+    COMPANY_CODE: ["sociedad", "companycode", "bukrs"],
+    PLANT: ["centro", "plant", "werks", "site"],
+  };
+  for (const [label, keywords] of Object.entries(highKeywords)) {
+    if (keywords.some((kw) => normalizedKey.includes(kw))) {
+      return { label, confidence: "HIGH" };
+    }
+  }
+
+  const mediumKeywords: Record<string, string[]> = {
+    CONTRACT: ["contract", "contrato"],
+    COST_CENTER: ["costcenter", "centrocosto"],
+    SHIPMENT: ["route", "ruta", "shipment", "embarque", "delivery", "entrega"],
+  };
+  for (const [label, keywords] of Object.entries(mediumKeywords)) {
+    if (keywords.some((kw) => normalizedKey.includes(kw))) {
+      return { label, confidence: "MEDIUM" };
+    }
+  }
+
+  if (/^(id|number|numero|folio|code|codigo)/.test(normalizedKey)) {
+    return { label: "GENERIC_IDENTIFIER", confidence: "LOW" };
+  }
+
+  return null;
+}
+
+function extractAddendaInfo(addendaNode: Record<string, unknown>): AddendaInfo {
+  const signals: AddendaSignal[] = [];
+  const nodeSummary: AddendaNodeSummary[] = [];
+  let nodeCount = 0;
+  let maxDepth = 0;
+  let truncated = false;
+
+  function traverse(node: Record<string, unknown>, currentPath: string, depth: number): void {
+    if (depth > MAX_ADDENDA_DEPTH) {
+      truncated = true;
+      return;
+    }
+    if (depth > maxDepth) maxDepth = depth;
+    const keys = Object.keys(node);
+    let childCount = 0;
+    let scalarFields = 0;
+
+    for (const key of keys) {
+      if (key.startsWith("@_")) continue;
+      const val = node[key];
+      const childPath = currentPath ? `${currentPath}/${key}` : key;
+
+      if (val === null || val === undefined) continue;
+
+      if (typeof val === "object" && !Array.isArray(val)) {
+        const childKeys = Object.keys(val as Record<string, unknown>).filter((k) => !k.startsWith("@_"));
+        if (childKeys.length > 0) {
+          childCount++;
+          traverse(val as Record<string, unknown>, childPath, depth + 1);
+          continue;
+        }
+      }
+
+      // scalar value reached
+      scalarFields++;
+
+      if (signals.length >= MAX_ADDENDA_SIGNALS) {
+        truncated = true;
+        continue;
+      }
+
+      const strVal = typeof val === "string" ? val : String(val);
+      if (!strVal || strVal.length === 0) continue;
+      if (strVal === "true" || strVal === "false") {
+        if (!/(?:id|number|numero|folio|code|codigo|ref)/i.test(key)) continue;
+      }
+      if (strVal.length > 200 && !/\s/.test(strVal.trim())) {
+        // long string without spaces that might still be a key
+      }
+
+      const truncatedVal = strVal.length > ADDENDA_VALUE_TRUNCATE
+        ? strVal.slice(0, ADDENDA_VALUE_TRUNCATE) + "..."
+        : strVal;
+
+      const normalizedKey = normalizeAddendaKey(key);
+      const classification = classifyAddendaSignal(normalizedKey, childPath, truncatedVal);
+      if (classification) {
+        signals.push({
+          key,
+          label: classification.label,
+          value: truncatedVal,
+          path: childPath,
+          confidence: classification.confidence,
+        });
+      }
+    }
+
+    if (currentPath) {
+      nodeSummary.push({
+        path: currentPath,
+        name: currentPath.split("/").pop() ?? currentPath,
+        childCount,
+        scalarFields,
+      });
+    }
+    nodeCount++;
+  }
+
+  const rootKeys = Object.keys(addendaNode).filter((k) => !k.startsWith("@_"));
+  for (const rootKey of rootKeys) {
+    const child = addendaNode[rootKey];
+    if (child && typeof child === "object" && !Array.isArray(child)) {
+      traverse(child as Record<string, unknown>, rootKey, 1);
+    }
+  }
+
+  // Truncate summaries if needed
+  const limitedSummary = nodeSummary.slice(0, MAX_ADDENDA_NODE_SUMMARY);
+  if (nodeSummary.length > MAX_ADDENDA_NODE_SUMMARY) truncated = true;
+
+  // Truncate signals if needed
+  const limitedSignals = signals.slice(0, MAX_ADDENDA_SIGNALS);
+  if (signals.length > MAX_ADDENDA_SIGNALS) truncated = true;
+
+  return {
+    detected: rootKeys.length > 0,
+    rootKeys,
+    nodeCount,
+    maxDepth,
+    signals: limitedSignals,
+    nodeSummary: limitedSummary,
+    truncated,
+  };
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RFC_MORAL = /^[A-ZÑ&]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 const RFC_FISICA = /^[A-ZÑ&]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
@@ -970,6 +1185,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     "Pagos",
     "ImpuestosLocales",
     "LeyendasFiscales",
+    "Donatarias",
     "CartaPorte",
     "ComercioExterior",
     "Retenciones",
@@ -1010,6 +1226,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const hasAddenda =
     addendaNode !== null && typeof addendaNode === "object" && Object.keys(addendaNode).length > 0;
   const addendaDetected = hasAddenda;
+
+  let addenda: AddendaInfo | undefined;
+  if (addendaDetected && addendaNode) {
+    addenda = extractAddendaInfo(addendaNode);
+  }
 
   if (addendaDetected) {
     nodeShapeNotes.push("Addenda detectada en el comprobante");
@@ -1737,6 +1958,58 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     };
   }
 
+  // ── Leyendas Fiscales extraction ──
+  let leyendasFiscales: LeyendasFiscalesInfo | undefined;
+
+  const leyendasFiscalesNode =
+    (get(complemento, "leyendasFisc:LeyendasFiscales") as Record<string, unknown>) ??
+    (get(complemento, "LeyendasFiscales") as Record<string, unknown>) ??
+    null;
+
+  if (
+    leyendasFiscalesNode &&
+    typeof leyendasFiscalesNode === "object" &&
+    Object.keys(leyendasFiscalesNode).length > 0
+  ) {
+    const lfVersion = strAttr(leyendasFiscalesNode, "Version");
+    const rawLeyenda =
+      (get(leyendasFiscalesNode, "leyendasFisc:Leyenda") as unknown) ??
+      (get(leyendasFiscalesNode, "Leyenda") as unknown);
+    const leyendasRaw = Array.isArray(rawLeyenda) ? rawLeyenda : rawLeyenda ? [rawLeyenda] : [];
+
+    const leyendas: LeyendaFiscalInfo[] = (leyendasRaw as Record<string, unknown>[]).map((l) => ({
+      disposicionFiscal: str(get(l, "@_DisposicionFiscal")) ?? null,
+      norma: str(get(l, "@_Norma")) ?? null,
+      textoLeyenda: str(get(l, "@_TextoLeyenda")) ?? null,
+    }));
+
+    leyendasFiscales = {
+      version: lfVersion,
+      leyendas,
+    };
+  }
+
+  // ── Donatarias extraction ──
+  let donatarias: DonatariasInfo | undefined;
+
+  const donatariasNode =
+    (get(complemento, "donat:Donatarias") as Record<string, unknown>) ??
+    (get(complemento, "Donatarias") as Record<string, unknown>) ??
+    null;
+
+  if (
+    donatariasNode &&
+    typeof donatariasNode === "object" &&
+    Object.keys(donatariasNode).length > 0
+  ) {
+    donatarias = {
+      version: strAttr(donatariasNode, "Version"),
+      noAutorizacion: strAttr(donatariasNode, "NoAutorizacion"),
+      fechaAutorizacion: strAttr(donatariasNode, "FechaAutorizacion"),
+      leyenda: strAttr(donatariasNode, "Leyenda"),
+    };
+  }
+
   // ── Totals validation (Ingreso/Egreso only) ──
   let totalsValidation: TotalsValidation | null = null;
 
@@ -2085,18 +2358,6 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       message:
         "El CFDI no contiene TimbreFiscalDigital; podría no estar timbrado ni válido ante el SAT.",
       recommendedAction: "Solicita al emisor el XML timbrado o verifica en el portal del SAT.",
-    });
-  }
-
-  if (structureDiagnostics.hasAddenda) {
-    addFindingOnce({
-      severity: "INFO",
-      category: "STRUCTURE",
-      code: "ADDENDA_DETECTED",
-      title: "Addenda detectada",
-      message:
-        "El comprobante contiene Addenda, utilizada típicamente para intercambio de datos entre sistemas privados.",
-      recommendedAction: "Revisa que la addenda no interfiera con la validez fiscal del CFDI.",
     });
   }
 
@@ -5065,6 +5326,435 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
   }
 
+  // ── Addenda Findings ──
+  if (addenda) {
+    // A) ADDENDA_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "STRUCTURE",
+      code: "ADDENDA_DETECTED",
+      title: "Addenda detectada",
+      message:
+        "El XML contiene Addenda. Se extrajeron señales comerciales de forma heurística y limitada.",
+      recommendedAction:
+        "Revisa si las referencias comerciales detectadas son suficientes para el proceso operativo o ERP.",
+      evidence: [
+        { label: "Root keys", value: addenda.rootKeys.join(", ") || "—" },
+        { label: "Node count", value: String(addenda.nodeCount) },
+        { label: "Max depth", value: String(addenda.maxDepth) },
+        { label: "Señales detectadas", value: String(addenda.signals.length) },
+        { label: "Truncado", value: addenda.truncated ? "Sí" : "No" },
+      ],
+    });
+
+    // B) ADDENDA_NO_BUSINESS_SIGNALS_REVIEW
+    if (addenda.signals.length === 0) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "STRUCTURE",
+        code: "ADDENDA_NO_BUSINESS_SIGNALS_REVIEW",
+        title: "Addenda sin señales comerciales reconocidas",
+        message:
+          "Se detectó Addenda, pero el motor no identificó referencias comerciales conocidas.",
+        recommendedAction:
+          "Revisa manualmente si la Addenda contiene datos específicos del cliente o ERP.",
+        evidence: [
+          { label: "Root keys", value: addenda.rootKeys.join(", ") || "—" },
+          { label: "Node count", value: String(addenda.nodeCount) },
+          { label: "Max depth", value: String(addenda.maxDepth) },
+        ],
+      });
+    }
+
+    // C) ADDENDA_PURCHASE_ORDER_DETECTED
+    const poSignals = addenda.signals.filter(
+      (s) => s.label === "PURCHASE_ORDER" && (s.confidence === "HIGH" || s.confidence === "MEDIUM"),
+    );
+    if (poSignals.length > 0) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "STRUCTURE",
+        code: "ADDENDA_PURCHASE_ORDER_DETECTED",
+        title: "Orden de compra detectada en Addenda",
+        message:
+          "Se detectó una posible orden de compra o pedido dentro de la Addenda.",
+        recommendedAction:
+          "Usa esta referencia para conciliación operativa o match contra ERP si aplica.",
+        evidence: poSignals.slice(0, 5).map((s) => ({
+          label: `Señal PURCHASE_ORDER`,
+          value: `${s.path} = ${s.value} (${s.confidence})`,
+        })),
+      });
+    }
+
+    // D) ADDENDA_GOODS_RECEIPT_DETECTED
+    const grSignals = addenda.signals.filter(
+      (s) => s.label === "GOODS_RECEIPT" && (s.confidence === "HIGH" || s.confidence === "MEDIUM"),
+    );
+    if (grSignals.length > 0) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "STRUCTURE",
+        code: "ADDENDA_GOODS_RECEIPT_DETECTED",
+        title: "Recepción o entrada de mercancía detectada en Addenda",
+        message:
+          "Se detectó una posible recepción, entrada de mercancía o goods receipt dentro de la Addenda.",
+        recommendedAction:
+          "Usa esta referencia para conciliación operativa si aplica.",
+        evidence: grSignals.slice(0, 5).map((s) => ({
+          label: `Señal GOODS_RECEIPT`,
+          value: `${s.path} = ${s.value} (${s.confidence})`,
+        })),
+      });
+    }
+
+    // E) ADDENDA_VENDOR_REFERENCE_DETECTED
+    const vendorSignals = addenda.signals.filter(
+      (s) => s.label === "VENDOR_ID" && (s.confidence === "HIGH" || s.confidence === "MEDIUM"),
+    );
+    if (vendorSignals.length > 0) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "STRUCTURE",
+        code: "ADDENDA_VENDOR_REFERENCE_DETECTED",
+        title: "Referencia de proveedor detectada en Addenda",
+        message:
+          "Se detectó una posible referencia de proveedor dentro de la Addenda.",
+        recommendedAction:
+          "Valida si esta referencia corresponde al número de proveedor usado por el cliente o ERP.",
+        evidence: vendorSignals.slice(0, 5).map((s) => ({
+          label: `Señal VENDOR_ID`,
+          value: `${s.path} = ${s.value} (${s.confidence})`,
+        })),
+      });
+    }
+
+    // F) ADDENDA_TRUNCATED_REVIEW
+    if (addenda.truncated) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "STRUCTURE",
+        code: "ADDENDA_TRUNCATED_REVIEW",
+        title: "Addenda truncada por límites de seguridad",
+        message:
+          "El análisis de Addenda fue limitado para evitar exponer contenido excesivo o afectar rendimiento.",
+        recommendedAction:
+          "Si necesitas revisar todos los campos de Addenda, usa el XML original de forma controlada.",
+        evidence: [
+          { label: "Node count", value: String(addenda.nodeCount) },
+          { label: "Max depth", value: String(addenda.maxDepth) },
+          { label: "Signals returned", value: String(addenda.signals.length) },
+          { label: "Node summary returned", value: String(addenda.nodeSummary.length) },
+        ],
+      });
+    }
+  }
+
+  // ── Leyendas Fiscales Findings ──
+  if (leyendasFiscales) {
+    // A) LEYENDAS_FISCALES_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "LEYENDAS_FISCALES_DETECTED",
+      title: "Complemento Leyendas Fiscales detectado",
+      message:
+        "El XML contiene complemento Leyendas Fiscales. Se realizará una revisión base de versión y leyendas declaradas.",
+      recommendedAction:
+        "Revisa que las leyendas fiscales correspondan al supuesto normativo aplicable.",
+      evidence: [
+        { label: "Versión", value: leyendasFiscales.version ?? "—" },
+        { label: "Total leyendas", value: String(leyendasFiscales.leyendas.length) },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+
+    // B) LEYENDAS_FISCALES_MISSING_VERSION
+    if (!isNonEmptyString(leyendasFiscales.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "LEYENDAS_FISCALES_MISSING_VERSION",
+        title: "Versión de Leyendas Fiscales faltante",
+        message: "No se detectó la versión del complemento Leyendas Fiscales.",
+        recommendedAction: "Verifica que el complemento Leyendas Fiscales esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "Total leyendas", value: String(leyendasFiscales.leyendas.length) },
+        ],
+      });
+    }
+
+    // C) LEYENDAS_FISCALES_VERSION_REVIEW
+    if (isNonEmptyString(leyendasFiscales.version) && !["1.0"].includes(leyendasFiscales.version)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "LEYENDAS_FISCALES_VERSION_REVIEW",
+        title: "Versión de Leyendas Fiscales requiere revisión",
+        message:
+          "El complemento Leyendas Fiscales tiene una versión no reconocida por el motor actual.",
+        recommendedAction: "Confirma que la versión del complemento corresponda al XML analizado.",
+        evidence: [
+          { label: "Versión detectada", value: leyendasFiscales.version },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // D) LEYENDAS_FISCALES_WITHOUT_LEYENDAS
+    if (leyendasFiscales.leyendas.length === 0) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "LEYENDAS_FISCALES_WITHOUT_LEYENDAS",
+        title: "Leyendas Fiscales sin leyendas",
+        message: "El complemento Leyendas Fiscales no contiene nodos Leyenda.",
+        recommendedAction:
+          "Revisa si el complemento fue generado incompleto o si no debía incluirse.",
+        evidence: [
+          { label: "Versión", value: leyendasFiscales.version ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // Per-leyenda findings
+    leyendasFiscales.leyendas.forEach((ley, idx) => {
+      const nro = idx + 1;
+
+      // E) LEYENDA_FISCAL_MISSING_TEXT
+      if (!isNonEmptyString(ley.textoLeyenda)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "COMPLEMENT",
+          code: "LEYENDA_FISCAL_MISSING_TEXT",
+          title: "Leyenda fiscal sin texto",
+          message: "Una leyenda fiscal no contiene TextoLeyenda.",
+          recommendedAction: "Revisa el texto de la leyenda fiscal declarada.",
+          evidence: [
+            { label: "Leyenda #", value: String(nro) },
+            { label: "DisposicionFiscal", value: ley.disposicionFiscal ?? "—" },
+            { label: "Norma", value: ley.norma ?? "—" },
+          ],
+        });
+      }
+
+      // F) LEYENDA_FISCAL_MISSING_NORMA_REVIEW
+      if (!isNonEmptyString(ley.norma)) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "COMPLEMENT",
+          code: "LEYENDA_FISCAL_MISSING_NORMA_REVIEW",
+          title: "Leyenda fiscal sin norma",
+          message:
+            "No se detectó Norma en una leyenda fiscal. Puede requerir revisión según el supuesto aplicable.",
+          recommendedAction: "Confirma si la leyenda fiscal debe indicar Norma.",
+          evidence: [
+            { label: "Leyenda #", value: String(nro) },
+            { label: "DisposicionFiscal", value: ley.disposicionFiscal ?? "—" },
+            { label: "TextoLeyenda", value: truncateStr(ley.textoLeyenda, 80) },
+          ],
+        });
+      }
+
+      // G) LEYENDA_FISCAL_MISSING_DISPOSICION_REVIEW
+      if (!isNonEmptyString(ley.disposicionFiscal)) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "COMPLEMENT",
+          code: "LEYENDA_FISCAL_MISSING_DISPOSICION_REVIEW",
+          title: "Leyenda fiscal sin disposición fiscal",
+          message:
+            "No se detectó DisposicionFiscal en una leyenda fiscal. Puede requerir revisión según el supuesto aplicable.",
+          recommendedAction: "Confirma si la leyenda fiscal debe indicar disposición fiscal.",
+          evidence: [
+            { label: "Leyenda #", value: String(nro) },
+            { label: "Norma", value: ley.norma ?? "—" },
+            { label: "TextoLeyenda", value: truncateStr(ley.textoLeyenda, 80) },
+          ],
+        });
+      }
+
+      // H) LEYENDA_FISCAL_TEXT_TOO_SHORT_REVIEW
+      if (isNonEmptyString(ley.textoLeyenda) && normalizeText(ley.textoLeyenda).length < 10) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "COMPLEMENT",
+          code: "LEYENDA_FISCAL_TEXT_TOO_SHORT_REVIEW",
+          title: "Texto de leyenda fiscal muy corto",
+          message:
+            "El texto de la leyenda fiscal parece demasiado corto para describir un supuesto normativo.",
+          recommendedAction: "Revisa si TextoLeyenda fue capturado completo.",
+          evidence: [
+            { label: "Leyenda #", value: String(nro) },
+            { label: "TextoLeyenda", value: ley.textoLeyenda },
+            { label: "Longitud", value: String(normalizeText(ley.textoLeyenda).length) },
+          ],
+        });
+      }
+    });
+  }
+
+  // ── Donatarias Findings ──
+  if (donatarias) {
+    // I) DONATARIAS_DETECTED
+    addFindingOnce({
+      severity: "INFO",
+      category: "COMPLEMENT",
+      code: "DONATARIAS_DETECTED",
+      title: "Complemento Donatarias detectado",
+      message:
+        "El XML contiene complemento Donatarias. Se realizará una revisión base de autorización, fecha y leyenda.",
+      recommendedAction:
+        "Revisa que los datos de donataria autorizada correspondan al comprobante emitido.",
+      evidence: [
+        { label: "Versión", value: donatarias.version ?? "—" },
+        { label: "NoAutorizacion", value: donatarias.noAutorizacion ?? "—" },
+        { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+
+    // J) DONATARIAS_MISSING_VERSION
+    if (!isNonEmptyString(donatarias.version)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_MISSING_VERSION",
+        title: "Versión de Donatarias faltante",
+        message: "No se detectó la versión del complemento Donatarias.",
+        recommendedAction: "Verifica que el complemento Donatarias esté completo.",
+        evidence: [
+          { label: "UUID", value: uuid ?? "—" },
+          { label: "NoAutorizacion", value: donatarias.noAutorizacion ?? "—" },
+          { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion ?? "—" },
+        ],
+      });
+    }
+
+    // K) DONATARIAS_VERSION_REVIEW
+    if (isNonEmptyString(donatarias.version) && !["1.1"].includes(donatarias.version)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_VERSION_REVIEW",
+        title: "Versión de Donatarias requiere revisión",
+        message:
+          "El complemento Donatarias tiene una versión no reconocida por el motor actual.",
+        recommendedAction: "Confirma que la versión del complemento corresponda al XML analizado.",
+        evidence: [
+          { label: "Versión detectada", value: donatarias.version },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // L) DONATARIAS_MISSING_NO_AUTORIZACION
+    if (!isNonEmptyString(donatarias.noAutorizacion)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_MISSING_NO_AUTORIZACION",
+        title: "Número de autorización de Donatarias faltante",
+        message: "No se detectó NoAutorizacion en el complemento Donatarias.",
+        recommendedAction:
+          "Revisa el número de autorización de donataria capturado en el XML.",
+        evidence: [
+          { label: "Versión", value: donatarias.version ?? "—" },
+          { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // M) DONATARIAS_NO_AUTORIZACION_FORMAT_REVIEW
+    if (isNonEmptyString(donatarias.noAutorizacion) && !looksLikeAuthorizationNumber(donatarias.noAutorizacion)) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_NO_AUTORIZACION_FORMAT_REVIEW",
+        title: "Formato de NoAutorizacion requiere revisión",
+        message: "NoAutorizacion tiene un formato poco común.",
+        recommendedAction: "Confirma que el número de autorización sea correcto.",
+        evidence: [
+          { label: "NoAutorizacion", value: donatarias.noAutorizacion },
+          { label: "Longitud", value: String(donatarias.noAutorizacion.length) },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // N) DONATARIAS_MISSING_FECHA_AUTORIZACION
+    if (!isNonEmptyString(donatarias.fechaAutorizacion)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_MISSING_FECHA_AUTORIZACION",
+        title: "Fecha de autorización de Donatarias faltante",
+        message: "No se detectó FechaAutorizacion en el complemento Donatarias.",
+        recommendedAction: "Revisa la fecha de autorización de la donataria.",
+        evidence: [
+          { label: "Versión", value: donatarias.version ?? "—" },
+          { label: "NoAutorizacion", value: donatarias.noAutorizacion ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // O) DONATARIAS_FECHA_AUTORIZACION_INVALID
+    if (isNonEmptyString(donatarias.fechaAutorizacion) && !parseCfdiDate(donatarias.fechaAutorizacion)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_FECHA_AUTORIZACION_INVALID",
+        title: "Fecha de autorización de Donatarias inválida",
+        message: "FechaAutorizacion no pudo interpretarse como fecha válida.",
+        recommendedAction: "Revisa el formato de FechaAutorizacion.",
+        evidence: [
+          { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion },
+          { label: "NoAutorizacion", value: donatarias.noAutorizacion ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // P) DONATARIAS_MISSING_LEYENDA
+    if (!isNonEmptyString(donatarias.leyenda)) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_MISSING_LEYENDA",
+        title: "Leyenda de Donatarias faltante",
+        message: "No se detectó Leyenda en el complemento Donatarias.",
+        recommendedAction: "Revisa la leyenda del complemento Donatarias.",
+        evidence: [
+          { label: "Versión", value: donatarias.version ?? "—" },
+          { label: "NoAutorizacion", value: donatarias.noAutorizacion ?? "—" },
+          { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // Q) DONATARIAS_LEYENDA_TOO_SHORT_REVIEW
+    if (isNonEmptyString(donatarias.leyenda) && normalizeText(donatarias.leyenda).length < 20) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "COMPLEMENT",
+        code: "DONATARIAS_LEYENDA_TOO_SHORT_REVIEW",
+        title: "Leyenda de Donatarias muy corta",
+        message: "La leyenda del complemento Donatarias parece demasiado corta.",
+        recommendedAction: "Revisa si la leyenda fue capturada completa.",
+        evidence: [
+          { label: "Leyenda", value: truncateStr(donatarias.leyenda, 80) },
+          { label: "Longitud", value: String(normalizeText(donatarias.leyenda).length) },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
   // ── Concept-level Tax Findings ──
   if (concepts && concepts.length > 0 && rc(version, "4.0")) {
     concepts.forEach((c, idx) => {
@@ -7289,6 +7979,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     nomina,
     comercioExterior,
     impuestosLocales,
+    leyendasFiscales,
+    donatarias,
+    addenda,
     structureDiagnostics,
     concepts: concepts ?? undefined,
     totalsValidation: totalsValidation ?? undefined,
@@ -7343,6 +8036,10 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     cartaPorte: result.cartaPorte,
     nomina: result.nomina,
     comercioExterior: result.comercioExterior,
+    impuestosLocales: result.impuestosLocales,
+    leyendasFiscales: result.leyendasFiscales,
+    donatarias: result.donatarias,
+    addenda: result.addenda,
     structureDiagnostics: result.structureDiagnostics,
     concepts: result.concepts,
     totalsValidation: result.totalsValidation,

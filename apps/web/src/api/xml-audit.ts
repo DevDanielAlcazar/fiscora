@@ -285,6 +285,49 @@ export interface ImpuestosLocalesInfo {
   traslados: ImpuestoLocalTrasladoInfo[];
 }
 
+export interface AddendaSignal {
+  key: string;
+  label: string;
+  value: string;
+  path: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+}
+
+export interface AddendaNodeSummary {
+  path: string;
+  name: string;
+  childCount: number;
+  scalarFields: number;
+}
+
+export interface AddendaInfo {
+  detected: boolean;
+  rootKeys: string[];
+  nodeCount: number;
+  maxDepth: number;
+  signals: AddendaSignal[];
+  nodeSummary: AddendaNodeSummary[];
+  truncated: boolean;
+}
+
+export interface LeyendaFiscalInfo {
+  disposicionFiscal?: string | null;
+  norma?: string | null;
+  textoLeyenda?: string | null;
+}
+
+export interface LeyendasFiscalesInfo {
+  version?: string | null;
+  leyendas: LeyendaFiscalInfo[];
+}
+
+export interface DonatariasInfo {
+  version?: string | null;
+  noAutorizacion?: string | null;
+  fechaAutorizacion?: string | null;
+  leyenda?: string | null;
+}
+
 export interface NormalizedXml {
   available: boolean;
   reason: string;
@@ -329,6 +372,9 @@ export interface AnalysisResult {
   nomina?: NominaInfo;
   comercioExterior?: ComercioExteriorInfo;
   impuestosLocales?: ImpuestosLocalesInfo;
+  leyendasFiscales?: LeyendasFiscalesInfo;
+  donatarias?: DonatariasInfo;
+  addenda?: AddendaInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];
   totalsValidation?: TotalsValidation;

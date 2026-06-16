@@ -1890,6 +1890,155 @@ export default function XmlAuditPage() {
               </div>
             )}
 
+            {result.leyendasFiscales && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Leyendas Fiscales</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Versión</span>
+                    <span className="font-medium">{result.leyendasFiscales.version ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total leyendas</span>
+                    <span className="font-medium">{result.leyendasFiscales.leyendas.length}</span>
+                  </div>
+                </div>
+                {result.leyendasFiscales.leyendas.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Leyendas</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30 text-muted-foreground">
+                            <th className="text-left py-1 pr-2">#</th>
+                            <th className="text-left py-1 pr-2">Disposición fiscal</th>
+                            <th className="text-left py-1 pr-2">Norma</th>
+                            <th className="text-left py-1">Texto leyenda</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.leyendasFiscales.leyendas.map((l, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2">{i + 1}</td>
+                              <td className="py-1 pr-2">{l.disposicionFiscal ?? "—"}</td>
+                              <td className="py-1 pr-2">{l.norma ?? "—"}</td>
+                              <td className="py-1">{l.textoLeyenda ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {result.donatarias && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Donatarias</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Versión</span>
+                    <span className="font-medium">{result.donatarias.version ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">NoAutorizacion</span>
+                    <span className="font-medium">{result.donatarias.noAutorizacion ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">FechaAutorizacion</span>
+                    <span className="font-medium">{result.donatarias.fechaAutorizacion ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Leyenda</span>
+                    <span className="font-medium">{result.donatarias.leyenda ?? "—"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {result.addenda?.detected && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Addenda</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Detectada</span>
+                    <span className="font-medium">Sí</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Root keys</span>
+                    <span className="font-medium">{result.addenda.rootKeys.join(", ")}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Node count</span>
+                    <span className="font-medium">{result.addenda.nodeCount}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Max depth</span>
+                    <span className="font-medium">{result.addenda.maxDepth}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Truncada</span>
+                    <span className="font-medium">{result.addenda.truncated ? "Sí" : "No"}</span>
+                  </div>
+                </div>
+                {result.addenda.signals.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Señales detectadas ({result.addenda.signals.length})</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30 text-muted-foreground">
+                            <th className="text-left py-1 pr-2">Label</th>
+                            <th className="text-left py-1 pr-2">Valor</th>
+                            <th className="text-left py-1 pr-2">Path</th>
+                            <th className="text-left py-1">Confianza</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.addenda.signals.map((s, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2 font-medium">{s.label}</td>
+                              <td className="py-1 pr-2">{s.value}</td>
+                              <td className="py-1 pr-2 text-muted-foreground">{s.path}</td>
+                              <td className="py-1">{s.confidence}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {result.addenda.nodeSummary.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Resumen de nodos ({result.addenda.nodeSummary.length})</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30 text-muted-foreground">
+                            <th className="text-left py-1 pr-2">Path</th>
+                            <th className="text-left py-1 pr-2">Nombre</th>
+                            <th className="text-right py-1 pr-2">Child count</th>
+                            <th className="text-right py-1">Scalar fields</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.addenda.nodeSummary.map((ns, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="py-1 pr-2">{ns.path}</td>
+                              <td className="py-1 pr-2">{ns.name}</td>
+                              <td className="py-1 pr-2 text-right">{ns.childCount}</td>
+                              <td className="py-1 text-right">{ns.scalarFields}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="p-6 rounded-xl border border-border bg-card space-y-4">
               <h2 className="font-semibold text-lg">Diagnóstico técnico del archivo</h2>
 
@@ -2993,6 +3142,64 @@ export default function XmlAuditPage() {
                   for (let i = 0; i < r.impuestosLocales.traslados.length; i++) {
                     const tras = r.impuestosLocales.traslados[i];
                     row(String(i + 1), tras.impLocTrasladado, tras.tasaDeTraslado, tras.importe);
+                  }
+                  lines.push("");
+                }
+              }
+
+              if (r.leyendasFiscales) {
+                section("LEYENDAS FISCALES - RESUMEN");
+                sub("", {
+                  Versión: r.leyendasFiscales.version ?? "—",
+                  "Total leyendas": String(r.leyendasFiscales.leyendas.length),
+                });
+                if (r.leyendasFiscales.leyendas.length > 0) {
+                  section("LEYENDAS FISCALES - DETALLE");
+                  row("#", "DisposicionFiscal", "Norma", "TextoLeyenda");
+                  for (let i = 0; i < r.leyendasFiscales.leyendas.length; i++) {
+                    const l = r.leyendasFiscales.leyendas[i];
+                    row(String(i + 1), l.disposicionFiscal ?? "—", l.norma ?? "—", l.textoLeyenda ?? "—");
+                  }
+                  lines.push("");
+                }
+              }
+
+              if (r.donatarias) {
+                section("DONATARIAS");
+                sub("", {
+                  Versión: r.donatarias.version ?? "—",
+                  NoAutorizacion: r.donatarias.noAutorizacion ?? "—",
+                  FechaAutorizacion: r.donatarias.fechaAutorizacion ?? "—",
+                  Leyenda: r.donatarias.leyenda ?? "—",
+                });
+                lines.push("");
+              }
+
+              if (r.addenda?.detected) {
+                section("ADDENDA - RESUMEN");
+                sub("", {
+                  Detectada: "Sí",
+                  "Root keys": r.addenda.rootKeys.join(", "),
+                  "Node count": String(r.addenda.nodeCount),
+                  "Max depth": String(r.addenda.maxDepth),
+                  Truncada: r.addenda.truncated ? "Sí" : "No",
+                  "Señales detectadas": String(r.addenda.signals.length),
+                });
+                if (r.addenda.signals.length > 0) {
+                  section("ADDENDA - SEÑALES");
+                  row("#", "Label", "Valor", "Path", "Confianza");
+                  for (let i = 0; i < r.addenda.signals.length; i++) {
+                    const s = r.addenda.signals[i];
+                    row(String(i + 1), s.label, s.value, s.path, s.confidence);
+                  }
+                  lines.push("");
+                }
+                if (r.addenda.nodeSummary.length > 0) {
+                  section("ADDENDA - NODOS");
+                  row("#", "Path", "Nombre", "Child count", "Scalar fields");
+                  for (let i = 0; i < r.addenda.nodeSummary.length; i++) {
+                    const ns = r.addenda.nodeSummary[i];
+                    row(String(i + 1), ns.path, ns.name, String(ns.childCount), String(ns.scalarFields));
                   }
                   lines.push("");
                 }
@@ -4183,6 +4390,162 @@ export default function XmlAuditPage() {
                                 <td>{tras.impLocTrasladado ?? "—"}</td>
                                 <td className="text-right">{tras.tasaDeTraslado ?? "—"}</td>
                                 <td className="text-right">{tras.importe ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {r.leyendasFiscales && (
+                  <>
+                    <div className="print-report-break"></div>
+                    <h3 className="text-lg font-bold mt-4 mb-2">Leyendas Fiscales</h3>
+                    <table className="w-full text-xs border-collapse mb-3">
+                      <tbody>
+                        <tr>
+                          <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                          <td>{r.leyendasFiscales.version ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Total leyendas</td>
+                          <td>{r.leyendasFiscales.leyendas.length}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {r.leyendasFiscales.leyendas.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold mt-2 mb-1">Leyendas</h4>
+                        <table className="w-full text-xs border-collapse mb-2">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left pr-2">#</th>
+                              <th className="text-left pr-2">Disposición fiscal</th>
+                              <th className="text-left pr-2">Norma</th>
+                              <th className="text-left">Texto leyenda</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.leyendasFiscales.leyendas.map((l, i) => (
+                              <tr key={i} className="border-b">
+                                <td>{i + 1}</td>
+                                <td>{l.disposicionFiscal ?? "—"}</td>
+                                <td>{l.norma ?? "—"}</td>
+                                <td>{l.textoLeyenda ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {r.donatarias && (
+                  <>
+                    <div className="print-report-break"></div>
+                    <h3 className="text-lg font-bold mt-4 mb-2">Donatarias</h3>
+                    <table className="w-full text-xs border-collapse mb-3">
+                      <tbody>
+                        <tr>
+                          <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                          <td>{r.donatarias.version ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">NoAutorizacion</td>
+                          <td>{r.donatarias.noAutorizacion ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">FechaAutorizacion</td>
+                          <td>{r.donatarias.fechaAutorizacion ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Leyenda</td>
+                          <td>{r.donatarias.leyenda ?? "—"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                {r.addenda?.detected && (
+                  <>
+                    <div className="print-report-break"></div>
+                    <h3 className="text-lg font-bold mt-4 mb-2">Addenda</h3>
+                    <table className="w-full text-xs border-collapse mb-3">
+                      <tbody>
+                        <tr>
+                          <td className="font-semibold pr-2" style={{ width: "200px" }}>Detectada</td>
+                          <td>Sí</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Root keys</td>
+                          <td>{r.addenda.rootKeys.join(", ")}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Node count</td>
+                          <td>{r.addenda.nodeCount}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Max depth</td>
+                          <td>{r.addenda.maxDepth}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Truncada</td>
+                          <td>{r.addenda.truncated ? "Sí" : "No"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Señales</td>
+                          <td>{r.addenda.signals.length}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {r.addenda.signals.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold mt-2 mb-1">Señales detectadas</h4>
+                        <table className="w-full text-xs border-collapse mb-2">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left pr-2">Label</th>
+                              <th className="text-left pr-2">Valor</th>
+                              <th className="text-left pr-2">Path</th>
+                              <th className="text-left">Confianza</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.addenda.signals.map((s, i) => (
+                              <tr key={i} className="border-b">
+                                <td>{s.label}</td>
+                                <td>{s.value}</td>
+                                <td className="text-muted-foreground">{s.path}</td>
+                                <td>{s.confidence}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                    {r.addenda.nodeSummary.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold mt-2 mb-1">Resumen de nodos</h4>
+                        <table className="w-full text-xs border-collapse mb-2">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left pr-2">Path</th>
+                              <th className="text-left pr-2">Nombre</th>
+                              <th className="text-right pr-2">Child count</th>
+                              <th className="text-right">Scalar fields</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.addenda.nodeSummary.map((ns, i) => (
+                              <tr key={i} className="border-b">
+                                <td>{ns.path}</td>
+                                <td>{ns.name}</td>
+                                <td className="text-right">{ns.childCount}</td>
+                                <td className="text-right">{ns.scalarFields}</td>
                               </tr>
                             ))}
                           </tbody>

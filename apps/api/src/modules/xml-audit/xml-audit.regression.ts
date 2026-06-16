@@ -3056,6 +3056,243 @@ async function testImpuestosLocalesComplementoVacio(): Promise<void> {
   assertEqual(result.impuestosLocales, undefined, "impuestosLocales debe ser undefined");
 }
 
+// ─── Addenda fixtures ─────────────────────────────────────────────────────
+
+function buildAddendaXml(opts?: {
+  purchaseOrder?: string;
+  goodsReceipt?: string;
+  vendorId?: string;
+  customNodes?: Array<{ name: string; value: string }>;
+  deepNested?: boolean;
+  omitAddenda?: boolean;
+}): string {
+  const po = opts?.purchaseOrder ?? "";
+  const gr = opts?.goodsReceipt ?? "";
+  const vi = opts?.vendorId ?? "";
+  const customNodes = opts?.customNodes ?? [];
+  const hasDeep = opts?.deepNested ?? false;
+
+  let addendaXml = "";
+  if (!opts?.omitAddenda) {
+    let inner = "";
+    if (po) {
+      inner += `      <Request><Order><PurchaseOrder>${po}</PurchaseOrder></Order></Request>\n`;
+    }
+    if (gr) {
+      inner += `      <Logistics><GoodsReceipt>${gr}</GoodsReceipt></Logistics>\n`;
+    }
+    if (vi) {
+      inner += `      <Supplier><VendorId>${vi}</VendorId></Supplier>\n`;
+    }
+    for (const c of customNodes) {
+      inner += `      <CustomData><${c.name}>${c.value}</${c.name}></CustomData>\n`;
+    }
+    if (hasDeep) {
+      let deep = "";
+      for (let i = 0; i < 10; i++) {
+        deep += `<L${i}>`;
+      }
+      deep += "deepValue";
+      for (let i = 9; i >= 0; i--) {
+        deep += `</L${i}>`;
+      }
+      inner += `      <DeepContainer>${deep}</DeepContainer>\n`;
+    }
+    addendaXml = `  <cfdi:Addenda>\n${inner}  </cfdi:Addenda>`;
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="123" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto de prueba" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>${addendaXml}
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="cp000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+async function testAddendaConOrdenCompra(): Promise<void> {
+  const xml = buildAddendaXml({ purchaseOrder: "4500001234" });
+  const result = analyzeCfdi(xml, "addenda-po.xml");
+  assertTruthy(result.addenda, "addenda debe existir");
+  assertEqual(result.addenda!.detected, true, "addenda.detected debe ser true");
+  assertIncludesFinding(result.findings, "ADDENDA_DETECTED");
+  assertIncludesFinding(result.findings, "ADDENDA_PURCHASE_ORDER_DETECTED");
+  const hasPoSignal = result.addenda!.signals.some(
+    (s) => s.label === "PURCHASE_ORDER" && s.value === "4500001234",
+  );
+  assertTruthy(hasPoSignal, "PURCHASE_ORDER signal con valor 4500001234");
+}
+
+async function testAddendaConRecepcionYProveedor(): Promise<void> {
+  const xml = buildAddendaXml({ goodsReceipt: "5000012345", vendorId: "100200" });
+  const result = analyzeCfdi(xml, "addenda-gr-vendor.xml");
+  assertTruthy(result.addenda, "addenda debe existir");
+  assertIncludesFinding(result.findings, "ADDENDA_GOODS_RECEIPT_DETECTED");
+  assertIncludesFinding(result.findings, "ADDENDA_VENDOR_REFERENCE_DETECTED");
+  const hasGr = result.addenda!.signals.some((s) => s.label === "GOODS_RECEIPT");
+  const hasVendor = result.addenda!.signals.some((s) => s.label === "VENDOR_ID");
+  assertTruthy(hasGr, "GOODS_RECEIPT signal debe existir");
+  assertTruthy(hasVendor, "VENDOR_ID signal debe existir");
+}
+
+async function testAddendaSinSenales(): Promise<void> {
+  const xml = buildAddendaXml({
+    customNodes: [
+      { name: "InternalCode", value: "ABC123" },
+      { name: "SomeField", value: "xyz" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "addenda-sin-senales.xml");
+  assertTruthy(result.addenda, "addenda debe existir");
+  assertEqual(result.addenda!.signals.length, 0, "no debe haber señales");
+  assertIncludesFinding(result.findings, "ADDENDA_NO_BUSINESS_SIGNALS_REVIEW");
+}
+
+async function testAddendaProfundaTruncada(): Promise<void> {
+  const xml = buildAddendaXml({ deepNested: true });
+  const result = analyzeCfdi(xml, "addenda-profunda.xml");
+  assertTruthy(result.addenda, "addenda debe existir");
+  assertEqual(result.addenda!.truncated, true, "addenda.truncated debe ser true");
+  assertIncludesFinding(result.findings, "ADDENDA_TRUNCATED_REVIEW");
+}
+
+async function testAddendaSinAddenda(): Promise<void> {
+  const xml = buildAddendaXml({ omitAddenda: true });
+  const result = analyzeCfdi(xml, "addenda-sin.xml");
+  assertEqual(result.addenda, undefined, "addenda debe ser undefined");
+  const hasAddendaFinding = result.findings.some((f) => f.code.startsWith("ADDENDA_"));
+  assertEqual(hasAddendaFinding, false, "no debe haber findings de Addenda");
+}
+
+// ─── Leyendas Fiscales / Donatarias fixtures ───────────────────────────────
+
+const LF_NS = 'xmlns:leyendasFisc="http://www.sat.gob.mx/leyendasFiscales"';
+const DONAT_NS = 'xmlns:donat="http://www.sat.gob.mx/donat"';
+
+function buildComplementXml(complementInner: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} ${LF_NS} ${DONAT_NS} Version="4.0" Serie="A" Folio="123" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto de prueba" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    ${complementInner}
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="lf000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// CU) Leyendas Fiscales válido base
+async function testLeyendasFiscalesValidoBase(): Promise<void> {
+  const xml = buildComplementXml(`
+    <leyendasFisc:LeyendasFiscales Version="1.0">
+      <leyendasFisc:Leyenda DisposicionFiscal="Artículo 1" Norma="LISR" TextoLeyenda="Artículo 1, fracción III de la LISR aplicable al período."/>
+    </leyendasFisc:LeyendasFiscales>`);
+  const result = analyzeCfdi(xml, "lf-valido.xml");
+  assertTruthy(result.leyendasFiscales, "leyendasFiscales debe existir");
+  assertEqual(result.leyendasFiscales!.leyendas.length, 1, "debe tener 1 leyenda");
+  assertIncludesFinding(result.findings, "LEYENDAS_FISCALES_DETECTED");
+  assertEqual(result.leyendasFiscales!.version, "1.0", "version debe ser 1.0");
+  assertEqual(result.leyendasFiscales!.leyendas[0].disposicionFiscal, "Artículo 1", "disposicionFiscal debe coincidir");
+  assertEqual(result.leyendasFiscales!.leyendas[0].norma, "LISR", "norma debe coincidir");
+  assertEqual(result.leyendasFiscales!.leyendas[0].textoLeyenda, "Artículo 1, fracción III de la LISR aplicable al período.", "textoLeyenda debe coincidir");
+}
+
+// CV) Leyendas Fiscales incompleto
+async function testLeyendasFiscalesIncompleto(): Promise<void> {
+  const xml = buildComplementXml(`
+    <LeyendasFiscales>
+      <Leyenda DisposicionFiscal="" Norma="" TextoLeyenda=""/>
+    </LeyendasFiscales>`);
+  const result = analyzeCfdi(xml, "lf-incompleto.xml");
+  assertTruthy(result.leyendasFiscales, "leyendasFiscales debe existir");
+  assertIncludesFinding(result.findings, "LEYENDAS_FISCALES_DETECTED");
+  assertIncludesFinding(result.findings, "LEYENDAS_FISCALES_MISSING_VERSION");
+  assertIncludesFinding(result.findings, "LEYENDA_FISCAL_MISSING_TEXT");
+  assertIncludesFinding(result.findings, "LEYENDA_FISCAL_MISSING_NORMA_REVIEW");
+  assertIncludesFinding(result.findings, "LEYENDA_FISCAL_MISSING_DISPOSICION_REVIEW");
+}
+
+// CW) Leyendas Fiscales sin leyendas
+async function testLeyendasFiscalesSinLeyendas(): Promise<void> {
+  const xml = buildComplementXml(`
+    <LeyendasFiscales Version="1.0"/>`);
+  const result = analyzeCfdi(xml, "lf-sin-leyendas.xml");
+  assertTruthy(result.leyendasFiscales, "leyendasFiscales debe existir");
+  assertEqual(result.leyendasFiscales!.leyendas.length, 0, "no debe tener leyendas");
+  assertIncludesFinding(result.findings, "LEYENDAS_FISCALES_DETECTED");
+  assertIncludesFinding(result.findings, "LEYENDAS_FISCALES_WITHOUT_LEYENDAS");
+}
+
+// CX) Donatarias válido base
+async function testDonatariasValidoBase(): Promise<void> {
+  const xml = buildComplementXml(`
+    <donat:Donatarias Version="1.1" NoAutorizacion="AUT-2024-00123" FechaAutorizacion="2024-01-01" Leyenda="Donataria autorizada para recibir donativos deducibles conforme a la LISR."/>`);
+  const result = analyzeCfdi(xml, "donat-valido.xml");
+  assertTruthy(result.donatarias, "donatarias debe existir");
+  assertIncludesFinding(result.findings, "DONATARIAS_DETECTED");
+  assertEqual(result.donatarias!.version, "1.1", "version debe ser 1.1");
+  assertEqual(result.donatarias!.noAutorizacion, "AUT-2024-00123", "noAutorizacion debe coincidir");
+  assertEqual(result.donatarias!.fechaAutorizacion, "2024-01-01", "fechaAutorizacion debe coincidir");
+  const hasMissingNoAut = result.findings.some((f) => f.code === "DONATARIAS_MISSING_NO_AUTORIZACION");
+  assertEqual(hasMissingNoAut, false, "no debe tener DONATARIAS_MISSING_NO_AUTORIZACION");
+  const hasMissingFecha = result.findings.some((f) => f.code === "DONATARIAS_MISSING_FECHA_AUTORIZACION");
+  assertEqual(hasMissingFecha, false, "no debe tener DONATARIAS_MISSING_FECHA_AUTORIZACION");
+  const hasMissingLeyenda = result.findings.some((f) => f.code === "DONATARIAS_MISSING_LEYENDA");
+  assertEqual(hasMissingLeyenda, false, "no debe tener DONATARIAS_MISSING_LEYENDA");
+}
+
+// CY) Donatarias incompleto
+async function testDonatariasIncompleto(): Promise<void> {
+  const xml = buildComplementXml(`
+    <Donatarias Version="" NoAutorizacion="" FechaAutorizacion="" Leyenda=""/>`);
+  const result = analyzeCfdi(xml, "donat-incompleto.xml");
+  assertTruthy(result.donatarias, "donatarias debe existir");
+  assertIncludesFinding(result.findings, "DONATARIAS_DETECTED");
+  assertIncludesFinding(result.findings, "DONATARIAS_MISSING_VERSION");
+  assertIncludesFinding(result.findings, "DONATARIAS_MISSING_NO_AUTORIZACION");
+  assertIncludesFinding(result.findings, "DONATARIAS_MISSING_FECHA_AUTORIZACION");
+  assertIncludesFinding(result.findings, "DONATARIAS_MISSING_LEYENDA");
+}
+
+// CZ) Donatarias fecha inválida / leyenda corta
+async function testDonatariasFechaLeyendaCorta(): Promise<void> {
+  const xml = buildComplementXml(`
+    <Donatarias Version="1.1" NoAutorizacion="XYZ-123" FechaAutorizacion="fecha-invalida" Leyenda="ABC"/>`);
+  const result = analyzeCfdi(xml, "donat-fecha-corta.xml");
+  assertTruthy(result.donatarias, "donatarias debe existir");
+  assertIncludesFinding(result.findings, "DONATARIAS_FECHA_AUTORIZACION_INVALID");
+  assertIncludesFinding(result.findings, "DONATARIAS_LEYENDA_TOO_SHORT_REVIEW");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -3161,6 +3398,17 @@ async function main() {
   await runCase("CM) Impuestos Locales línea inválida", testImpuestosLocalesLineaInvalida);
   await runCase("CN) Impuestos Locales totales faltantes", testImpuestosLocalesTotalesFaltantes);
   await runCase("CO) Impuestos Locales complemento vacío", testImpuestosLocalesComplementoVacio);
+  await runCase("CP) Addenda con orden de compra", testAddendaConOrdenCompra);
+  await runCase("CQ) Addenda con recepción y proveedor", testAddendaConRecepcionYProveedor);
+  await runCase("CR) Addenda sin señales reconocidas", testAddendaSinSenales);
+  await runCase("CS) Addenda profunda/truncada", testAddendaProfundaTruncada);
+  await runCase("CT) XML sin Addenda", testAddendaSinAddenda);
+  await runCase("CU) Leyendas Fiscales válido base", testLeyendasFiscalesValidoBase);
+  await runCase("CV) Leyendas Fiscales incompleto", testLeyendasFiscalesIncompleto);
+  await runCase("CW) Leyendas Fiscales sin leyendas", testLeyendasFiscalesSinLeyendas);
+  await runCase("CX) Donatarias válido base", testDonatariasValidoBase);
+  await runCase("CY) Donatarias incompleto", testDonatariasIncompleto);
+  await runCase("CZ) Donatarias fecha inválida / leyenda corta", testDonatariasFechaLeyendaCorta);
 
   printSummary();
 
