@@ -284,6 +284,7 @@ export function analyzeZipFull(buffer: Buffer, originalFilename: string): ZipFul
 
       // Build sanitized result (no normalizedXml.content)
       const analysis: ZipFullAnalysisFileResult["analysis"] = {
+        documentKind: cfdiResult.documentKind,
         uuid: cfdiResult.uuid,
         tipoComprobante: cfdiResult.tipoComprobante,
         rfcEmisor: cfdiResult.rfcEmisor,

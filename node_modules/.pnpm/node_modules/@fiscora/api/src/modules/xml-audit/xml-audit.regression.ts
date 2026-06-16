@@ -16,6 +16,8 @@ import {
   type CfdiAnalysisResult,
   type Finding,
   type NormalizedXml,
+  getFindingPriority,
+  getFindingActionGroup,
 } from "./xml-audit.service.js";
 import { analyzeZipFull, generateNormalizedZip } from "./xml-zip-audit.service.js";
 import {
@@ -3183,6 +3185,8 @@ async function testAddendaSinAddenda(): Promise<void> {
 
 const LF_NS = 'xmlns:leyendasFisc="http://www.sat.gob.mx/leyendasFiscales"';
 const DONAT_NS = 'xmlns:donat="http://www.sat.gob.mx/donat"';
+const RET_NS = 'xmlns:retenciones="http://www.sat.gob.mx/esquemas/retencionpago/1"';
+const RET_SL = 'xsi:schemaLocation="http://www.sat.gob.mx/esquemas/retencionpago/1 http://www.sat.gob.mx/sitio_internet/esquemas/retencionpago/1/retencionpagov2.xsd"';
 
 function buildComplementXml(complementInner: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -3208,6 +3212,31 @@ function buildComplementXml(complementInner: string): string {
     <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="lf000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
   </cfdi:Complemento>
 </cfdi:Comprobante>`;
+}
+
+function buildRetencionesXml(opts?: {
+  attrsOverride?: string;
+  emisor?: string;
+  receptor?: string;
+  periodo?: string;
+  totales?: string;
+  complemento?: string;
+}): string {
+  const attr = opts?.attrsOverride ??
+    `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="01" DescRetenc="Retenciones" LugarExpRetenc="12345" Sello="abc" NumCert="00001000000500000000" Cert="def"`;
+  const emisor = opts?.emisor ?? `<retenciones:Emisor RfcE="EKU9003173C9" NomDenRazSocE="EMPRESA SA DE CV" CURPE="XXXX000000HXXX"/>`;
+  const receptor = opts?.receptor ?? `<retenciones:Receptor Nacionalidad="Nacional"><retenciones:Nacional RfcR="XAXX010101000" NomDenRazSocR="CLIENTE SA DE CV" CURPR="XXXX000000HXXA"/></retenciones:Receptor>`;
+  const periodo = opts?.periodo ?? `<retenciones:Periodo MesIni="01" MesFin="01" Ejerc="2024"/>`;
+  const totales = opts?.totales ?? `<retenciones:Totales MontoTotOperacion="10000.00" MontoTotGrav="8000.00" MontoTotExent="2000.00" MontoTotRet="1600.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="8000.00" Impuesto="001" MontoRet="1600.00" TipoPagoRet="Pago definitivo"/></retenciones:ImpRetenidos></retenciones:Totales>`;
+  const complemento = opts?.complemento ?? `<retenciones:Complemento><tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="da000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/></retenciones:Complemento>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<retenciones:Retenciones ${RET_NS} ${XSI_NS} ${RET_SL} ${attr}>
+  ${emisor}
+  ${receptor}
+  ${periodo}
+  ${totales}
+  ${complemento}
+</retenciones:Retenciones>`;
 }
 
 // CU) Leyendas Fiscales válido base
@@ -3291,6 +3320,159 @@ async function testDonatariasFechaLeyendaCorta(): Promise<void> {
   assertTruthy(result.donatarias, "donatarias debe existir");
   assertIncludesFinding(result.findings, "DONATARIAS_FECHA_AUTORIZACION_INVALID");
   assertIncludesFinding(result.findings, "DONATARIAS_LEYENDA_TOO_SHORT_REVIEW");
+}
+
+// DA) Retenciones válido base
+async function testRetencionesValidoBase(): Promise<void> {
+  const xml = buildRetencionesXml();
+  const result = analyzeCfdi(xml, "ret-valido.xml");
+  assertEqual(result.documentKind, "RETENCIONES", "documentKind debe ser RETENCIONES");
+  assertTruthy(result.retenciones, "retenciones debe existir");
+  assertEqual(result.retenciones!.version, "2.0", "version debe ser 2.0");
+  assertEqual(result.retenciones!.folioInt, "RET-2024-001", "folioInt debe coincidir");
+  assertEqual(result.retenciones!.cveRetenc, "01", "cveRetenc debe coincidir");
+  assertEqual(result.retenciones!.descRetenc, "Retenciones", "descRetenc debe coincidir");
+  assertEqual(result.retenciones!.lugarExpRetenc, "12345", "lugarExpRetenc debe coincidir");
+  assertEqual(result.retenciones!.uuid, "da000000-0000-0000-0000-000000000000", "uuid debe coincidir");
+  assertTruthy(result.retenciones!.emisor, "emisor debe existir");
+  assertEqual(result.retenciones!.emisor!.rfcEmisor, "EKU9003173C9", "rfcEmisor debe coincidir");
+  assertTruthy(result.retenciones!.receptor, "receptor debe existir");
+  assertEqual(result.retenciones!.receptor!.nacionalidad, "Nacional", "nacionalidad debe coincidir");
+  assertEqual(result.retenciones!.receptor!.rfcReceptor, "XAXX010101000", "rfcReceptor debe coincidir");
+  assertTruthy(result.retenciones!.periodo, "periodo debe existir");
+  assertEqual(result.retenciones!.periodo!.mesIni, "01", "mesIni debe coincidir");
+  assertEqual(result.retenciones!.periodo!.mesFin, "01", "mesFin debe coincidir");
+  assertEqual(result.retenciones!.periodo!.ejercicio, "2024", "ejercicio debe coincidir");
+  assertTruthy(result.retenciones!.totales, "totales debe existir");
+  assertEqual(result.retenciones!.totales!.montoTotOperacion, "10000.00", "montoTotOperacion debe coincidir");
+  assertEqual(result.retenciones!.totales!.montoTotRet, "1600.00", "montoTotRet debe coincidir");
+  assertEqual(result.retenciones!.totales!.impuestosRetenidos.length, 1, "debe tener 1 impuesto retenido");
+  assertIncludesFinding(result.findings, "RETENCIONES_DOCUMENT_DETECTED");
+  const warns = result.findings.filter((f) => f.severity === "WARNING" || f.severity === "CRITICAL");
+  assertEqual(warns.length, 0, "no debe tener hallazgos WARNING o CRITICAL");
+}
+
+// DB) Retenciones incompleto (sin campos opcionales)
+async function testRetencionesIncompleto(): Promise<void> {
+  const xml = buildRetencionesXml({
+    attrsOverride: `Version="2.0"`,
+    emisor: ``,
+    receptor: ``,
+    periodo: ``,
+    totales: ``,
+    complemento: ``,
+  });
+  const result = analyzeCfdi(xml, "ret-incompleto.xml");
+  assertEqual(result.documentKind, "RETENCIONES", "documentKind debe ser RETENCIONES");
+  assertIncludesFinding(result.findings, "RETENCIONES_DOCUMENT_DETECTED");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_CVE_RETENC");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_FECHA_EXP");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_EMISOR_RFC");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_RECEPTOR");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_PERIODO");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_TOTALES");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_SELLO_OR_CERT_REVIEW");
+  assertIncludesFinding(result.findings, "RETENCIONES_TIMBRE_MISSING_REVIEW");
+}
+
+// DC) Retenciones emisor sin RFC
+async function testRetencionesEmisorSinRfc(): Promise<void> {
+  const xml = buildRetencionesXml({
+    emisor: `<retenciones:Emisor NomDenRazSocE="EMPRESA SA DE CV" CURPE="XXXX000000HXXX"/>`,
+  });
+  const result = analyzeCfdi(xml, "ret-emisor-sin-rfc.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_MISSING_EMISOR_RFC");
+}
+
+// DD) Retenciones receptor extranjero
+async function testRetencionesReceptorExtranjero(): Promise<void> {
+  const xml = buildRetencionesXml({
+    receptor: `<retenciones:Receptor Nacionalidad="Extranjero"><retenciones:Extranjero NumRegIdTrib="EXT-12345" NomDenRazSocR="EXTERNAL CLIENT LTD"/></retenciones:Receptor>`,
+  });
+  const result = analyzeCfdi(xml, "ret-receptor-ext.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_DOCUMENT_DETECTED");
+  assertTruthy(result.retenciones!.receptor, "receptor debe existir");
+  assertEqual(result.retenciones!.receptor!.nacionalidad, "Extranjero", "nacionalidad debe ser Extranjero");
+  assertEqual(result.retenciones!.receptor!.numRegIdTrib, "EXT-12345", "numRegIdTrib debe coincidir");
+  const hasJ = result.findings.some((f) => f.code === "RETENCIONES_RECEPTOR_NACIONAL_MISSING_RFC");
+  assertEqual(hasJ, false, "no debe tener RETENCIONES_RECEPTOR_NACIONAL_MISSING_RFC (es extranjero)");
+  const hasK = result.findings.some((f) => f.code === "RETENCIONES_RECEPTOR_EXTRANJERO_MISSING_NUM_REG_ID_TRIB");
+  assertEqual(hasK, false, "no debe tener RETENCIONES_RECEPTOR_EXTRANJERO_MISSING_NUM_REG_ID_TRIB (tiene NumRegIdTrib)");
+}
+
+// DE) Retenciones total ret mismatch
+async function testRetencionesTotalRetMismatch(): Promise<void> {
+  const xml = buildRetencionesXml({
+    totales: `<retenciones:Totales MontoTotOperacion="10000.00" MontoTotGrav="8000.00" MontoTotExent="2000.00" MontoTotRet="5000.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="8000.00" Impuesto="001" MontoRet="1600.00" TipoPagoRet="Pago definitivo"/></retenciones:ImpRetenidos></retenciones:Totales>`,
+  });
+  const result = analyzeCfdi(xml, "ret-total-mismatch.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_TOTAL_RET_MISMATCH");
+}
+
+// DF) Retenciones periodo inválido
+async function testRetencionesPeriodoInvalido(): Promise<void> {
+  const xml = buildRetencionesXml({
+    periodo: `<retenciones:Periodo MesIni="06" MesFin="03" Ejerc="abc"/>`,
+  });
+  const result = analyzeCfdi(xml, "ret-periodo-invalido.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_PERIODO_INVALID");
+}
+
+// DG) Retenciones sin timbre
+async function testRetencionesSinTimbre(): Promise<void> {
+  const xml = buildRetencionesXml({
+    complemento: ``,
+  });
+  const result = analyzeCfdi(xml, "ret-sin-timbre.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_TIMBRE_MISSING_REVIEW");
+}
+
+// DH) Prioridad CRITICAL => BLOCKER
+async function testPrioridadCriticalBlocker(): Promise<void> {
+  const f: Finding = {
+    id: "test-1",
+    severity: "CRITICAL",
+    category: "TOTALS",
+    code: "TOTAL_MISMATCH",
+    title: "Test",
+    message: "Test",
+  };
+  const priority = getFindingPriority(f.severity, f.category);
+  assertEqual(priority, "BLOCKER", "CRITICAL severity debe ser BLOCKER");
+  const group = getFindingActionGroup(f);
+  assertEqual(group, "Corregir importes/totales", "code con TOTAL debe agrupar en totals");
+}
+
+// DI) Prioridad WARNING TAX => HIGH
+async function testPrioridadWarningTaxHigh(): Promise<void> {
+  const f: Finding = {
+    id: "test-2",
+    severity: "WARNING",
+    category: "TAX",
+    code: "TAX_ERROR",
+    title: "Test",
+    message: "Test",
+  };
+  const priority = getFindingPriority(f.severity, f.category);
+  assertEqual(priority, "HIGH", "WARNING TAX debe ser HIGH");
+  const group = getFindingActionGroup(f);
+  assertEqual(group, "Revisar impuestos", "category TAX debe agrupar en impuestos");
+}
+
+// DJ) Prioridad INFO => LOW
+async function testPrioridadInfoLow(): Promise<void> {
+  const f: Finding = {
+    id: "test-3",
+    severity: "INFO",
+    category: "STRUCTURE",
+    code: "ADDENDA_DETECTED",
+    title: "Test",
+    message: "Test",
+  };
+  const priority = getFindingPriority(f.severity, f.category);
+  assertEqual(priority, "LOW", "INFO severity debe ser LOW");
+  const group = getFindingActionGroup(f);
+  assertEqual(group, "Revisar referencias operativas", "ADDENDA STRUCTURE debe agrupar en referencias operativas");
 }
 
 async function main() {
@@ -3409,6 +3591,16 @@ async function main() {
   await runCase("CX) Donatarias válido base", testDonatariasValidoBase);
   await runCase("CY) Donatarias incompleto", testDonatariasIncompleto);
   await runCase("CZ) Donatarias fecha inválida / leyenda corta", testDonatariasFechaLeyendaCorta);
+  await runCase("DA) Retenciones válido base", testRetencionesValidoBase);
+  await runCase("DB) Retenciones incompleto", testRetencionesIncompleto);
+  await runCase("DC) Retenciones emisor sin RFC", testRetencionesEmisorSinRfc);
+  await runCase("DD) Retenciones receptor extranjero", testRetencionesReceptorExtranjero);
+  await runCase("DE) Retenciones total ret mismatch", testRetencionesTotalRetMismatch);
+  await runCase("DF) Retenciones periodo inválido", testRetencionesPeriodoInvalido);
+  await runCase("DG) Retenciones sin timbre", testRetencionesSinTimbre);
+  await runCase("DH) Prioridad CRITICAL => BLOCKER", testPrioridadCriticalBlocker);
+  await runCase("DI) Prioridad WARNING TAX => HIGH", testPrioridadWarningTaxHigh);
+  await runCase("DJ) Prioridad INFO => LOW", testPrioridadInfoLow);
 
   printSummary();
 

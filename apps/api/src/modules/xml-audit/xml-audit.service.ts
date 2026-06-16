@@ -149,6 +149,35 @@ export interface Finding {
   message: string;
   recommendedAction?: string;
   evidence?: { label: string; value?: string }[];
+  priority?: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW";
+  actionGroup?: string;
+}
+
+export function getFindingPriority(severity: Finding["severity"], category: Finding["category"]): Finding["priority"] {
+  if (severity === "CRITICAL") return "BLOCKER";
+  if (severity === "WARNING") {
+    if (["TOTALS", "TAX", "COMPLEMENT"].includes(category)) return "HIGH";
+    if (["FISCAL", "TECHNICAL", "STRUCTURE"].includes(category)) return "MEDIUM";
+  }
+  return "LOW";
+}
+
+export function getFindingActionGroup(finding: {
+  severity: Finding["severity"];
+  category: Finding["category"];
+  code: string;
+}): string {
+  const codeUpper = finding.code.toUpperCase();
+  if (/TOTAL|SUBTOTAL|MISMATCH|DISCOUNT|BALANCE/.test(codeUpper))
+    return "Corregir importes/totales";
+  if (finding.category === "TAX") return "Revisar impuestos";
+  if (finding.category === "COMPLEMENT") return "Revisar complemento";
+  if (finding.category === "FISCAL") return "Validar datos fiscales";
+  if (finding.category === "TECHNICAL") return "Validar timbrado/estructura técnica";
+  if (finding.category === "STRUCTURE" && codeUpper.startsWith("ADDENDA"))
+    return "Revisar referencias operativas";
+  if (finding.category === "STRUCTURE") return "Validar estructura XML";
+  return "Informativo";
 }
 
 export interface GlobalTaxLine {
@@ -299,6 +328,8 @@ export interface NominaInfo {
   otrosPagos: NominaOtroPagoInfo[];
 }
 
+export type DocumentKind = "CFDI" | "RETENCIONES" | "UNKNOWN";
+
 export interface ComercioExteriorInfo {
   version?: string | null;
   tipoOperacion?: string | null;
@@ -375,7 +406,63 @@ export interface DonatariasInfo {
   leyenda?: string | null;
 }
 
+export interface RetencionesEmisorInfo {
+  rfcEmisor?: string | null;
+  nombre?: string | null;
+  curp?: string | null;
+}
+
+export interface RetencionesReceptorInfo {
+  nacionalidad?: string | null;
+  rfcReceptor?: string | null;
+  curp?: string | null;
+  nombre?: string | null;
+  numRegIdTrib?: string | null;
+}
+
+export interface RetencionesPeriodoInfo {
+  mesIni?: string | null;
+  mesFin?: string | null;
+  ejercicio?: string | null;
+}
+
+export interface RetencionImpuestoInfo {
+  baseRet?: string | null;
+  impuesto?: string | null;
+  montoRet?: string | null;
+  tipoPagoRet?: string | null;
+}
+
+export interface RetencionesTotalesInfo {
+  montoTotOperacion?: string | null;
+  montoTotGrav?: string | null;
+  montoTotExent?: string | null;
+  montoTotRet?: string | null;
+  impuestosRetenidos: RetencionImpuestoInfo[];
+}
+
+export interface RetencionesInfo {
+  version?: string | null;
+  folioInt?: string | null;
+  sello?: string | null;
+  numCert?: string | null;
+  cert?: string | null;
+  fechaExp?: string | null;
+  cveRetenc?: string | null;
+  descRetenc?: string | null;
+  lugarExpRetenc?: string | null;
+  emisor?: RetencionesEmisorInfo;
+  receptor?: RetencionesReceptorInfo;
+  periodo?: RetencionesPeriodoInfo;
+  totales?: RetencionesTotalesInfo;
+  complementoNames: string[];
+  uuid?: string | null;
+  fechaTimbrado?: string | null;
+  rfcProvCertif?: string | null;
+}
+
 export interface CfdiAnalysisResult {
+  documentKind: DocumentKind;
   uuid: string | null;
   version: string | null;
   tipoComprobante: string | null;
@@ -409,6 +496,7 @@ export interface CfdiAnalysisResult {
   impuestosLocales?: ImpuestosLocalesInfo;
   leyendasFiscales?: LeyendasFiscalesInfo;
   donatarias?: DonatariasInfo;
+  retenciones?: RetencionesInfo;
   addenda?: AddendaInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[] | null;
@@ -432,10 +520,12 @@ export interface CfdiAnalysisResult {
 }
 
 export interface AnalysisResponse {
+  documentKind: DocumentKind;
   uuid: string | null;
   tipoComprobante: string | null;
   rfcEmisor: string | null;
   nombreEmisor: string | null;
+  retenciones?: RetencionesInfo;
   regimenFiscal?: string | null;
   rfcReceptor: string | null;
   nombreReceptor: string | null;
@@ -614,6 +704,24 @@ function looksLikeAuthorizationNumber(value: string | null | undefined): boolean
   const cleaned = value.trim();
   if (cleaned.length < 3 || cleaned.length > 30) return false;
   return /^[A-Za-z0-9][A-Za-z0-9\s\-/.]{1,28}[A-Za-z0-9]$/.test(cleaned);
+}
+
+function looksLikeRfc(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const cleaned = value.trim().toUpperCase();
+  return /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{2,3}[0-9A-Z]$/.test(cleaned);
+}
+
+function hasTimbreInNode(node: Record<string, unknown>): boolean {
+  const complemento = (get(node, "cfdi:Complemento") as Record<string, unknown>) ??
+    (get(node, "retenciones:Complemento") as Record<string, unknown>) ??
+    (get(node, "Complemento") as Record<string, unknown>) ??
+    {};
+  const timbre =
+    (get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown>) ??
+    (get(complemento, "TimbreFiscalDigital") as Record<string, unknown>) ??
+    null;
+  return timbre !== null && typeof timbre === "object" && Object.keys(timbre).length > 0;
 }
 
 function looksLikeCurp(value: string | null | undefined): boolean {
@@ -1086,6 +1194,23 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   const comprobante =
     ((parsed as Record<string, unknown>)["cfdi:Comprobante"] as Record<string, unknown>) ?? {};
+
+  const retencionesNode =
+    ((parsed as Record<string, unknown>)["retenciones:Retenciones"] as Record<string, unknown>) ??
+    ((parsed as Record<string, unknown>)["Retenciones"] as Record<string, unknown>) ??
+    null;
+
+  const isRetenciones =
+    retencionesNode !== null && typeof retencionesNode === "object" && Object.keys(retencionesNode).length > 0;
+
+  if (isRetenciones) {
+    diag.hasTimbreFiscalDigital = hasTimbreInNode(retencionesNode);
+    diag.isStamped = diag.hasTimbreFiscalDigital;
+    return buildRetencionesResult(
+      retencionesNode, rawXml, xmlContent, originalFilename, originalSha256, normalizedSha256, diag,
+      safeNormalizationApplied, bomDetected, leadingContentBeforeXml,
+    );
+  }
 
   if (!comprobante || Object.keys(comprobante).length === 0) {
     throw Object.assign(new Error("No se encontró un elemento cfdi:Comprobante válido"), {
@@ -7948,6 +8073,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   return {
+    documentKind: "CFDI",
     uuid,
     version,
     tipoComprobante: tipoLabel,
@@ -8004,8 +8130,782 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   };
 }
 
+function buildRetencionesResult(
+  root: Record<string, unknown>,
+  rawXml: string,
+  xmlContent: string,
+  originalFilename: string | undefined,
+  originalSha256: string,
+  normalizedSha256: string,
+  diag: TechnicalDiagnostics,
+  safeNormalizationApplied: boolean,
+  bomDetected: boolean,
+  leadingContentBeforeXml: boolean,
+): CfdiAnalysisResult {
+  const issues: string[] = [];
+  const warnings: string[] = [];
+  const findings: Finding[] = [];
+  const addedKeys = new Set<string>();
+  const codeCounters: Record<string, number> = {};
+
+  function addFindingOnce(f: Omit<Finding, "id">): void {
+    const evidenceStr = JSON.stringify(f.evidence ?? []);
+    const key = `${f.code}||${f.message}||${evidenceStr}`;
+    if (!addedKeys.has(key)) {
+      addedKeys.add(key);
+      if (!codeCounters[f.code]) codeCounters[f.code] = 1;
+      const id = `${f.code}-${codeCounters[f.code]++}`;
+      findings.push({ ...f, id });
+    }
+  }
+
+  // Extract attributes
+  const version = strAttr(root, "Version");
+  const folioInt = strAttr(root, "FolioInt");
+  const sello = strAttr(root, "Sello");
+  const numCert = strAttr(root, "NumCert");
+  const cert = strAttr(root, "Cert");
+  const fechaExp = strAttr(root, "FechaExp");
+  const cveRetenc = strAttr(root, "CveRetenc");
+  const descRetenc = strAttr(root, "DescRetenc");
+  const lugarExpRetenc = strAttr(root, "LugarExpRetenc");
+
+  // Emisor
+  const emisorNode = (get(root, "cfdi:Emisor") as Record<string, unknown>) ??
+    (get(root, "retenciones:Emisor") as Record<string, unknown>) ??
+    (get(root, "Emisor") as Record<string, unknown>) ?? null;
+  let emisor: RetencionesEmisorInfo | undefined;
+  if (emisorNode && typeof emisorNode === "object") {
+    emisor = {
+      rfcEmisor: str(get(emisorNode, "@_RfcE")) ?? null,
+      nombre: str(get(emisorNode, "@_NomDenRazSocE")) ?? null,
+      curp: str(get(emisorNode, "@_CURPE")) ?? null,
+    };
+  }
+
+  // Receptor
+  const receptorNode = (get(root, "cfdi:Receptor") as Record<string, unknown>) ??
+    (get(root, "retenciones:Receptor") as Record<string, unknown>) ??
+    (get(root, "Receptor") as Record<string, unknown>) ?? null;
+  let receptor: RetencionesReceptorInfo | undefined;
+  if (receptorNode && typeof receptorNode === "object") {
+    const nacional = (get(receptorNode, "cfdi:Nacional") as Record<string, unknown>) ??
+      (get(receptorNode, "retenciones:Nacional") as Record<string, unknown>) ??
+      (get(receptorNode, "Nacional") as Record<string, unknown>) ?? null;
+    const extranjero = (get(receptorNode, "cfdi:Extranjero") as Record<string, unknown>) ??
+      (get(receptorNode, "retenciones:Extranjero") as Record<string, unknown>) ??
+      (get(receptorNode, "Extranjero") as Record<string, unknown>) ?? null;
+    const nacionalidad = strAttr(receptorNode, "Nacionalidad");
+    receptor = {
+      nacionalidad,
+      rfcReceptor: nacional && typeof nacional === "object" ? str(get(nacional, "@_RfcR")) ?? null : null,
+      curp: nacional && typeof nacional === "object" ? str(get(nacional, "@_CURPR")) ?? null : null,
+      nombre: (nacional && typeof nacional === "object" ? str(get(nacional, "@_NomDenRazSocR")) : null) ??
+        (extranjero && typeof extranjero === "object" ? str(get(extranjero, "@_NomDenRazSocR")) : null) ?? null,
+      numRegIdTrib: extranjero && typeof extranjero === "object" ? str(get(extranjero, "@_NumRegIdTrib")) ?? null : null,
+    };
+  }
+
+  // Periodo
+  const periodoNode = (get(root, "cfdi:Periodo") as Record<string, unknown>) ??
+    (get(root, "retenciones:Periodo") as Record<string, unknown>) ??
+    (get(root, "Periodo") as Record<string, unknown>) ?? null;
+  let periodo: RetencionesPeriodoInfo | undefined;
+  if (periodoNode && typeof periodoNode === "object") {
+    periodo = {
+      mesIni: str(get(periodoNode, "@_MesIni")) ?? null,
+      mesFin: str(get(periodoNode, "@_MesFin")) ?? null,
+      ejercicio: str(get(periodoNode, "@_Ejerc")) ?? null,
+    };
+  }
+
+  // Totales
+  const totalesNode = (get(root, "cfdi:Totales") as Record<string, unknown>) ??
+    (get(root, "retenciones:Totales") as Record<string, unknown>) ??
+    (get(root, "Totales") as Record<string, unknown>) ?? null;
+  let totales: RetencionesTotalesInfo | undefined;
+  if (totalesNode && typeof totalesNode === "object") {
+    const impRetenidosRaw = (get(totalesNode, "cfdi:ImpRetenidos") as Record<string, unknown>) ??
+      (get(totalesNode, "retenciones:ImpRetenidos") as Record<string, unknown>) ??
+      (get(totalesNode, "ImpRetenidos") as Record<string, unknown>) ?? null;
+    let impuestosRaw: unknown[] = [];
+    if (impRetenidosRaw && typeof impRetenidosRaw === "object") {
+      const raw = (get(impRetenidosRaw, "cfdi:ImpRetenido") as unknown) ??
+        (get(impRetenidosRaw, "retenciones:ImpRetenido") as unknown) ??
+        (get(impRetenidosRaw, "ImpRetenido") as unknown);
+      impuestosRaw = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    }
+    const impuestosRetenidos: RetencionImpuestoInfo[] = (impuestosRaw as Record<string, unknown>[]).map((ir) => ({
+      baseRet: str(get(ir, "@_BaseRet")) ?? null,
+      impuesto: str(get(ir, "@_Impuesto")) ?? null,
+      montoRet: str(get(ir, "@_MontoRet")) ?? null,
+      tipoPagoRet: str(get(ir, "@_TipoPagoRet")) ?? null,
+    }));
+
+    totales = {
+      montoTotOperacion: strAttr(totalesNode, "MontoTotOperacion"),
+      montoTotGrav: strAttr(totalesNode, "MontoTotGrav"),
+      montoTotExent: strAttr(totalesNode, "MontoTotExent"),
+      montoTotRet: strAttr(totalesNode, "MontoTotRet"),
+      impuestosRetenidos,
+    };
+  }
+
+  // Complemento / Timbre
+  const complemento = (get(root, "cfdi:Complemento") as Record<string, unknown>) ??
+    (get(root, "retenciones:Complemento") as Record<string, unknown>) ??
+    (get(root, "Complemento") as Record<string, unknown>) ?? {};
+  const hasComplemento = complemento !== null && typeof complemento === "object" && Object.keys(complemento).length > 0;
+  const complementoNames: string[] = [];
+  if (hasComplemento) {
+    for (const key of Object.keys(complemento)) {
+      const normalized = key.replace(/^[\w.-]+:/, "");
+      complementoNames.push(normalized);
+    }
+  }
+
+  const timbreNode = (get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown>) ??
+    (get(complemento, "TimbreFiscalDigital") as Record<string, unknown>) ?? null;
+  const hasTimbre = timbreNode !== null && typeof timbreNode === "object" && Object.keys(timbreNode).length > 0;
+  const uuid = hasTimbre ? str(get(timbreNode!, "@_UUID")) ?? null : null;
+  const fechaTimbrado = hasTimbre ? str(get(timbreNode!, "@_FechaTimbrado")) ?? null : null;
+  const rfcProvCertif = hasTimbre ? str(get(timbreNode!, "@_RfcProvCertif")) ?? null : null;
+
+  diag.hasTimbreFiscalDigital = hasTimbre;
+  diag.isStamped = hasTimbre;
+
+  // ── Findings ──
+
+  // A) RETENCIONES_DOCUMENT_DETECTED
+  addFindingOnce({
+    severity: "INFO",
+    category: "STRUCTURE",
+    code: "RETENCIONES_DOCUMENT_DETECTED",
+    title: "XML de Retenciones detectado",
+    message:
+      "El XML corresponde a Retenciones e Información de Pagos, no a un CFDI Comprobante tradicional.",
+    recommendedAction:
+      "Revisa las secciones de emisor, receptor, periodo, totales e impuestos retenidos.",
+    evidence: [
+      { label: "Versión", value: version ?? "—" },
+      { label: "CveRetenc", value: cveRetenc ?? "—" },
+      { label: "DescRetenc", value: descRetenc ?? "—" },
+      { label: "Folio interno", value: folioInt ?? "—" },
+      { label: "UUID", value: uuid ?? "—" },
+    ],
+  });
+
+  // B) RETENCIONES_MISSING_VERSION
+  if (!isNonEmptyString(version)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "STRUCTURE",
+      code: "RETENCIONES_MISSING_VERSION",
+      title: "Versión de Retenciones faltante",
+      message: "No se detectó la versión del XML de Retenciones.",
+      recommendedAction: "Verifica que el XML de Retenciones esté completo.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "CveRetenc", value: cveRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // C) RETENCIONES_VERSION_REVIEW
+  if (isNonEmptyString(version) && !["1.0", "2.0"].includes(version)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "STRUCTURE",
+      code: "RETENCIONES_VERSION_REVIEW",
+      title: "Versión de Retenciones requiere revisión",
+      message: "La versión del XML de Retenciones no está reconocida por el motor actual.",
+      recommendedAction: "Confirma que la versión corresponda al esquema fiscal del XML.",
+      evidence: [
+        { label: "Versión", value: version },
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // D) RETENCIONES_MISSING_CVE_RETENC
+  if (!isNonEmptyString(cveRetenc)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_MISSING_CVE_RETENC",
+      title: "Clave de retención faltante",
+      message: "No se detectó CveRetenc en el XML de Retenciones.",
+      recommendedAction: "Revisa la clave de tipo de retención o información de pagos.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "DescRetenc", value: descRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // E) RETENCIONES_MISSING_FECHA_EXP
+  if (!isNonEmptyString(fechaExp)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "RETENCIONES_MISSING_FECHA_EXP",
+      title: "Fecha de expedición de Retenciones faltante",
+      message: "No se detectó FechaExp en el XML de Retenciones.",
+      recommendedAction: "Revisa la fecha de expedición del documento.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "CveRetenc", value: cveRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // F) RETENCIONES_FECHA_EXP_INVALID
+  if (isNonEmptyString(fechaExp) && !parseCfdiDate(fechaExp)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "RETENCIONES_FECHA_EXP_INVALID",
+      title: "Fecha de expedición de Retenciones inválida",
+      message: "FechaExp no pudo interpretarse como fecha válida.",
+      recommendedAction: "Revisa el formato de FechaExp.",
+      evidence: [
+        { label: "FechaExp", value: fechaExp },
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // G) RETENCIONES_MISSING_EMISOR_RFC
+  if (!emisor || !isNonEmptyString(emisor.rfcEmisor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_MISSING_EMISOR_RFC",
+      title: "RFC del emisor faltante en Retenciones",
+      message: "No se detectó RFC del emisor en el XML de Retenciones.",
+      recommendedAction: "Revisa el nodo Emisor del XML de Retenciones.",
+      evidence: [
+        { label: "Nombre emisor", value: emisor?.nombre ?? "—" },
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // H) RETENCIONES_EMISOR_RFC_FORMAT_REVIEW
+  if (emisor && isNonEmptyString(emisor.rfcEmisor) && !looksLikeRfc(emisor.rfcEmisor)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "FISCAL",
+      code: "RETENCIONES_EMISOR_RFC_FORMAT_REVIEW",
+      title: "Formato de RFC emisor requiere revisión",
+      message: "El RFC del emisor en Retenciones tiene formato poco común.",
+      recommendedAction: "Verifica el RFC del emisor.",
+      evidence: [
+        { label: "RFC emisor", value: emisor.rfcEmisor },
+        { label: "Nombre emisor", value: emisor.nombre ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // I) RETENCIONES_MISSING_RECEPTOR
+  if (!receptor || (!isNonEmptyString(receptor.rfcReceptor) && !isNonEmptyString(receptor.numRegIdTrib))) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_MISSING_RECEPTOR",
+      title: "Receptor faltante en Retenciones",
+      message: "No se detectó información suficiente del receptor en el XML de Retenciones.",
+      recommendedAction: "Revisa el nodo Receptor y su información nacional o extranjera.",
+      evidence: [
+        { label: "Nacionalidad", value: receptor?.nacionalidad ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+        { label: "Folio interno", value: folioInt ?? "—" },
+      ],
+    });
+  }
+
+  // J) RETENCIONES_RECEPTOR_NACIONAL_MISSING_RFC
+  const isNacional = !receptor?.nacionalidad || normalizeText(receptor.nacionalidad).toUpperCase() !== "EXTRANJERO";
+  if (receptor && isNacional && !isNonEmptyString(receptor.rfcReceptor)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_RECEPTOR_NACIONAL_MISSING_RFC",
+      title: "RFC del receptor nacional faltante",
+      message: "No se detectó RFC del receptor nacional en Retenciones.",
+      recommendedAction: "Revisa la información nacional del receptor.",
+      evidence: [
+        { label: "Nacionalidad", value: receptor.nacionalidad ?? "—" },
+        { label: "Nombre receptor", value: receptor.nombre ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // K) RETENCIONES_RECEPTOR_EXTRANJERO_MISSING_NUM_REG_ID_TRIB
+  const isExtranjero = receptor?.nacionalidad && normalizeText(receptor.nacionalidad).toUpperCase() === "EXTRANJERO";
+  if (receptor && isExtranjero && !isNonEmptyString(receptor.numRegIdTrib)) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_RECEPTOR_EXTRANJERO_MISSING_NUM_REG_ID_TRIB",
+      title: "NumRegIdTrib del receptor extranjero faltante",
+      message: "No se detectó NumRegIdTrib para receptor extranjero en Retenciones.",
+      recommendedAction: "Revisa la identificación tributaria del receptor extranjero.",
+      evidence: [
+        { label: "Nacionalidad", value: receptor.nacionalidad ?? "—" },
+        { label: "Nombre receptor", value: receptor.nombre ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // L) RETENCIONES_MISSING_PERIODO
+  if (!periodo) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "FISCAL",
+      code: "RETENCIONES_MISSING_PERIODO",
+      title: "Periodo faltante en Retenciones",
+      message: "No se detectó el periodo del XML de Retenciones.",
+      recommendedAction: "Revisa MesIni, MesFin y Ejercicio.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "CveRetenc", value: cveRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // M) RETENCIONES_PERIODO_INVALID
+  if (periodo) {
+    let periodoInvalid = false;
+    const mesIniNum = periodo.mesIni ? parseInt(periodo.mesIni, 10) : NaN;
+    const mesFinNum = periodo.mesFin ? parseInt(periodo.mesFin, 10) : NaN;
+    if (periodo.mesIni && (mesIniNum < 1 || mesIniNum > 12)) periodoInvalid = true;
+    if (periodo.mesFin && (mesFinNum < 1 || mesFinNum > 12)) periodoInvalid = true;
+    if (!isNaN(mesIniNum) && !isNaN(mesFinNum) && mesIniNum > mesFinNum) periodoInvalid = true;
+    if (periodo.ejercicio && !/^\d{4}$/.test(periodo.ejercicio)) periodoInvalid = true;
+    if (periodoInvalid) {
+      addFindingOnce({
+        severity: "WARNING",
+        category: "FISCAL",
+        code: "RETENCIONES_PERIODO_INVALID",
+        title: "Periodo de Retenciones inválido",
+        message: "El periodo del XML de Retenciones presenta valores inválidos o inconsistentes.",
+        recommendedAction: "Revisa MesIni, MesFin y Ejercicio.",
+        evidence: [
+          { label: "MesIni", value: periodo.mesIni ?? "—" },
+          { label: "MesFin", value: periodo.mesFin ?? "—" },
+          { label: "Ejercicio", value: periodo.ejercicio ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+  }
+
+  // N) RETENCIONES_MISSING_TOTALES
+  if (!totales) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TOTALS",
+      code: "RETENCIONES_MISSING_TOTALES",
+      title: "Totales faltantes en Retenciones",
+      message: "No se detectó el nodo Totales en el XML de Retenciones.",
+      recommendedAction: "Revisa los montos totales e impuestos retenidos.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "CveRetenc", value: cveRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  if (totales) {
+    // O) RETENCIONES_TOTAL_OPERATION_INVALID
+    if (isNonEmptyString(totales.montoTotOperacion)) {
+      const montoOpVal = toMoneyNumber(totales.montoTotOperacion);
+      if (montoOpVal < 0) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TOTALS",
+          code: "RETENCIONES_TOTAL_OPERATION_INVALID",
+          title: "Monto total de operación inválido",
+          message: "MontoTotOperacion no tiene un valor numérico válido.",
+          recommendedAction: "Revisa el monto total de operación.",
+          evidence: [
+            { label: "MontoTotOperacion", value: totales.montoTotOperacion },
+            { label: "Folio interno", value: folioInt ?? "—" },
+            { label: "UUID", value: uuid ?? "—" },
+          ],
+        });
+      }
+    }
+
+    // P) RETENCIONES_TOTAL_RET_MISMATCH (CRITICAL)
+    if (isNonEmptyString(totales.montoTotRet) && totales.impuestosRetenidos.length > 0) {
+      const montoTotRetVal = toMoneyNumber(totales.montoTotRet);
+      const sumMontoRet = totales.impuestosRetenidos.reduce((acc, ir) => {
+        return acc + toMoneyNumber(ir.montoRet);
+      }, 0);
+      if (Math.abs(montoTotRetVal - sumMontoRet) > 0.01) {
+        addFindingOnce({
+          severity: "CRITICAL",
+          category: "TOTALS",
+          code: "RETENCIONES_TOTAL_RET_MISMATCH",
+          title: "Monto total retenido no coincide",
+          message:
+            "MontoTotRet no coincide con la suma de MontoRet de los impuestos retenidos.",
+          recommendedAction:
+            "Revisa MontoTotRet y los impuestos retenidos antes de utilizar este XML.",
+          evidence: [
+            { label: "MontoTotRet XML", value: totales.montoTotRet },
+            { label: "Suma MontoRet", value: sumMontoRet.toFixed(2) },
+            { label: "Diferencia", value: Math.abs(montoTotRetVal - sumMontoRet).toFixed(2) },
+            { label: "Tolerancia", value: "0.01" },
+            { label: "Total impuestos retenidos", value: String(totales.impuestosRetenidos.length) },
+          ],
+        });
+      }
+    }
+
+    // Q) RETENCIONES_TOTAL_GRAV_EXENT_OPERATION_REVIEW
+    if (
+      isNonEmptyString(totales.montoTotOperacion) &&
+      isNonEmptyString(totales.montoTotGrav) &&
+      isNonEmptyString(totales.montoTotExent)
+    ) {
+      const montoOp = toMoneyNumber(totales.montoTotOperacion);
+      const montoGrav = toMoneyNumber(totales.montoTotGrav);
+      const montoExent = toMoneyNumber(totales.montoTotExent);
+      if (Math.abs((montoGrav + montoExent) - montoOp) > 0.01) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TOTALS",
+          code: "RETENCIONES_TOTAL_GRAV_EXENT_OPERATION_REVIEW",
+          title: "Operación no coincide con gravado más exento",
+          message: "MontoTotOperacion no coincide con MontoTotGrav más MontoTotExent.",
+          recommendedAction: "Revisa los montos gravados, exentos y total de operación.",
+          evidence: [
+            { label: "MontoTotOperacion", value: totales.montoTotOperacion },
+            { label: "MontoTotGrav", value: totales.montoTotGrav },
+            { label: "MontoTotExent", value: totales.montoTotExent },
+            { label: "Suma calculada", value: (montoGrav + montoExent).toFixed(2) },
+            { label: "Diferencia", value: Math.abs((montoGrav + montoExent) - montoOp).toFixed(2) },
+          ],
+        });
+      }
+    }
+
+    // R) RETENCIONES_WITHOUT_IMP_RETENIDOS_REVIEW
+    if (totales.impuestosRetenidos.length === 0) {
+      addFindingOnce({
+        severity: "INFO",
+        category: "TOTALS",
+        code: "RETENCIONES_WITHOUT_IMP_RETENIDOS_REVIEW",
+        title: "Retenciones sin impuestos retenidos",
+        message:
+          "No se detectaron nodos ImpRetenido. Puede ser válido según el tipo de información de pagos, pero requiere revisión.",
+        recommendedAction: "Confirma si el XML debe incluir detalle de impuestos retenidos.",
+        evidence: [
+          { label: "MontoTotRet", value: totales.montoTotRet ?? "—" },
+          { label: "CveRetenc", value: cveRetenc ?? "—" },
+          { label: "DescRetenc", value: descRetenc ?? "—" },
+          { label: "UUID", value: uuid ?? "—" },
+        ],
+      });
+    }
+
+    // Per-ImpRetenido findings
+    totales.impuestosRetenidos.forEach((ir, idx) => {
+      const nro = idx + 1;
+
+      // S) RETENCIONES_IMP_RETENIDO_MISSING_IMPUESTO
+      if (!isNonEmptyString(ir.impuesto)) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TAX",
+          code: "RETENCIONES_IMP_RETENIDO_MISSING_IMPUESTO",
+          title: "Impuesto retenido sin clave de impuesto",
+          message: "Un impuesto retenido no contiene la clave Impuesto.",
+          recommendedAction: "Revisa el detalle de ImpRetenido.",
+          evidence: [
+            { label: "ImpRetenido #", value: String(nro) },
+            { label: "BaseRet", value: ir.baseRet ?? "—" },
+            { label: "MontoRet", value: ir.montoRet ?? "—" },
+            { label: "TipoPagoRet", value: ir.tipoPagoRet ?? "—" },
+          ],
+        });
+      }
+
+      // T) RETENCIONES_IMP_RETENIDO_AMOUNT_INVALID
+      if (isNonEmptyString(ir.montoRet) && toMoneyNumber(ir.montoRet) < 0) {
+        addFindingOnce({
+          severity: "WARNING",
+          category: "TAX",
+          code: "RETENCIONES_IMP_RETENIDO_AMOUNT_INVALID",
+          title: "MontoRet inválido",
+          message: "Un impuesto retenido contiene MontoRet inválido.",
+          recommendedAction: "Revisa el monto retenido.",
+          evidence: [
+            { label: "ImpRetenido #", value: String(nro) },
+            { label: "Impuesto", value: ir.impuesto ?? "—" },
+            { label: "MontoRet", value: ir.montoRet },
+            { label: "TipoPagoRet", value: ir.tipoPagoRet ?? "—" },
+          ],
+        });
+      }
+
+      // U) RETENCIONES_IMP_RETENIDO_BASE_INVALID_REVIEW
+      if (isNonEmptyString(ir.baseRet) && toMoneyNumber(ir.baseRet) < 0) {
+        addFindingOnce({
+          severity: "INFO",
+          category: "TAX",
+          code: "RETENCIONES_IMP_RETENIDO_BASE_INVALID_REVIEW",
+          title: "BaseRet requiere revisión",
+          message: "BaseRet tiene un valor inválido o poco común.",
+          recommendedAction: "Revisa la base de retención.",
+          evidence: [
+            { label: "ImpRetenido #", value: String(nro) },
+            { label: "BaseRet", value: ir.baseRet },
+            { label: "Impuesto", value: ir.impuesto ?? "—" },
+            { label: "MontoRet", value: ir.montoRet ?? "—" },
+          ],
+        });
+      }
+    });
+  }
+
+  // V) RETENCIONES_MISSING_SELLO_OR_CERT_REVIEW
+  if (!isNonEmptyString(sello) || !isNonEmptyString(numCert) || !isNonEmptyString(cert)) {
+    addFindingOnce({
+      severity: "INFO",
+      category: "TECHNICAL",
+      code: "RETENCIONES_MISSING_SELLO_OR_CERT_REVIEW",
+      title: "Sello o certificado de Retenciones incompleto",
+      message:
+        "El XML de Retenciones no contiene sello, número de certificado o certificado completo.",
+      recommendedAction: "Verifica si el XML corresponde al documento original emitido.",
+      evidence: [
+        { label: "Sello presente", value: isNonEmptyString(sello) ? "Sí" : "No" },
+        { label: "NumCert", value: numCert ?? "—" },
+        { label: "Certificado presente", value: isNonEmptyString(cert) ? "Sí" : "No" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // W) RETENCIONES_TIMBRE_MISSING_REVIEW
+  if (!hasTimbre) {
+    addFindingOnce({
+      severity: "WARNING",
+      category: "TECHNICAL",
+      code: "RETENCIONES_TIMBRE_MISSING_REVIEW",
+      title: "Timbre Fiscal Digital no detectado en Retenciones",
+      message: "No se detectó TimbreFiscalDigital en el XML de Retenciones.",
+      recommendedAction:
+        "Verifica si el XML de Retenciones está timbrado y corresponde al documento fiscal original.",
+      evidence: [
+        { label: "Folio interno", value: folioInt ?? "—" },
+        { label: "CveRetenc", value: cveRetenc ?? "—" },
+        { label: "UUID", value: uuid ?? "—" },
+      ],
+    });
+  }
+
+  // ── Executive Summary ──
+  let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
+  let summaryTitle: string;
+  let summaryMessage: string;
+  let summaryAction: string;
+
+  const hasCritical = findings.some((f) => f.severity === "CRITICAL");
+  const hasWarning = findings.some((f) => f.severity === "WARNING");
+  const hasInfoOnly = findings.length > 0 && !hasCritical && !hasWarning;
+
+  if (hasCritical) {
+    riskLevel = "CRITICAL";
+    summaryTitle = "XML de Retenciones con incidencias críticas";
+    summaryMessage =
+      "Se detectaron hallazgos críticos que pueden afectar la consistencia de montos retenidos.";
+    summaryAction =
+      "Revisa los hallazgos críticos antes de usar este XML de Retenciones en procesos fiscales.";
+  } else if (hasWarning) {
+    riskLevel = "WARNING";
+    summaryTitle = "XML de Retenciones con advertencias";
+    summaryMessage =
+      "El XML de Retenciones pudo leerse, pero se detectaron advertencias que conviene revisar.";
+    summaryAction =
+      "Revisa las advertencias para confirmar que corresponden al caso fiscal u operativo.";
+  } else {
+    riskLevel = "OK";
+    summaryTitle = "XML de Retenciones sin incidencias críticas detectadas";
+    summaryMessage =
+      "El XML de Retenciones pudo leerse correctamente y no se detectaron hallazgos críticos ni advertencias.";
+    summaryAction =
+      "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
+  }
+
+  if (hasInfoOnly) {
+    summaryMessage += " Existen hallazgos informativos que no representan una incidencia crítica.";
+  }
+
+  const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+  const categoryOrder: Record<string, number> = {
+    TOTALS: 0,
+    FISCAL: 1,
+    TAX: 2,
+    TECHNICAL: 3,
+    STRUCTURE: 4,
+    COMPLEMENT: 5,
+  };
+  findings.sort((a, b) => {
+    const svA = severityOrder[a.severity] ?? 99;
+    const svB = severityOrder[b.severity] ?? 99;
+    if (svA !== svB) return svA - svB;
+    const catA = categoryOrder[a.category] ?? 99;
+    const catB = categoryOrder[b.category] ?? 99;
+    if (catA !== catB) return catA - catB;
+    return a.code.localeCompare(b.code);
+  });
+
+  const executiveSummary: ExecutiveSummary = {
+    riskLevel,
+    title: summaryTitle,
+    message: summaryMessage,
+    recommendedAction: summaryAction,
+  };
+
+  // Namespaces
+  const nsRegex = /xmlns:([a-zA-Z][\w.-]*)\s*=\s*["']([^"']+)["']/g;
+  const namespaces: string[] = [];
+  const nsSet = new Set<string>();
+  let nsMatch: RegExpExecArray | null;
+  while ((nsMatch = nsRegex.exec(xmlContent)) !== null) {
+    const uri = nsMatch[2];
+    if (!nsSet.has(uri)) {
+      nsSet.add(uri);
+      namespaces.push(`${nsMatch[1]}=${uri}`);
+    }
+  }
+
+  const structureDiagnostics: StructureDiagnostics = {
+    namespaces,
+    hasComplemento,
+    hasAddenda: false,
+    complementNames: [],
+    knownComplements: [],
+    unknownComplements: [],
+    addendaDetected: false,
+    nodeShapeNotes: [],
+  };
+
+  let normalizedXml: NormalizedXml | undefined;
+  if (safeNormalizationApplied) {
+    const normalizedFilename = originalFilename
+      ? originalFilename.replace(/\.xml$/i, "") + "-normalizado.xml"
+      : "retenciones-normalizado.xml";
+    normalizedXml = {
+      available: true,
+      reason:
+        "Se detectó un problema técnico de codificación o contenido previo al XML. Fiscora generó una versión normalizada sin modificar el contenido fiscal ni el timbre.",
+      filename: normalizedFilename,
+      content: xmlContent,
+      originalSha256,
+      normalizedSha256,
+      normalizationType: "TECHNICAL_SAFE",
+      fiscalContentModified: false,
+      stampRisk: "NONE",
+    };
+  }
+
+  return {
+    documentKind: "RETENCIONES",
+    uuid,
+    version: version ?? null,
+    tipoComprobante: null,
+    fecha: null,
+    serie: null,
+    folio: folioInt ?? null,
+    moneda: null,
+    subtotal: null,
+    total: null,
+    rfcEmisor: emisor?.rfcEmisor ?? null,
+    nombreEmisor: emisor?.nombre ?? null,
+    regimenFiscal: undefined,
+    rfcReceptor: receptor?.rfcReceptor ?? null,
+    nombreReceptor: receptor?.nombre ?? null,
+    fechaTimbrado,
+    totalImpuestosTrasladados: null,
+    totalImpuestosRetenidos: totales?.montoTotRet ?? null,
+    usoCfdi: null,
+    metodoPago: null,
+    formaPago: null,
+    issues,
+    warnings,
+    findings,
+    technicalDiagnostics: diag,
+    executiveSummary,
+    paymentComplement: undefined,
+    cfdiRelations: undefined,
+    cartaPorte: undefined,
+    nomina: undefined,
+    comercioExterior: undefined,
+    impuestosLocales: undefined,
+    leyendasFiscales: undefined,
+    donatarias: undefined,
+    retenciones: {
+      version: version ?? null,
+      folioInt,
+      sello,
+      numCert,
+      cert,
+      fechaExp,
+      cveRetenc,
+      descRetenc,
+      lugarExpRetenc,
+      emisor,
+      receptor,
+      periodo,
+      totales,
+      complementoNames,
+      uuid,
+      fechaTimbrado,
+      rfcProvCertif,
+    },
+    addenda: undefined,
+    structureDiagnostics,
+    concepts: undefined,
+    totalsValidation: undefined,
+    taxSummary: undefined,
+    globalTaxes: undefined,
+    normalizedXml,
+    regimenFiscalReceptor: undefined,
+    domicilioFiscalReceptor: undefined,
+    lugarExpedicion: undefined,
+    exportacion: undefined,
+    tipoCambio: undefined,
+    sello,
+    certificado: cert ?? null,
+    noCertificado: numCert ?? null,
+    selloCfd: undefined,
+    selloSat: undefined,
+    noCertificadoSat: undefined,
+    rfcProvCertif,
+    versionTimbre: undefined,
+  };
+}
+
 export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse {
   return {
+    documentKind: result.documentKind,
     uuid: result.uuid,
     tipoComprobante: result.tipoComprobante,
     rfcEmisor: result.rfcEmisor,
@@ -8013,6 +8913,7 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     regimenFiscal: result.regimenFiscal,
     rfcReceptor: result.rfcReceptor,
     nombreReceptor: result.nombreReceptor,
+    retenciones: result.retenciones,
     fecha: result.fecha,
     total: result.total,
     subtotal: result.subtotal,
@@ -8028,7 +8929,11 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     totalImpuestosRetenidos: result.totalImpuestosRetenidos,
     issues: result.issues,
     warnings: result.warnings,
-    findings: result.findings,
+    findings: result.findings.map((f) => ({
+      ...f,
+      priority: getFindingPriority(f.severity, f.category),
+      actionGroup: getFindingActionGroup(f),
+    })),
     technicalDiagnostics: result.technicalDiagnostics,
     executiveSummary: result.executiveSummary,
     paymentComplement: result.paymentComplement,

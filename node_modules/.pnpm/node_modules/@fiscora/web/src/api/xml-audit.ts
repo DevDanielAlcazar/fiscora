@@ -175,6 +175,8 @@ export interface Finding {
   message: string;
   recommendedAction?: string;
   evidence?: { label: string; value?: string }[];
+  priority?: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW";
+  actionGroup?: string;
 }
 
 export interface GlobalTaxLine {
@@ -328,6 +330,63 @@ export interface DonatariasInfo {
   leyenda?: string | null;
 }
 
+export interface RetencionesEmisorInfo {
+  rfcEmisor?: string | null;
+  nombre?: string | null;
+  curp?: string | null;
+}
+
+export interface RetencionesReceptorInfo {
+  nacionalidad?: string | null;
+  rfcReceptor?: string | null;
+  curp?: string | null;
+  nombre?: string | null;
+  numRegIdTrib?: string | null;
+}
+
+export interface RetencionesPeriodoInfo {
+  mesIni?: string | null;
+  mesFin?: string | null;
+  ejercicio?: string | null;
+}
+
+export interface RetencionImpuestoInfo {
+  baseRet?: string | null;
+  impuesto?: string | null;
+  montoRet?: string | null;
+  tipoPagoRet?: string | null;
+}
+
+export interface RetencionesTotalesInfo {
+  montoTotOperacion?: string | null;
+  montoTotGrav?: string | null;
+  montoTotExent?: string | null;
+  montoTotRet?: string | null;
+  impuestosRetenidos: RetencionImpuestoInfo[];
+}
+
+export interface RetencionesInfo {
+  version?: string | null;
+  folioInt?: string | null;
+  sello?: string | null;
+  numCert?: string | null;
+  cert?: string | null;
+  fechaExp?: string | null;
+  cveRetenc?: string | null;
+  descRetenc?: string | null;
+  lugarExpRetenc?: string | null;
+  emisor?: RetencionesEmisorInfo;
+  receptor?: RetencionesReceptorInfo;
+  periodo?: RetencionesPeriodoInfo;
+  totales?: RetencionesTotalesInfo;
+  complementoNames: string[];
+  uuid?: string | null;
+  fechaTimbrado?: string | null;
+  rfcProvCertif?: string | null;
+}
+
+export type DocumentKind = "CFDI" | "RETENCIONES" | "UNKNOWN";
+
 export interface NormalizedXml {
   available: boolean;
   reason: string;
@@ -341,6 +400,7 @@ export interface NormalizedXml {
 }
 
 export interface AnalysisResult {
+  documentKind: DocumentKind;
   uuid: string | null;
   tipoComprobante: string | null;
   rfcEmisor: string | null;
@@ -374,6 +434,7 @@ export interface AnalysisResult {
   impuestosLocales?: ImpuestosLocalesInfo;
   leyendasFiscales?: LeyendasFiscalesInfo;
   donatarias?: DonatariasInfo;
+  retenciones?: RetencionesInfo;
   addenda?: AddendaInfo;
   structureDiagnostics: StructureDiagnostics;
   concepts?: ConceptInfo[];

@@ -10,7 +10,41 @@ import {
   type ZipInventoryResult,
   type ZipFullAnalysisResult,
   type ZipFullAnalysisFileResult,
+  type Finding,
 } from "../api/xml-audit";
+
+const priorityOrder: Record<string, number> = { BLOCKER: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+const categoryOrder: Record<string, number> = {
+  TOTALS: 0, TAX: 1, COMPLEMENT: 2, FISCAL: 3, TECHNICAL: 4, STRUCTURE: 5,
+};
+
+function getPriorityLabel(p: string | undefined): string {
+  const labels: Record<string, string> = { BLOCKER: "Bloqueante", HIGH: "Alta", MEDIUM: "Media", LOW: "Informativa" };
+  return labels[p ?? ""] ?? "—";
+}
+
+function sortFindingsByPriority(findings: Finding[]): Finding[] {
+  return [...findings].sort((a, b) => {
+    const pa = priorityOrder[a.priority ?? "LOW"] ?? 3;
+    const pb = priorityOrder[b.priority ?? "LOW"] ?? 3;
+    if (pa !== pb) return pa - pb;
+    const sa = severityOrder[a.severity] ?? 2;
+    const sb = severityOrder[b.severity] ?? 2;
+    if (sa !== sb) return sa - sb;
+    return (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99);
+  });
+}
+
+function groupFindingsByActionGroup(findings: Finding[]): Record<string, Finding[]> {
+  const groups: Record<string, Finding[]> = {};
+  for (const f of findings) {
+    const g = f.actionGroup ?? "Informativo";
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(f);
+  }
+  return groups;
+}
 
 export default function XmlAuditPage() {
   const navigate = useNavigate();
@@ -21,6 +55,7 @@ export default function XmlAuditPage() {
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<"ALL" | "BLOCKER" | "HIGH" | "MEDIUM" | "LOW">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<
     "ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT"
   >("ALL");
@@ -99,6 +134,7 @@ export default function XmlAuditPage() {
       const analysis = await analyzeXml(token, selectedFile);
       setResult(analysis);
       setFilter("ALL");
+      setPriorityFilter("ALL");
       setCategoryFilter("ALL");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible analizar el XML.");
@@ -1052,6 +1088,31 @@ export default function XmlAuditPage() {
                       })}
                     </div>
                     <div className="flex gap-2 flex-wrap">
+                      {(["ALL", "BLOCKER", "HIGH", "MEDIUM", "LOW"] as const).map((p) => {
+                        const pLabels: Record<string, string> = {
+                          ALL: "Todas",
+                          BLOCKER: "Bloqueantes",
+                          HIGH: "Alta",
+                          MEDIUM: "Media",
+                          LOW: "Informativa",
+                        };
+                        const activeP = priorityFilter === p;
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => setPriorityFilter(p)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                              activeP
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {pLabels[p]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground self-center font-medium">
                         Categoría:
                       </span>
@@ -1113,13 +1174,100 @@ export default function XmlAuditPage() {
                         {result.findings.filter((f) => f.category === "COMPLEMENT").length}
                       </span>
                     </div>
+                    {result.findings && result.findings.length > 0 && (
+                      <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
+                        <h3 className="font-semibold text-sm">Resumen accionable</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {([
+                            { key: "BLOCKER", label: "Bloqueantes", style: "text-red-700 bg-red-50 border-red-200" },
+                            { key: "HIGH", label: "Alta prioridad", style: "text-orange-700 bg-orange-50 border-orange-200" },
+                            { key: "MEDIUM", label: "Media prioridad", style: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+                            { key: "LOW", label: "Informativos", style: "text-blue-700 bg-blue-50 border-blue-200" },
+                            { key: "ALL", label: "Total hallazgos", style: "text-muted-foreground bg-muted border-border" },
+                          ] as const).map(({ key, label, style }) => (
+                            <div
+                              key={key}
+                              className={`flex flex-col items-center justify-center p-3 rounded-lg border ${style}`}
+                            >
+                              <span className="text-2xl font-bold">
+                                {key === "ALL"
+                                  ? result.findings!.length
+                                  : result.findings!.filter((f) => f.priority === key).length}
+                              </span>
+                              <span className="text-xs font-medium">{label}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {(() => {
+                          const sorted = sortFindingsByPriority(result.findings!).slice(0, 5);
+                          return (
+                            <div>
+                              <h4 className="text-xs font-semibold mb-2">Primeras acciones recomendadas</h4>
+                              <div className="space-y-2">
+                                {sorted.map((f, i) => (
+                                  <div key={i} className="flex items-start gap-2 text-xs p-2 rounded border border-border">
+                                    <span className="font-bold shrink-0 mt-0.5">#{i + 1}</span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-semibold">{f.code}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                          f.priority === "BLOCKER" ? "text-red-700 bg-red-50 border-red-200" :
+                                          f.priority === "HIGH" ? "text-orange-700 bg-orange-50 border-orange-200" :
+                                          f.priority === "MEDIUM" ? "text-yellow-700 bg-yellow-50 border-yellow-200" :
+                                          "text-blue-700 bg-blue-50 border-blue-200"
+                                        }`}>
+                                          {getPriorityLabel(f.priority)}
+                                        </span>
+                                      </div>
+                                      <p className="text-muted-foreground mt-0.5">{f.recommendedAction ?? f.title}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const groups = groupFindingsByActionGroup(result.findings!);
+                          return (
+                            <div>
+                              <h4 className="text-xs font-semibold mb-2">Grupos accionables</h4>
+                              <div className="space-y-2">
+                                {Object.entries(groups).map(([group, items]) => (
+                                  <div
+                                    key={group}
+                                    className="flex items-center justify-between text-xs p-2 rounded border border-border"
+                                  >
+                                    <span className="font-medium">{group}</span>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-muted-foreground">{items.length} hallazgo(s)</span>
+                                      <span className="text-red-600 font-medium">
+                                        {items.filter((f) => f.severity === "CRITICAL").length} crítico(s)
+                                      </span>
+                                      <span className="text-yellow-600 font-medium">
+                                        {items.filter((f) => f.severity === "WARNING").length} advertencia(s)
+                                      </span>
+                                      <span className="text-blue-600">
+                                        {items.filter((f) => f.severity === "INFO").length} info
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                     <div className="space-y-3">
                       {(() => {
-                        let filtered = result.findings;
+                        let filtered = result.findings!;
                         if (filter !== "ALL")
                           filtered = filtered.filter((f) => f.severity === filter);
                         if (categoryFilter !== "ALL")
                           filtered = filtered.filter((f) => f.category === categoryFilter);
+                        if (priorityFilter !== "ALL")
+                          filtered = filtered.filter((f) => f.priority === priorityFilter);
                         if (filtered.length === 0) {
                           return (
                             <p className="text-sm text-muted-foreground">
@@ -1151,6 +1299,18 @@ export default function XmlAuditPage() {
                                 >
                                   {b.label}
                                 </span>
+                                {f.priority && (
+                                  <span
+                                    className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                      f.priority === "BLOCKER" ? "text-red-700 bg-red-50 border-red-200" :
+                                      f.priority === "HIGH" ? "text-orange-700 bg-orange-50 border-orange-200" :
+                                      f.priority === "MEDIUM" ? "text-yellow-700 bg-yellow-50 border-yellow-200" :
+                                      "text-blue-700 bg-blue-50 border-blue-200"
+                                    }`}
+                                  >
+                                    {getPriorityLabel(f.priority)}
+                                  </span>
+                                )}
                                 <span className="text-xs text-muted-foreground font-mono">
                                   {f.category}
                                 </span>
@@ -1954,6 +2114,157 @@ export default function XmlAuditPage() {
                     <span className="font-medium">{result.donatarias.leyenda ?? "—"}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {result.documentKind === "RETENCIONES" && result.retenciones && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Retenciones</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Versión</span>
+                    <span className="font-medium">{result.retenciones.version ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Folio interno</span>
+                    <span className="font-medium">{result.retenciones.folioInt ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Fecha expedición</span>
+                    <span className="font-medium">{result.retenciones.fechaExp ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">CveRetenc</span>
+                    <span className="font-medium">{result.retenciones.cveRetenc ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">DescRetenc</span>
+                    <span className="font-medium">{result.retenciones.descRetenc ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Lugar expedición</span>
+                    <span className="font-medium">{result.retenciones.lugarExpRetenc ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">UUID</span>
+                    <span className="font-medium">{result.retenciones.uuid ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Fecha timbrado</span>
+                    <span className="font-medium">{result.retenciones.fechaTimbrado ?? "—"}</span>
+                  </div>
+                </div>
+                {result.retenciones.emisor && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Emisor</h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">RFC</span>
+                        <span className="font-medium">{result.retenciones.emisor.rfcEmisor ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Nombre</span>
+                        <span className="font-medium">{result.retenciones.emisor.nombre ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">CURP</span>
+                        <span className="font-medium">{result.retenciones.emisor.curp ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {result.retenciones.receptor && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Receptor</h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Nacionalidad</span>
+                        <span className="font-medium">{result.retenciones.receptor.nacionalidad ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">RFC / NumRegIdTrib</span>
+                        <span className="font-medium">{result.retenciones.receptor.rfcReceptor ?? result.retenciones.receptor.numRegIdTrib ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Nombre</span>
+                        <span className="font-medium">{result.retenciones.receptor.nombre ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">CURP</span>
+                        <span className="font-medium">{result.retenciones.receptor.curp ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {result.retenciones.periodo && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Periodo</h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Mes inicial</span>
+                        <span className="font-medium">{result.retenciones.periodo.mesIni ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Mes final</span>
+                        <span className="font-medium">{result.retenciones.periodo.mesFin ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Ejercicio</span>
+                        <span className="font-medium">{result.retenciones.periodo.ejercicio ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {result.retenciones.totales && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Totales</h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Monto total operación</span>
+                        <span className="font-medium">{result.retenciones.totales.montoTotOperacion ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Monto total gravado</span>
+                        <span className="font-medium">{result.retenciones.totales.montoTotGrav ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Monto total exento</span>
+                        <span className="font-medium">{result.retenciones.totales.montoTotExent ?? "—"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-border/50">
+                        <span className="text-muted-foreground">Monto total retenido</span>
+                        <span className="font-medium">{result.retenciones.totales.montoTotRet ?? "—"}</span>
+                      </div>
+                    </div>
+                    {result.retenciones.totales.impuestosRetenidos.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <h4 className="text-sm font-semibold mb-1">Impuestos retenidos</h4>
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-border/30 text-muted-foreground">
+                              <th className="text-left py-1 pr-2">#</th>
+                              <th className="text-left py-1 pr-2">BaseRet</th>
+                              <th className="text-left py-1 pr-2">Impuesto</th>
+                              <th className="text-right py-1 pr-2">MontoRet</th>
+                              <th className="text-left py-1">TipoPagoRet</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.retenciones.totales.impuestosRetenidos.map((ir, i) => (
+                              <tr key={i} className="border-b border-border/30">
+                                <td className="py-1 pr-2">{i + 1}</td>
+                                <td className="py-1 pr-2">{ir.baseRet ?? "—"}</td>
+                                <td className="py-1 pr-2">{ir.impuesto ?? "—"}</td>
+                                <td className="py-1 pr-2 text-right">{ir.montoRet ?? "—"}</td>
+                                <td className="py-1">{ir.tipoPagoRet ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2815,12 +3126,14 @@ export default function XmlAuditPage() {
             function handleExportCsv() {
               if (!r.findings || r.findings.length === 0) return;
               const header =
-                "ID,Severidad,Categoria,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
+                "ID,Severidad,Prioridad,Categoria,Grupo accionable,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
               const rows = r.findings.map((f) => {
                 const cols = [
                   escCsv(f.id),
                   escCsv(f.severity),
+                  escCsv(f.priority ?? "LOW"),
                   escCsv(f.category),
+                  escCsv(f.actionGroup ?? "Informativo"),
                   escCsv(f.code),
                   escCsv(f.title),
                   escCsv(f.message),
@@ -3175,6 +3488,63 @@ export default function XmlAuditPage() {
                 lines.push("");
               }
 
+              if (r.documentKind === "RETENCIONES" && r.retenciones) {
+                section("RETENCIONES - GENERAL");
+                sub("", {
+                  Versión: r.retenciones.version ?? "—",
+                  "Folio interno": r.retenciones.folioInt ?? "—",
+                  "Fecha expedición": r.retenciones.fechaExp ?? "—",
+                  CveRetenc: r.retenciones.cveRetenc ?? "—",
+                  DescRetenc: r.retenciones.descRetenc ?? "—",
+                  "Lugar expedición": r.retenciones.lugarExpRetenc ?? "—",
+                  UUID: r.retenciones.uuid ?? "—",
+                  "Fecha timbrado": r.retenciones.fechaTimbrado ?? "—",
+                });
+                if (r.retenciones.emisor) {
+                  section("RETENCIONES - EMISOR");
+                  sub("", {
+                    RFC: r.retenciones.emisor.rfcEmisor ?? "—",
+                    Nombre: r.retenciones.emisor.nombre ?? "—",
+                    CURP: r.retenciones.emisor.curp ?? "—",
+                  });
+                }
+                if (r.retenciones.receptor) {
+                  section("RETENCIONES - RECEPTOR");
+                  sub("", {
+                    Nacionalidad: r.retenciones.receptor.nacionalidad ?? "—",
+                    "RFC / NumRegIdTrib": r.retenciones.receptor.rfcReceptor ?? r.retenciones.receptor.numRegIdTrib ?? "—",
+                    Nombre: r.retenciones.receptor.nombre ?? "—",
+                    CURP: r.retenciones.receptor.curp ?? "—",
+                  });
+                }
+                if (r.retenciones.periodo) {
+                  section("RETENCIONES - PERIODO");
+                  sub("", {
+                    "Mes inicial": r.retenciones.periodo.mesIni ?? "—",
+                    "Mes final": r.retenciones.periodo.mesFin ?? "—",
+                    Ejercicio: r.retenciones.periodo.ejercicio ?? "—",
+                  });
+                }
+                if (r.retenciones.totales) {
+                  section("RETENCIONES - TOTALES");
+                  sub("", {
+                    "Monto total operación": r.retenciones.totales.montoTotOperacion ?? "—",
+                    "Monto total gravado": r.retenciones.totales.montoTotGrav ?? "—",
+                    "Monto total exento": r.retenciones.totales.montoTotExent ?? "—",
+                    "Monto total retenido": r.retenciones.totales.montoTotRet ?? "—",
+                  });
+                  if (r.retenciones.totales.impuestosRetenidos.length > 0) {
+                    section("RETENCIONES - IMPUESTOS RETENIDOS");
+                    row("#", "BaseRet", "Impuesto", "MontoRet", "TipoPagoRet");
+                    for (let i = 0; i < r.retenciones.totales.impuestosRetenidos.length; i++) {
+                      const ir = r.retenciones.totales.impuestosRetenidos[i];
+                      row(String(i + 1), ir.baseRet ?? "—", ir.impuesto ?? "—", ir.montoRet ?? "—", ir.tipoPagoRet ?? "—");
+                    }
+                    lines.push("");
+                  }
+                }
+              }
+
               if (r.addenda?.detected) {
                 section("ADDENDA - RESUMEN");
                 sub("", {
@@ -3345,6 +3715,24 @@ export default function XmlAuditPage() {
                   "Hash original SHA-256": r.normalizedXml.originalSha256,
                   "Hash normalizado SHA-256": r.normalizedXml.normalizedSha256,
                 });
+              }
+
+              if (r.findings && r.findings.length > 0) {
+                section("PRIORIDADES DE HALLAZGOS");
+                row("Prioridad", "Grupo accionable", "Código", "Severidad", "Categoría", "Título", "Acción recomendada");
+                const sorted = sortFindingsByPriority(r.findings);
+                for (const f of sorted) {
+                  row(
+                    f.priority ?? "LOW",
+                    f.actionGroup ?? "Informativo",
+                    f.code,
+                    f.severity,
+                    f.category,
+                    f.title,
+                    f.recommendedAction ?? "",
+                  );
+                }
+                lines.push("");
               }
 
               const csv = bom + "\r\n" + lines.join("\r\n");
@@ -3591,6 +3979,57 @@ export default function XmlAuditPage() {
                           Informativos:{" "}
                           <strong>{r.findings.filter((f) => f.severity === "INFO").length}</strong>
                         </span>
+                      </div>
+                      <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+                        <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>
+                          Prioridades del análisis
+                        </p>
+                        <div style={{ display: "flex", gap: "12px", fontSize: "10px" }}>
+                          {([
+                            { key: "BLOCKER", label: "Bloqueantes" },
+                            { key: "HIGH", label: "Alta" },
+                            { key: "MEDIUM", label: "Media" },
+                            { key: "LOW", label: "Informativa" },
+                          ] as const).map(({ key, label }) => (
+                            <span key={key}>
+                              {label}: <strong>{r.findings!.filter((f: Finding) => f.priority === key).length}</strong>
+                            </span>
+                          ))}
+                        </div>
+                        {(() => {
+                          const sorted = sortFindingsByPriority(r.findings!).slice(0, 5);
+                          return (
+                            <div style={{ marginTop: "6px" }}>
+                              <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 2px" }}>
+                                Top 5 acciones recomendadas
+                              </p>
+                              {sorted.map((f, i) => (
+                                <p key={i} style={{ fontSize: "9px", margin: "1px 0" }}>
+                                  <strong>#{i + 1} {f.code}</strong> ({f.priority ?? "LOW"}):{" "}
+                                  {f.recommendedAction ?? f.title}
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const groups = groupFindingsByActionGroup(r.findings!);
+                          return (
+                            <div style={{ marginTop: "6px" }}>
+                              <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 2px" }}>
+                                Grupos accionables
+                              </p>
+                              {Object.entries(groups).map(([group, items]) => (
+                                <p key={group} style={{ fontSize: "9px", margin: "1px 0" }}>
+                                  <strong>{group}:</strong> {items.length} hallazgo(s) (
+                                  {items.filter((f) => f.severity === "CRITICAL").length} crítico(s),{" "}
+                                  {items.filter((f) => f.severity === "WARNING").length} advertencia(s),{" "}
+                                  {items.filter((f) => f.severity === "INFO").length} info)
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <table>
                         <thead>
@@ -4467,6 +4906,162 @@ export default function XmlAuditPage() {
                         </tr>
                       </tbody>
                     </table>
+                  </>
+                )}
+
+                {r.documentKind === "RETENCIONES" && r.retenciones && (
+                  <>
+                    <div className="print-report-break"></div>
+                    <h3 className="text-lg font-bold mt-4 mb-2">Retenciones</h3>
+                    <table className="w-full text-xs border-collapse mb-3">
+                      <tbody>
+                        <tr>
+                          <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                          <td>{r.retenciones.version ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Folio interno</td>
+                          <td>{r.retenciones.folioInt ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Fecha expedición</td>
+                          <td>{r.retenciones.fechaExp ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">CveRetenc</td>
+                          <td>{r.retenciones.cveRetenc ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">DescRetenc</td>
+                          <td>{r.retenciones.descRetenc ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Lugar expedición</td>
+                          <td>{r.retenciones.lugarExpRetenc ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">UUID</td>
+                          <td>{r.retenciones.uuid ?? "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-semibold pr-2">Fecha timbrado</td>
+                          <td>{r.retenciones.fechaTimbrado ?? "—"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {r.retenciones.emisor && (
+                      <table className="w-full text-xs border-collapse mb-3">
+                        <caption className="text-sm font-bold mb-1 text-left">Emisor</caption>
+                        <tbody>
+                          <tr>
+                            <td className="font-semibold pr-2" style={{ width: "200px" }}>RFC</td>
+                            <td>{r.retenciones.emisor.rfcEmisor ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">Nombre</td>
+                            <td>{r.retenciones.emisor.nombre ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">CURP</td>
+                            <td>{r.retenciones.emisor.curp ?? "—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                    {r.retenciones.receptor && (
+                      <table className="w-full text-xs border-collapse mb-3">
+                        <caption className="text-sm font-bold mb-1 text-left">Receptor</caption>
+                        <tbody>
+                          <tr>
+                            <td className="font-semibold pr-2" style={{ width: "200px" }}>Nacionalidad</td>
+                            <td>{r.retenciones.receptor.nacionalidad ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">RFC / NumRegIdTrib</td>
+                            <td>{r.retenciones.receptor.rfcReceptor ?? r.retenciones.receptor.numRegIdTrib ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">Nombre</td>
+                            <td>{r.retenciones.receptor.nombre ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">CURP</td>
+                            <td>{r.retenciones.receptor.curp ?? "—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                    {r.retenciones.periodo && (
+                      <table className="w-full text-xs border-collapse mb-3">
+                        <caption className="text-sm font-bold mb-1 text-left">Periodo</caption>
+                        <tbody>
+                          <tr>
+                            <td className="font-semibold pr-2" style={{ width: "200px" }}>Mes inicial</td>
+                            <td>{r.retenciones.periodo.mesIni ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">Mes final</td>
+                            <td>{r.retenciones.periodo.mesFin ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-semibold pr-2">Ejercicio</td>
+                            <td>{r.retenciones.periodo.ejercicio ?? "—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                    {r.retenciones.totales && (
+                      <>
+                        <table className="w-full text-xs border-collapse mb-3">
+                          <caption className="text-sm font-bold mb-1 text-left">Totales</caption>
+                          <tbody>
+                            <tr>
+                              <td className="font-semibold pr-2" style={{ width: "200px" }}>Monto total operación</td>
+                              <td>{r.retenciones.totales.montoTotOperacion ?? "—"}</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold pr-2">Monto total gravado</td>
+                              <td>{r.retenciones.totales.montoTotGrav ?? "—"}</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold pr-2">Monto total exento</td>
+                              <td>{r.retenciones.totales.montoTotExent ?? "—"}</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold pr-2">Monto total retenido</td>
+                              <td>{r.retenciones.totales.montoTotRet ?? "—"}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        {r.retenciones.totales.impuestosRetenidos.length > 0 && (
+                          <>
+                            <h4 className="text-sm font-bold mt-2 mb-1">Impuestos retenidos</h4>
+                            <table className="w-full text-xs border-collapse mb-2">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left pr-2">#</th>
+                                  <th className="text-left pr-2">BaseRet</th>
+                                  <th className="text-left pr-2">Impuesto</th>
+                                  <th className="text-right pr-2">MontoRet</th>
+                                  <th className="text-left">TipoPagoRet</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {r.retenciones.totales.impuestosRetenidos.map((ir, i) => (
+                                  <tr key={i} className="border-b">
+                                    <td>{i + 1}</td>
+                                    <td>{ir.baseRet ?? "—"}</td>
+                                    <td>{ir.impuesto ?? "—"}</td>
+                                    <td className="text-right">{ir.montoRet ?? "—"}</td>
+                                    <td>{ir.tipoPagoRet ?? "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
 
