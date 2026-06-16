@@ -18,6 +18,11 @@ import {
   type NormalizedXml,
   getFindingPriority,
   getFindingActionGroup,
+  sanitizeEvidenceValue,
+  sanitizeFindingEvidence,
+  sanitizeFinding,
+  limitFindings,
+  toAnalysisResponse,
 } from "./xml-audit.service.js";
 import { analyzeZipFull, generateNormalizedZip } from "./xml-zip-audit.service.js";
 import {
@@ -3475,6 +3480,67 @@ async function testPrioridadInfoLow(): Promise<void> {
   assertEqual(group, "Revisar referencias operativas", "ADDENDA STRUCTURE debe agrupar en referencias operativas");
 }
 
+// DK) Evidence string largo se trunca
+async function testEvidenceStringLargo(): Promise<void> {
+  const longStr = "x".repeat(500);
+  const result = sanitizeEvidenceValue(longStr) as string;
+  assertEqual(typeof result, "string", "resultado debe ser string");
+  assertEqual(result.length <= 240 + 14, true, `longitud truncada (${result.length})`);
+  assertEqual(result.includes("[truncated]"), true, "debe incluir marcador truncated");
+}
+
+// DL) Evidence sensible se redacta
+async function testEvidenceSensibleRedactado(): Promise<void> {
+  const evidence = [
+    { label: "rawXml", value: "<xml>raw</xml>" },
+    { label: "token", value: "abc123" },
+    { label: "normalizedXmlContent", value: "<xml>norm</xml>" },
+  ];
+  const sanitized = sanitizeFindingEvidence(evidence);
+  assertTruthy(sanitized, "evidence sanitizada debe existir");
+  for (const e of sanitized!) {
+    assertEqual(e.value, "[redacted]", `${e.label} debe redactarse`);
+  }
+}
+
+// DM) Evidence array grande se limita
+async function testEvidenceArrayGrande(): Promise<void> {
+  const arr = Array.from({ length: 50 }, (_, i) => `item${i}`);
+  const result = sanitizeEvidenceValue(arr) as unknown[];
+  assertEqual(result.length, 21, "array debe tener 20 items + 1 marcador");
+  assertEqual(result[20] as string, "[truncated 30 additional items]", "debe incluir marcador de truncado");
+}
+
+// DN) Findings por code se limitan
+async function testFindingsPorCodeLimitados(): Promise<void> {
+  const manyFindings: Finding[] = Array.from({ length: 60 }, (_, i) => ({
+    id: `test-${i}`,
+    severity: "INFO" as const,
+    category: "STRUCTURE" as const,
+    code: "SAME_CODE",
+    title: "Test",
+    message: "Test",
+  }));
+  const limited = limitFindings(manyFindings);
+  const sameCode = limited.filter((f) => f.code === "SAME_CODE");
+  assertEqual(sameCode.length, 50, "máximo 50 por code");
+  const truncated = limited.find((f) => f.code === "FINDINGS_TRUNCATED_FOR_RESPONSE");
+  assertTruthy(truncated, "debe existir FINDINGS_TRUNCATED_FOR_RESPONSE");
+  assertEqual(truncated!.severity, "INFO", "severidad INFO");
+  assertEqual(truncated!.category, "STRUCTURE", "category STRUCTURE");
+}
+
+// DO) Payload policy presente
+async function testPayloadPolicyPresente(): Promise<void> {
+  const xml = buildCfdi40Ingreso();
+  const result = analyzeCfdi(xml, "pp-test.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.payloadPolicy, "payloadPolicy debe existir");
+  assertEqual(response.payloadPolicy!.sanitized, true, "sanitized debe ser true");
+  assertEqual(response.payloadPolicy!.evidenceMaxStringLength > 0, true, "evidenceMaxStringLength debe ser positivo");
+  assertEqual(response.payloadPolicy!.findingsMaxTotal > 0, true, "findingsMaxTotal debe ser positivo");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -3601,6 +3667,11 @@ async function main() {
   await runCase("DH) Prioridad CRITICAL => BLOCKER", testPrioridadCriticalBlocker);
   await runCase("DI) Prioridad WARNING TAX => HIGH", testPrioridadWarningTaxHigh);
   await runCase("DJ) Prioridad INFO => LOW", testPrioridadInfoLow);
+  await runCase("DK) Evidence string largo se trunca", testEvidenceStringLargo);
+  await runCase("DL) Evidence sensible se redacta", testEvidenceSensibleRedactado);
+  await runCase("DM) Evidence array grande se limita", testEvidenceArrayGrande);
+  await runCase("DN) Findings por code se limitan", testFindingsPorCodeLimitados);
+  await runCase("DO) Payload policy presente", testPayloadPolicyPresente);
 
   printSummary();
 

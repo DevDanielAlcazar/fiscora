@@ -180,6 +180,158 @@ export function getFindingActionGroup(finding: {
   return "Informativo";
 }
 
+// ─── Sanitization constants ─────────────────────────────────────────────────
+
+const FINDING_EVIDENCE_MAX_STRING_LENGTH = 240;
+const FINDING_EVIDENCE_MAX_ARRAY_ITEMS = 20;
+const FINDING_EVIDENCE_MAX_OBJECT_KEYS = 30;
+const FINDING_EVIDENCE_MAX_DEPTH = 3;
+const FINDINGS_MAX_TOTAL = 500;
+const FINDINGS_MAX_PER_CODE = 50;
+
+const SENSITIVE_EVIDENCE_LABELS = new Set([
+  "rawxml", "sourcexml", "normalizedxmlcontent",
+  "filecontent", "base64",
+  "token", "authorization", "password", "secret", "session", "cookie",
+]);
+
+// ─── Sanitization helpers ─────────────────────────────────────────────────
+
+export function sanitizeEvidenceValue(value: unknown, depth = 0): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") {
+    const cleaned = value.split("").filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    }).join("");
+    if (cleaned.length > FINDING_EVIDENCE_MAX_STRING_LENGTH) {
+      return cleaned.slice(0, FINDING_EVIDENCE_MAX_STRING_LENGTH) + "… [truncated]";
+    }
+    return cleaned;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    const result: unknown[] = [];
+    const max = FINDING_EVIDENCE_MAX_ARRAY_ITEMS;
+    for (let i = 0; i < Math.min(value.length, max); i++) {
+      result.push(sanitizeEvidenceValue(value[i], depth + 1));
+    }
+    if (value.length > max) {
+      result.push(`[truncated ${value.length - max} additional items]`);
+    }
+    return result;
+  }
+  if (typeof value === "object" && value !== null) {
+    if (depth >= FINDING_EVIDENCE_MAX_DEPTH) return "[max depth]";
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    const limitedKeys = keys.slice(0, FINDING_EVIDENCE_MAX_OBJECT_KEYS);
+    const result: Record<string, unknown> = {};
+    for (const key of limitedKeys) {
+      result[key] = sanitizeEvidenceValue(obj[key], depth + 1);
+    }
+    if (keys.length > FINDING_EVIDENCE_MAX_OBJECT_KEYS) {
+      result.__truncatedKeys = keys.length - FINDING_EVIDENCE_MAX_OBJECT_KEYS;
+    }
+    return result;
+  }
+  const str = String(value);
+  if (str.length > FINDING_EVIDENCE_MAX_STRING_LENGTH) {
+    return str.slice(0, FINDING_EVIDENCE_MAX_STRING_LENGTH) + "… [truncated]";
+  }
+  return str;
+}
+
+export function sanitizeFindingEvidence(
+  evidence: { label: string; value?: string }[] | undefined,
+): { label: string; value?: string }[] | undefined {
+  if (!evidence) return evidence;
+  return evidence.map((e) => {
+    const labelLower = e.label.toLowerCase().replace(/[\s_-]/g, "");
+    const shouldRedact = SENSITIVE_EVIDENCE_LABELS.has(labelLower);
+    return {
+      label: e.label,
+      value: shouldRedact ? "[redacted]" : (sanitizeEvidenceValue(e.value) as string | undefined),
+    };
+  });
+}
+
+const FINDING_TITLE_MAX = 160;
+const FINDING_MESSAGE_MAX = 500;
+const FINDING_ACTION_MAX = 500;
+
+function truncateString(str: string | undefined, max: number): string | undefined {
+  if (!str) return str;
+  if (str.length <= max) return str;
+  return str.slice(0, max) + "… [truncated]";
+}
+
+export function sanitizeFinding(finding: Finding): Finding {
+  return {
+    ...finding,
+    title: truncateString(finding.title, FINDING_TITLE_MAX) ?? finding.title,
+    message: truncateString(finding.message, FINDING_MESSAGE_MAX) ?? finding.message,
+    recommendedAction: finding.recommendedAction
+      ? (truncateString(finding.recommendedAction, FINDING_ACTION_MAX) ?? finding.recommendedAction)
+      : undefined,
+    evidence: sanitizeFindingEvidence(finding.evidence),
+  };
+}
+
+export function limitFindings(findings: Finding[]): Finding[] {
+  const perCode: Record<string, number> = {};
+  const result: Finding[] = [];
+  let truncated = false;
+  const originalCount = findings.length;
+
+  if (originalCount <= FINDINGS_MAX_TOTAL) {
+    for (const f of findings) {
+      perCode[f.code] = (perCode[f.code] ?? 0) + 1;
+      if (perCode[f.code] > FINDINGS_MAX_PER_CODE) {
+        truncated = true;
+        break;
+      }
+    }
+    if (!truncated) return findings;
+  }
+
+  const resetPerCode: Record<string, number> = {};
+  truncated = false;
+
+  for (const f of findings) {
+    resetPerCode[f.code] = (resetPerCode[f.code] ?? 0) + 1;
+    if (resetPerCode[f.code] > FINDINGS_MAX_PER_CODE) {
+      truncated = true;
+      continue;
+    }
+    if (result.length >= FINDINGS_MAX_TOTAL) {
+      truncated = true;
+      break;
+    }
+    result.push(f);
+  }
+
+  if (truncated) {
+    result.push({
+      id: "FINDINGS_TRUNCATED_FOR_RESPONSE-1",
+      severity: "INFO",
+      category: "STRUCTURE",
+      code: "FINDINGS_TRUNCATED_FOR_RESPONSE",
+      title: "Hallazgos truncados por límites de respuesta",
+      message: "El análisis generó más hallazgos de los permitidos para una respuesta segura y eficiente.",
+      recommendedAction: "Descarga el reporte o revisa el XML en partes si necesitas mayor detalle.",
+      evidence: [
+        { label: "originalCount", value: String(originalCount) },
+        { label: "returnedCount", value: String(result.length) },
+        { label: "maxTotal", value: String(FINDINGS_MAX_TOTAL) },
+        { label: "maxPerCode", value: String(FINDINGS_MAX_PER_CODE) },
+      ],
+    });
+  }
+  return result;
+}
+
 export interface GlobalTaxLine {
   type: "TRANSFERRED" | "WITHHELD";
   impuesto?: string | null;
@@ -517,6 +669,12 @@ export interface CfdiAnalysisResult {
   noCertificadoSat?: string | null;
   rfcProvCertif?: string | null;
   versionTimbre?: string | null;
+  payloadPolicy?: {
+    evidenceMaxStringLength: number;
+    findingsMaxTotal: number;
+    findingsMaxPerCode: number;
+    sanitized: boolean;
+  };
 }
 
 export interface AnalysisResponse {
@@ -575,6 +733,12 @@ export interface AnalysisResponse {
   noCertificadoSat?: string | null;
   rfcProvCertif?: string | null;
   versionTimbre?: string | null;
+  payloadPolicy?: {
+    evidenceMaxStringLength: number;
+    findingsMaxTotal: number;
+    findingsMaxPerCode: number;
+    sanitized: boolean;
+  };
 }
 
 const BOM = "\uFEFF";
@@ -8929,11 +9093,15 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     totalImpuestosRetenidos: result.totalImpuestosRetenidos,
     issues: result.issues,
     warnings: result.warnings,
-    findings: result.findings.map((f) => ({
-      ...f,
-      priority: getFindingPriority(f.severity, f.category),
-      actionGroup: getFindingActionGroup(f),
-    })),
+    findings: (() => {
+      const enriched = result.findings.map((f) => ({
+        ...f,
+        priority: getFindingPriority(f.severity, f.category),
+        actionGroup: getFindingActionGroup(f),
+      }));
+      const sanitized = enriched.map((f) => sanitizeFinding(f));
+      return limitFindings(sanitized);
+    })(),
     technicalDiagnostics: result.technicalDiagnostics,
     executiveSummary: result.executiveSummary,
     paymentComplement: result.paymentComplement,
@@ -8964,5 +9132,11 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     noCertificadoSat: result.noCertificadoSat,
     rfcProvCertif: result.rfcProvCertif,
     versionTimbre: result.versionTimbre,
+    payloadPolicy: {
+      evidenceMaxStringLength: FINDING_EVIDENCE_MAX_STRING_LENGTH,
+      findingsMaxTotal: FINDINGS_MAX_TOTAL,
+      findingsMaxPerCode: FINDINGS_MAX_PER_CODE,
+      sanitized: true,
+    },
   };
 }

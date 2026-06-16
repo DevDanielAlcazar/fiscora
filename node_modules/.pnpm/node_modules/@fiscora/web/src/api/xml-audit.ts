@@ -455,6 +455,12 @@ export interface AnalysisResult {
   noCertificadoSat?: string | null;
   rfcProvCertif?: string | null;
   versionTimbre?: string | null;
+  payloadPolicy?: {
+    evidenceMaxStringLength: number;
+    findingsMaxTotal: number;
+    findingsMaxPerCode: number;
+    sanitized: boolean;
+  };
 }
 
 export interface AnalyzeResponse {
