@@ -46,6 +46,235 @@ function groupFindingsByActionGroup(findings: Finding[]): Record<string, Finding
   return groups;
 }
 
+// ── Massive ZIP aggregate helpers ──────────────────────────────────────────────
+
+interface MassiveTotals {
+  analyzed: number;
+  failed: number;
+  total: number;
+  withCritical: number;
+  withWarning: number;
+  ok: number;
+  withBom: number;
+  withTechNorm: number;
+  withNormXml: number;
+}
+
+function aggregateMassiveTotals(files: ZipFullAnalysisFileResult[]): MassiveTotals {
+  let analyzed = 0, failed = 0, withCritical = 0, withWarning = 0, ok = 0;
+  let withBom = 0, withTechNorm = 0, withNormXml = 0;
+  for (const f of files) {
+    if (f.status === "ANALYZED") {
+      analyzed++;
+      const a = f.analysis;
+      if (a) {
+        const fnd = a.findings ?? [];
+        const hasC = fnd.some((x) => x.severity === "CRITICAL");
+        const hasW = fnd.some((x) => x.severity === "WARNING");
+        const hasI = fnd.length > 0 && !hasC && !hasW;
+        if (hasC) withCritical++;
+        else if (hasW) withWarning++;
+        else if (hasI || fnd.length === 0) ok++;
+        if (a.technicalDiagnostics?.bomDetected) withBom++;
+        if (a.technicalDiagnostics?.safeNormalizationApplied) withTechNorm++;
+        if (a.normalizedXml?.available) withNormXml++;
+      }
+    } else {
+      failed++;
+    }
+  }
+  return { analyzed, failed, total: files.length, withCritical, withWarning, ok, withBom, withTechNorm, withNormXml };
+}
+
+interface PriorityCounts { BLOCKER: number; HIGH: number; MEDIUM: number; LOW: number; filesWithBlocker: number; filesWithHigh: number; }
+
+function aggregateMassivePriorities(files: ZipFullAnalysisFileResult[]): PriorityCounts {
+  let BLOCKER = 0, HIGH = 0, MEDIUM = 0, LOW = 0;
+  let filesWithBlocker = 0, filesWithHigh = 0;
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis) continue;
+    const fnd = f.analysis.findings ?? [];
+    let hasBlocker = false, hasHigh = false;
+    for (const x of fnd) {
+      const p = x.priority ?? "LOW";
+      if (p === "BLOCKER") { BLOCKER++; hasBlocker = true; }
+      else if (p === "HIGH") { HIGH++; hasHigh = true; }
+      else if (p === "MEDIUM") MEDIUM++;
+      else LOW++;
+    }
+    if (hasBlocker) filesWithBlocker++;
+    if (hasHigh) filesWithHigh++;
+  }
+  return { BLOCKER, HIGH, MEDIUM, LOW, filesWithBlocker, filesWithHigh };
+}
+
+interface ActionGroupAgg {
+  group: string;
+  totalFindings: number;
+  affectedFiles: string[];
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+}
+
+function aggregateMassiveActionGroups(files: ZipFullAnalysisFileResult[]): ActionGroupAgg[] {
+  const map = new Map<string, ActionGroupAgg>();
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis) continue;
+    const fnd = f.analysis.findings ?? [];
+    for (const x of fnd) {
+      const g = x.actionGroup ?? "Informativo";
+      let agg = map.get(g);
+      if (!agg) { agg = { group: g, totalFindings: 0, affectedFiles: [], criticalCount: 0, warningCount: 0, infoCount: 0 }; map.set(g, agg); }
+      agg.totalFindings++;
+      if (!agg.affectedFiles.includes(f.name)) agg.affectedFiles.push(f.name);
+      if (x.severity === "CRITICAL") agg.criticalCount++;
+      else if (x.severity === "WARNING") agg.warningCount++;
+      else agg.infoCount++;
+    }
+  }
+  return [...map.values()].sort((a, b) => b.totalFindings - a.totalFindings);
+}
+
+interface TopFindingRow {
+  code: string;
+  title: string;
+  maxSeverity: string;
+  maxPriority: string;
+  totalAppearances: number;
+  affectedFiles: string[];
+  recommendedAction: string;
+}
+
+function getTopFindingCodes(files: ZipFullAnalysisFileResult[], limit = 10): TopFindingRow[] {
+  const map = new Map<string, TopFindingRow>();
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis) continue;
+    for (const x of f.analysis.findings ?? []) {
+      let row = map.get(x.code);
+      if (!row) {
+        row = { code: x.code, title: x.title, maxSeverity: x.severity, maxPriority: x.priority ?? "LOW", totalAppearances: 0, affectedFiles: [], recommendedAction: x.recommendedAction ?? "" };
+        map.set(x.code, row);
+      }
+      row.totalAppearances++;
+      if (!row.affectedFiles.includes(f.name)) row.affectedFiles.push(f.name);
+      const svOrder = severityOrder[row.maxSeverity] ?? 2;
+      const svNew = severityOrder[x.severity] ?? 2;
+      if (svNew < svOrder) row.maxSeverity = x.severity;
+      const prOrder = priorityOrder[row.maxPriority] ?? 3;
+      const prNew = priorityOrder[x.priority ?? "LOW"] ?? 3;
+      if (prNew < prOrder) row.maxPriority = x.priority ?? "LOW";
+    }
+  }
+  return [...map.values()].sort((a, b) => b.totalAppearances - a.totalAppearances).slice(0, limit);
+}
+
+interface DocKindCounts { CFDI: number; RETENCIONES: number; UNKNOWN: number; }
+
+function aggregateMassiveDocumentKinds(files: ZipFullAnalysisFileResult[]): DocKindCounts {
+  let CFDI = 0, RETENCIONES = 0, UNKNOWN = 0;
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis) continue;
+    const dk = f.analysis.documentKind;
+    if (dk === "CFDI") CFDI++;
+    else if (dk === "RETENCIONES") RETENCIONES++;
+    else UNKNOWN++;
+  }
+  return { CFDI, RETENCIONES, UNKNOWN };
+}
+
+interface ModuleAgg {
+  moduleKey: string;
+  moduleLabel: string;
+  detectedIn: number;
+  analyzedIn: number;
+  totalFindings: number;
+  filesWithFindings: number;
+  skippedReasons: string[];
+}
+
+function aggregateMassiveModulesCoverage(files: ZipFullAnalysisFileResult[]): ModuleAgg[] {
+  const map = new Map<string, ModuleAgg>();
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis?.analysisMeta) continue;
+    for (const m of f.analysis.analysisMeta.coverage.modules) {
+      let agg = map.get(m.key);
+      if (!agg) { agg = { moduleKey: m.key, moduleLabel: m.label, detectedIn: 0, analyzedIn: 0, totalFindings: 0, filesWithFindings: 0, skippedReasons: [] }; map.set(m.key, agg); }
+      if (m.detected) agg.detectedIn++;
+      if (m.analyzed) agg.analyzedIn++;
+      agg.totalFindings += m.findingsCount;
+      if (m.findingsCount > 0) agg.filesWithFindings++;
+      if (m.skippedReason) agg.skippedReasons.push(m.skippedReason);
+    }
+  }
+  return [...map.values()].sort((a, b) => b.totalFindings - a.totalFindings);
+}
+
+interface PerformanceAgg {
+  totalMs: number;
+  avgMs: number;
+  maxMs: number;
+  maxMsFile: string;
+  minMs: number;
+  minMsFile: string;
+  totalKb: number;
+  avgKb: number;
+  totalFindingsOriginal: number;
+  totalFindingsReturned: number;
+  filesTruncated: number;
+}
+
+function aggregateMassivePerformance(files: ZipFullAnalysisFileResult[]): PerformanceAgg | null {
+  let totalMs = 0, count = 0, maxMs = 0, minMs = Infinity;
+  let maxMsFile = "", minMsFile = "";
+  let totalKb = 0;
+  let totalFindingsOriginal = 0, totalFindingsReturned = 0, filesTruncated = 0;
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis?.analysisMeta) continue;
+    const p = f.analysis.analysisMeta.performance;
+    const ms = p.totalMs;
+    totalMs += ms;
+    totalKb += p.inputKb;
+    totalFindingsOriginal += p.findingsOriginalCount;
+    totalFindingsReturned += p.findingsReturnedCount;
+    if (p.findingsTruncated) filesTruncated++;
+    count++;
+    if (ms > maxMs) { maxMs = ms; maxMsFile = f.name; }
+    if (ms < minMs) { minMs = ms; minMsFile = f.name; }
+  }
+  if (count === 0) return null;
+  return {
+    totalMs, avgMs: Math.round(totalMs / count), maxMs, maxMsFile, minMs: count > 0 ? minMs : 0, minMsFile,
+    totalKb: Math.round(totalKb * 100) / 100, avgKb: Math.round((totalKb / count) * 100) / 100,
+    totalFindingsOriginal, totalFindingsReturned, filesTruncated,
+  };
+}
+
+interface AffectedFileRow {
+  file: ZipFullAnalysisFileResult;
+  totalFindings: number;
+  criticals: number;
+  warnings: number;
+  maxPriority: string;
+  topActionGroup: string;
+}
+
+function getTopAffectedFiles(files: ZipFullAnalysisFileResult[], limit = 10): AffectedFileRow[] {
+  const rows: AffectedFileRow[] = [];
+  for (const f of files) {
+    if (f.status !== "ANALYZED" || !f.analysis) continue;
+    const fnd = f.analysis.findings ?? [];
+    if (fnd.length === 0) continue;
+    const criticals = fnd.filter((x) => x.severity === "CRITICAL").length;
+    const warnings = fnd.filter((x) => x.severity === "WARNING").length;
+    const maxP = fnd.reduce((best, x) => (priorityOrder[x.priority ?? "LOW"] ?? 3) < (priorityOrder[best] ?? 3) ? (x.priority ?? "LOW") : best, "LOW" as string);
+    const groups = groupFindingsByActionGroup(fnd);
+    const topGroup = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "—";
+    rows.push({ file: f, totalFindings: fnd.length, criticals, warnings, maxPriority: maxP, topActionGroup: topGroup });
+  }
+  return rows.sort((a, b) => b.totalFindings - a.totalFindings).slice(0, limit);
+}
+
 export default function XmlAuditPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -72,6 +301,8 @@ export default function XmlAuditPage() {
   const [normalizedZipSuccess, setNormalizedZipSuccess] = useState("");
   const [selectedMassiveDetail, setSelectedMassiveDetail] =
     useState<ZipFullAnalysisFileResult | null>(null);
+  const [massiveFilter, setMassiveFilter] = useState<string>("ALL");
+  const [printMode, setPrintMode] = useState<"none" | "individual" | "zip">("none");
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -80,6 +311,22 @@ export default function XmlAuditPage() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedMassiveDetail]);
+
+  useEffect(() => {
+    if (printMode === "none") {
+      delete document.body.dataset.printMode;
+      return;
+    }
+    document.body.dataset.printMode = printMode;
+    const timer = setTimeout(() => { window.print(); }, 0);
+    return () => { clearTimeout(timer); };
+  }, [printMode]);
+
+  useEffect(() => {
+    function onAfterPrint() { setPrintMode("none"); }
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => window.removeEventListener("afterprint", onAfterPrint);
+  }, []);
 
   function toggleEvidence(code: string) {
     setExpandedEvidence((prev) => {
@@ -351,6 +598,90 @@ export default function XmlAuditPage() {
           finding.recommendedAction ?? "",
           evidenceStr,
         );
+      }
+    }
+
+    // ── RESUMEN EJECUTIVO ZIP ──
+    const perfAgg = aggregateMassivePerformance(r.results);
+    const totals = aggregateMassiveTotals(r.results);
+    const priorities = aggregateMassivePriorities(r.results);
+    const actionGroups = aggregateMassiveActionGroups(r.results);
+    const topFindings = getTopFindingCodes(r.results, 10);
+    const docKinds = aggregateMassiveDocumentKinds(r.results);
+    const modulesCov = aggregateMassiveModulesCoverage(r.results);
+    const affectedFiles = getTopAffectedFiles(r.results, 10);
+
+    section("RESUMEN EJECUTIVO ZIP");
+    row("Indicador", "Valor");
+    row("XML analizados", totals.analyzed);
+    row("Fallidos", totals.failed);
+    row("Con críticos", totals.withCritical);
+    row("Con advertencias", totals.withWarning);
+    row("OK", totals.ok);
+    row("Con BOM", totals.withBom);
+    row("Con normalización técnica", totals.withTechNorm);
+    row("Con XML normalizado disponible", totals.withNormXml);
+    row("CFDI", docKinds.CFDI);
+    row("RETENCIONES", docKinds.RETENCIONES);
+    row("UNKNOWN", docKinds.UNKNOWN);
+    if (perfAgg) {
+      row("Tiempo total (ms)", perfAgg.totalMs);
+      row("Tiempo promedio (ms)", perfAgg.avgMs);
+      row("Tamaño total (KB)", perfAgg.totalKb);
+      row("Tamaño promedio (KB)", perfAgg.avgKb);
+      row("Hallazgos originales totales", perfAgg.totalFindingsOriginal);
+      row("Hallazgos devueltos totales", perfAgg.totalFindingsReturned);
+      row("Archivos con truncamiento", perfAgg.filesTruncated);
+    }
+
+    section("PRIORIDADES ZIP");
+    row("Prioridad", "Hallazgos", "Archivos afectados");
+    if (priorities.BLOCKER > 0) row("BLOCKER", priorities.BLOCKER, priorities.filesWithBlocker);
+    if (priorities.HIGH > 0) row("HIGH", priorities.HIGH, priorities.filesWithHigh);
+    if (priorities.MEDIUM > 0) row("MEDIUM", priorities.MEDIUM, "—");
+    if (priorities.LOW > 0) row("LOW", priorities.LOW, "—");
+
+    section("GRUPOS ACCIONABLES ZIP");
+    row("Grupo", "Hallazgos", "Archivos afectados", "Críticos", "Advertencias", "Info");
+    for (const g of actionGroups) {
+      row(g.group, g.totalFindings, g.affectedFiles.length, g.criticalCount, g.warningCount, g.infoCount);
+    }
+
+    if (topFindings.length > 0) {
+      section("TOP HALLAZGOS ZIP");
+      row("Código", "Título", "Severidad máxima", "Prioridad máxima", "Apariciones", "Archivos afectados", "Acción recomendada");
+      for (const f of topFindings) {
+        row(f.code, f.title, f.maxSeverity, f.maxPriority, f.totalAppearances, f.affectedFiles.length, f.recommendedAction);
+      }
+    }
+
+    if (modulesCov.length > 0) {
+      section("COBERTURA MODULOS ZIP");
+      row("Módulo", "Detectado en", "Analizado en", "Hallazgos totales", "Archivos con hallazgos", "Motivo omisión principal");
+      for (const m of modulesCov) {
+        row(m.moduleLabel, m.detectedIn, m.analyzedIn, m.totalFindings, m.filesWithFindings, m.skippedReasons[0] ?? "");
+      }
+    }
+
+    if (perfAgg) {
+      section("PERFORMANCE ZIP");
+      row("Indicador", "Valor");
+      row("Tiempo total (ms)", perfAgg.totalMs);
+      row("Promedio (ms)", perfAgg.avgMs);
+      row("Máximo (ms)", `${perfAgg.maxMs} (${perfAgg.maxMsFile})`);
+      row("Mínimo (ms)", `${perfAgg.minMs} (${perfAgg.minMsFile})`);
+      row("Tamaño total (KB)", perfAgg.totalKb);
+      row("Tamaño promedio (KB)", perfAgg.avgKb);
+      row("Hallazgos originales totales", perfAgg.totalFindingsOriginal);
+      row("Hallazgos devueltos totales", perfAgg.totalFindingsReturned);
+      row("Archivos con truncamiento", perfAgg.filesTruncated);
+    }
+
+    if (affectedFiles.length > 0) {
+      section("ARCHIVOS MAS AFECTADOS");
+      row("Archivo", "Hallazgos", "Críticos", "Advertencias", "Prioridad máxima", "Acción principal");
+      for (const af of affectedFiles) {
+        row(af.file.name, af.totalFindings, af.criticals, af.warnings, af.maxPriority, af.topActionGroup);
       }
     }
 
@@ -779,11 +1110,275 @@ export default function XmlAuditPage() {
                 </div>
               )}
 
+              {(() => {
+                const perfAgg = aggregateMassivePerformance(fullAnalysisResult.results);
+                const totals = aggregateMassiveTotals(fullAnalysisResult.results);
+                const priorities = aggregateMassivePriorities(fullAnalysisResult.results);
+                const actionGroups = aggregateMassiveActionGroups(fullAnalysisResult.results);
+                const topFindings = getTopFindingCodes(fullAnalysisResult.results, 10);
+                const modulesCov = aggregateMassiveModulesCoverage(fullAnalysisResult.results);
+                const affectedFiles = getTopAffectedFiles(fullAnalysisResult.results, 10);
+
+                return (
+                  <div className="space-y-4 mt-4">
+
+                    <h3 className="font-semibold text-sm">Resumen ejecutivo del ZIP</h3>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-emerald-600">{totals.analyzed}</p>
+                        <p className="text-xs text-muted-foreground">XMLs analizados</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-red-600">{totals.failed}</p>
+                        <p className="text-xs text-muted-foreground">Fallidos</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-red-600">{totals.withCritical}</p>
+                        <p className="text-xs text-muted-foreground">Con críticos</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-yellow-600">{totals.withWarning}</p>
+                        <p className="text-xs text-muted-foreground">Con advertencias</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-red-600">{priorities.BLOCKER}</p>
+                        <p className="text-xs text-muted-foreground">Bloqueantes</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-orange-600">{priorities.HIGH}</p>
+                        <p className="text-xs text-muted-foreground">Alta prioridad</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold">{perfAgg ? perfAgg.avgMs : "—"}</p>
+                        <p className="text-xs text-muted-foreground">Tiempo promedio ms</p>
+                      </div>
+                      <div className="p-3 rounded-lg border border-border bg-card text-center">
+                        <p className="text-2xl font-bold text-yellow-600">{perfAgg ? perfAgg.filesTruncated : "—"}</p>
+                        <p className="text-xs text-muted-foreground">Con truncamiento</p>
+                      </div>
+                    </div>
+
+                    {priorities.BLOCKER + priorities.HIGH + priorities.MEDIUM + priorities.LOW > 0 && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Prioridades del ZIP</h4>
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-border/50 text-muted-foreground">
+                              <th className="text-left py-1 pr-2 font-medium">Prioridad</th>
+                              <th className="text-right py-1 pr-2 font-medium">Hallazgos</th>
+                              <th className="text-right py-1 pr-2 font-medium">Archivos afectados</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[["BLOCKER", "Bloqueante", "text-red-600"], ["HIGH", "Alta", "text-orange-600"], ["MEDIUM", "Media", "text-yellow-600"], ["LOW", "Informativa", "text-muted-foreground"]].map(([key, label, cls]) => {
+                              const count = priorities[key as keyof PriorityCounts] as number;
+                              if (count === 0) return null;
+                              return (
+                                <tr key={key} className="border-b border-border/30">
+                                  <td className={`py-1 pr-2 font-medium ${cls}`}>{label}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{count}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{key === "BLOCKER" ? priorities.filesWithBlocker : key === "HIGH" ? priorities.filesWithHigh : "—"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {actionGroups.length > 0 && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Grupos accionables</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-border/50 text-muted-foreground">
+                                <th className="text-left py-1 pr-2 font-medium">Grupo</th>
+                                <th className="text-right py-1 pr-2 font-medium">Hallazgos</th>
+                                <th className="text-right py-1 pr-2 font-medium">Archivos afectados</th>
+                                <th className="text-right py-1 pr-2 font-medium">Críticos</th>
+                                <th className="text-right py-1 pr-2 font-medium">Advertencias</th>
+                                <th className="text-right py-1 pr-2 font-medium">Info</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {actionGroups.map((g) => (
+                                <tr key={g.group} className="border-b border-border/30">
+                                  <td className="py-1 pr-2 font-medium">{g.group}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{g.totalFindings}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{g.affectedFiles.length}</td>
+                                  <td className="py-1 pr-2 text-right font-mono text-red-600">{g.criticalCount}</td>
+                                  <td className="py-1 pr-2 text-right font-mono text-yellow-600">{g.warningCount}</td>
+                                  <td className="py-1 pr-2 text-right font-mono text-muted-foreground">{g.infoCount}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {topFindings.length > 0 && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Top hallazgos</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-border/50 text-muted-foreground">
+                                <th className="text-left py-1 pr-2 font-medium">Código</th>
+                                <th className="text-left py-1 pr-2 font-medium">Título</th>
+                                <th className="text-center py-1 pr-2 font-medium">Severidad</th>
+                                <th className="text-center py-1 pr-2 font-medium">Prioridad</th>
+                                <th className="text-right py-1 pr-2 font-medium">Apariciones</th>
+                                <th className="text-right py-1 pr-2 font-medium">Archivos afectados</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {topFindings.map((f) => (
+                                <tr key={f.code} className="border-b border-border/30">
+                                  <td className="py-1 pr-2 font-mono max-w-[120px] truncate" title={f.code}>{f.code}</td>
+                                  <td className="py-1 pr-2 max-w-[200px] truncate" title={f.title}>{f.title}</td>
+                                  <td className="py-1 pr-2 text-center">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxSeverity === "CRITICAL" ? "bg-red-100 text-red-700" : f.maxSeverity === "WARNING" ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"}`}>{f.maxSeverity}</span>
+                                  </td>
+                                  <td className="py-1 pr-2 text-center">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : f.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : f.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>{f.maxPriority}</span>
+                                  </td>
+                                  <td className="py-1 pr-2 text-right font-mono">{f.totalAppearances}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{f.affectedFiles.length}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {modulesCov.length > 0 && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Cobertura por módulo</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-border/50 text-muted-foreground">
+                                <th className="text-left py-1 pr-2 font-medium">Módulo</th>
+                                <th className="text-right py-1 pr-2 font-medium">Detectado</th>
+                                <th className="text-right py-1 pr-2 font-medium">Analizado</th>
+                                <th className="text-right py-1 pr-2 font-medium">Hallazgos</th>
+                                <th className="text-right py-1 pr-2 font-medium">Archivos con hallazgos</th>
+                                <th className="text-left py-1 pr-2 font-medium">Motivo omisión principal</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {modulesCov.map((m) => (
+                                <tr key={m.moduleKey} className="border-b border-border/30">
+                                  <td className="py-1 pr-2 font-medium">{m.moduleLabel}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{m.detectedIn}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{m.analyzedIn}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{m.totalFindings}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{m.filesWithFindings}</td>
+                                  <td className="py-1 pr-2 text-muted-foreground italic text-xs max-w-[180px] truncate">{m.skippedReasons.length > 0 ? m.skippedReasons[0] : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {perfAgg && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Performance</h4>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Tiempo total</span>
+                            <span className="font-medium">{perfAgg.totalMs} ms</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Promedio por XML</span>
+                            <span className="font-medium">{perfAgg.avgMs} ms</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">XML más lento</span>
+                            <span className="font-medium font-mono text-xs">{perfAgg.maxMsFile} ({perfAgg.maxMs} ms)</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">XML más rápido</span>
+                            <span className="font-medium font-mono text-xs">{perfAgg.minMsFile} ({perfAgg.minMs} ms)</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Tamaño total analizado</span>
+                            <span className="font-medium">{perfAgg.totalKb} KB</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Tamaño promedio por XML</span>
+                            <span className="font-medium">{perfAgg.avgKb} KB</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Hallazgos originales totales</span>
+                            <span className="font-medium">{perfAgg.totalFindingsOriginal}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-border/50">
+                            <span className="text-muted-foreground">Hallazgos devueltos totales</span>
+                            <span className="font-medium">{perfAgg.totalFindingsReturned}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {affectedFiles.length > 0 && (
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                        <h4 className="font-semibold text-xs text-muted-foreground">Archivos más afectados</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-border/50 text-muted-foreground">
+                                <th className="text-left py-1 pr-2 font-medium">Archivo</th>
+                                <th className="text-right py-1 pr-2 font-medium">Hallazgos</th>
+                                <th className="text-right py-1 pr-2 font-medium">Críticos</th>
+                                <th className="text-right py-1 pr-2 font-medium">Advertencias</th>
+                                <th className="text-center py-1 pr-2 font-medium">Prioridad máxima</th>
+                                <th className="text-left py-1 pr-2 font-medium">Acción principal</th>
+                                <th className="text-center py-1 pr-2 font-medium"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {affectedFiles.map((af, i) => (
+                                <tr key={i} className="border-b border-border/30">
+                                  <td className="py-1 pr-2 font-mono max-w-[160px] truncate" title={af.file.name}>{af.file.name}</td>
+                                  <td className="py-1 pr-2 text-right font-mono">{af.totalFindings}</td>
+                                  <td className="py-1 pr-2 text-right font-mono text-red-600">{af.criticals}</td>
+                                  <td className="py-1 pr-2 text-right font-mono text-yellow-600">{af.warnings}</td>
+                                  <td className="py-1 pr-2 text-center">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${af.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : af.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : af.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>{af.maxPriority}</span>
+                                  </td>
+                                  <td className="py-1 pr-2 text-xs max-w-[140px] truncate" title={af.topActionGroup}>{af.topActionGroup}</td>
+                                  <td className="py-1 pr-2 text-center">
+                                    <button onClick={() => setSelectedMassiveDetail(af.file)} className="text-primary font-semibold hover:underline text-xs">Ver detalle</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()}
+
               {fullAnalysisResult.results.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground">
                     Resultados por archivo
                   </p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[["ALL", "Todos"], ["BLOCKER", "Bloqueantes"], ["HIGH", "Alta prioridad"], ["FAILED", "Fallidos"], ["TRUNCATED", "Truncados"], ["RETENCIONES", "Retenciones"], ["CFDI", "CFDI"]].map(([key, label]) => (
+                      <button key={key} onClick={() => setMassiveFilter(key)} className={`px-2 py-0.5 rounded text-xs font-semibold border transition-all ${massiveFilter === key ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:bg-muted/70"}`}>{label}</button>
+                    ))}
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs border-collapse">
                       <thead>
@@ -808,7 +1403,19 @@ export default function XmlAuditPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {fullAnalysisResult.results.map((r, i) => {
+                        {(() => {
+                          const filtered = massiveFilter === "ALL" ? fullAnalysisResult.results : fullAnalysisResult.results.filter((r) => {
+                            if (massiveFilter === "FAILED") return r.status === "FAILED";
+                            if (r.status !== "ANALYZED" || !r.analysis) return false;
+                            const fnd = r.analysis.findings ?? [];
+                            if (massiveFilter === "BLOCKER") return fnd.some((x) => x.priority === "BLOCKER");
+                            if (massiveFilter === "HIGH") return fnd.some((x) => x.priority === "HIGH");
+                            if (massiveFilter === "TRUNCATED") return r.analysis.analysisMeta?.performance.findingsTruncated;
+                            if (massiveFilter === "RETENCIONES") return r.analysis.documentKind === "RETENCIONES";
+                            if (massiveFilter === "CFDI") return r.analysis.documentKind === "CFDI";
+                            return true;
+                          });
+                          return filtered.map((r, i) => {
                           const isAnalyzed = r.status === "ANALYZED";
                           const riskBadge =
                             isAnalyzed && r.analysis?.executiveSummary.riskLevel === "CRITICAL"
@@ -897,7 +1504,8 @@ export default function XmlAuditPage() {
                               </td>
                             </tr>
                           );
-                        })}
+                        });
+                      })()}
                       </tbody>
                     </table>
                   </div>
@@ -908,6 +1516,12 @@ export default function XmlAuditPage() {
                 className="w-full py-2.5 px-4 rounded-lg border border-primary text-primary font-semibold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
               >
                 Exportar análisis masivo CSV
+              </button>
+              <button
+                onClick={() => setPrintMode("zip")}
+                className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+              >
+                Imprimir reporte ZIP / Guardar PDF
               </button>
             </div>
           )}
@@ -1455,7 +2069,199 @@ export default function XmlAuditPage() {
                                       )}
                                     </div>
                                   );
-                                })()}
+        })()}
+
+      {fullAnalysisResult && (
+        <div className="print-report-zip hidden">
+          {(() => {
+            const r = fullAnalysisResult;
+            const totals = aggregateMassiveTotals(r.results);
+            const priorities = aggregateMassivePriorities(r.results);
+            const actionGroups = aggregateMassiveActionGroups(r.results);
+            const topFindings = getTopFindingCodes(r.results, 10);
+            const docKinds = aggregateMassiveDocumentKinds(r.results);
+            const modulesCov = aggregateMassiveModulesCoverage(r.results);
+            const perf = aggregateMassivePerformance(r.results);
+            const affectedFiles = getTopAffectedFiles(r.results, 15);
+            const totalAnalyzed = totals.analyzed + totals.failed;
+            return (
+              <div style={{ padding: "32px 40px 24px", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial, Helvetica, sans-serif" }}>
+                <h1>Reporte ZIP — Análisis masivo Fiscora</h1>
+                <p style={{ margin: "2px 0 16px", fontSize: 10, color: "#888" }}>
+                  Generado el {new Date().toISOString()} &mdash; {r.xmlFilesFound} archivos encontrados, {r.analyzedCount} analizados
+                </p>
+
+                <h2>Resumen general</h2>
+                <div className="meta-grid">
+                  <div className="meta-item"><span className="meta-label">Archivos encontrados</span><span className="meta-value">{r.xmlFilesFound}</span></div>
+                  <div className="meta-item"><span className="meta-label">Analizados</span><span className="meta-value">{totals.analyzed}</span></div>
+                  <div className="meta-item"><span className="meta-label">Fallidos</span><span className="meta-value">{totals.failed}</span></div>
+                  <div className="meta-item"><span className="meta-label">Sin hallazgos</span><span className="meta-value">{totals.ok}</span></div>
+                  <div className="meta-item"><span className="meta-label">Con críticos</span><span className="meta-value">{totals.withCritical}</span></div>
+                  <div className="meta-item"><span className="meta-label">Con warnings</span><span className="meta-value">{totals.withWarning}</span></div>
+                  <div className="meta-item"><span className="meta-label">Con BOM</span><span className="meta-value">{totals.withBom}</span></div>
+                  <div className="meta-item"><span className="meta-label">Normalización técnica</span><span className="meta-value">{totals.withTechNorm}</span></div>
+                  <div className="meta-item"><span className="meta-label">XML normalizado disponible</span><span className="meta-value">{totals.withNormXml}</span></div>
+                  <div className="meta-item"><span className="meta-label">XMLs con hallazgos bloqueantes</span><span className="meta-value">{priorities.filesWithBlocker}</span></div>
+                  <div className="meta-item"><span className="meta-label">XMLs con prioridad alta</span><span className="meta-value">{priorities.filesWithHigh}</span></div>
+                </div>
+
+                <h2>Prioridades</h2>
+                <table>
+                  <thead><tr><th>Prioridad</th><th>Hallazgos</th><th>Archivos afectados</th></tr></thead>
+                  <tbody>
+                    <tr><td><span className="badge-critical">Bloqueante</span></td><td>{priorities.BLOCKER}</td><td>{priorities.filesWithBlocker}</td></tr>
+                    <tr><td><span className="badge-warning">Alta</span></td><td>{priorities.HIGH}</td><td>{priorities.filesWithHigh}</td></tr>
+                    <tr><td><span className="badge-info">Media</span></td><td>{priorities.MEDIUM}</td><td>—</td></tr>
+                    <tr><td><span className="badge-ok">Informativa</span></td><td>{priorities.LOW}</td><td>—</td></tr>
+                  </tbody>
+                </table>
+
+                {actionGroups.length > 0 && (
+                  <>
+                    <h2>Grupos accionables</h2>
+                    <table>
+                      <thead><tr><th>Grupo</th><th>Hallazgos</th><th>Críticos</th><th>Warnings</th><th>Informativos</th><th>Archivos</th></tr></thead>
+                      <tbody>
+                        {actionGroups.map((g) => (
+                          <tr key={g.group}>
+                            <td style={{ fontWeight: 600 }}>{g.group}</td>
+                            <td>{g.totalFindings}</td>
+                            <td>{g.criticalCount > 0 ? <span className="badge-critical">{g.criticalCount}</span> : "0"}</td>
+                            <td>{g.warningCount > 0 ? <span className="badge-warning">{g.warningCount}</span> : "0"}</td>
+                            <td>{g.infoCount}</td>
+                            <td>{g.affectedFiles.length}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                {topFindings.length > 0 && (
+                  <>
+                    <h2>Top hallazgos más frecuentes</h2>
+                    <table>
+                      <thead><tr><th>Código</th><th>Título</th><th>Severidad</th><th>Prioridad</th><th>Frecuencia</th><th>Archivos</th></tr></thead>
+                      <tbody>
+                        {topFindings.map((f) => (
+                          <tr key={f.code}>
+                            <td style={{ fontFamily: "monospace", fontSize: 9 }}>{f.code}</td>
+                            <td>{f.title}</td>
+                            <td>{f.maxSeverity === "CRITICAL" ? <span className="badge-critical">CRITICAL</span> : f.maxSeverity === "WARNING" ? <span className="badge-warning">WARNING</span> : <span className="badge-info">INFO</span>}</td>
+                            <td>{getPriorityLabel(f.maxPriority)}</td>
+                            <td>{f.totalAppearances}</td>
+                            <td>{f.affectedFiles.length}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                {r.summary?.byTipoComprobante && Object.keys(r.summary.byTipoComprobante).length > 0 && (
+                  <>
+                    <h2>Tipos de comprobante</h2>
+                    <table>
+                      <thead><tr><th>Tipo</th><th>Cantidad</th><th>Porcentaje</th></tr></thead>
+                      <tbody>
+                        {Object.entries(r.summary.byTipoComprobante).map(([tipo, count]) => {
+                          const pct = totalAnalyzed > 0 ? ((count / totalAnalyzed) * 100).toFixed(1) : "0.0";
+                          return <tr key={tipo}><td>{tipo}</td><td>{count}</td><td>{pct}%</td></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                <h2>Tipos de documento analizados</h2>
+                {(() => {
+                  const totalDK = docKinds.CFDI + docKinds.RETENCIONES + docKinds.UNKNOWN;
+                  const pct = (v: number) => totalDK > 0 ? ((v / totalDK) * 100).toFixed(1) : "0.0";
+                  return (
+                    <table>
+                      <thead><tr><th>Tipo</th><th>Cantidad</th><th>Porcentaje</th></tr></thead>
+                      <tbody>
+                        <tr><td>CFDI</td><td>{docKinds.CFDI}</td><td>{pct(docKinds.CFDI)}%</td></tr>
+                        <tr><td>RETENCIONES</td><td>{docKinds.RETENCIONES}</td><td>{pct(docKinds.RETENCIONES)}%</td></tr>
+                        <tr><td>Desconocido</td><td>{docKinds.UNKNOWN}</td><td>{pct(docKinds.UNKNOWN)}%</td></tr>
+                      </tbody>
+                    </table>
+                  );
+                })()}
+
+                {modulesCov.length > 0 && (
+                  <>
+                    <h2>Cobertura por módulo de análisis</h2>
+                    <table>
+                      <thead><tr><th>Módulo</th><th>Detectado en</th><th>Analizado en</th><th>Hallazgos totales</th><th>Archivos con hallazgos</th></tr></thead>
+                      <tbody>
+                        {modulesCov.map((m) => (
+                          <tr key={m.moduleKey}>
+                            <td>{m.moduleLabel}</td>
+                            <td>{m.detectedIn}</td>
+                            <td>{m.analyzedIn}</td>
+                            <td>{m.totalFindings}</td>
+                            <td>{m.filesWithFindings}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                {perf && (
+                  <>
+                    <h2>Rendimiento del análisis</h2>
+                    <table>
+                      <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
+                      <tbody>
+                        <tr><td>Tiempo total</td><td>{(perf.totalMs / 1000).toFixed(2)}s</td></tr>
+                        <tr><td>Tiempo promedio por archivo</td><td>{perf.avgMs}ms</td></tr>
+                        <tr><td>Tiempo máximo</td><td>{perf.maxMs}ms ({perf.maxMsFile})</td></tr>
+                        <tr><td>Tiempo mínimo</td><td>{perf.minMs}ms ({perf.minMsFile})</td></tr>
+                        <tr><td>Total KB procesados</td><td>{perf.totalKb.toFixed(0)} KB</td></tr>
+                        <tr><td>Promedio KB por archivo</td><td>{perf.avgKb.toFixed(0)} KB</td></tr>
+                        <tr><td>Hallazgos originales</td><td>{perf.totalFindingsOriginal}</td></tr>
+                        <tr><td>Hallazgos retornados</td><td>{perf.totalFindingsReturned}</td></tr>
+                        <tr><td>Archivos con truncamiento</td><td>{perf.filesTruncated > 0 ? <span className="badge-warning">{perf.filesTruncated}</span> : "0"}</td></tr>
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                {affectedFiles.length > 0 && (
+                  <>
+                    <h2>Archivos más afectados</h2>
+                    <table>
+                      <thead><tr><th>#</th><th>Archivo</th><th>Hallazgos</th><th>Críticos</th><th>Warnings</th><th>Prioridad máxima</th><th>Grupo principal</th></tr></thead>
+                      <tbody>
+                        {affectedFiles.map((af, i) => (
+                          <tr key={af.file.name}>
+                            <td>{i + 1}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 9, wordBreak: "break-all" }}>{af.file.name}</td>
+                            <td>{af.totalFindings}</td>
+                            <td>{af.criticals > 0 ? <span className="badge-critical">{af.criticals}</span> : "0"}</td>
+                            <td>{af.warnings > 0 ? <span className="badge-warning">{af.warnings}</span> : "0"}</td>
+                            <td><span className={`badge-${af.maxPriority === "BLOCKER" ? "critical" : af.maxPriority === "HIGH" ? "warning" : "info"}`}>{getPriorityLabel(af.maxPriority)}</span></td>
+                            <td>{af.topActionGroup}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
+                <div className="footer">
+                  <p style={{ margin: 0 }}>Generado por Fiscora / ConSafeDev</p>
+                  <p style={{ margin: "4px 0 0" }}>No se almacenan los XML fuente en este reporte. Datos sensibles redactados.</p>
+                  <p style={{ margin: "4px 0 0" }}>{new Date().toISOString()}</p>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
                             </div>
                           );
                         });
@@ -3890,7 +4696,7 @@ export default function XmlAuditPage() {
                   Exportar análisis Excel (CSV)
                 </button>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => setPrintMode("individual")}
                   className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
                 >
                   Imprimir reporte / Guardar PDF

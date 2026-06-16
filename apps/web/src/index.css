@@ -74,12 +74,12 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  body > *,
-  #root > *,
-  .min-h-screen > *:not(.print-report) {
+  body:not([data-print-mode="zip"]) > *,
+  body:not([data-print-mode="zip"]) #root > *,
+  body:not([data-print-mode="zip"]) .min-h-screen > *:not(.print-report) {
     display: none !important;
   }
-  .print-report {
+  body:not([data-print-mode="zip"]) .print-report {
     display: block !important;
     background: white !important;
     color: #111 !important;
@@ -219,6 +219,140 @@
     margin-bottom: 8px;
   }
   .print-report .footer {
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 1px solid #d1d5db;
+    font-size: 9px;
+    color: #888 !important;
+    text-align: center;
+  }
+  body[data-print-mode="zip"] > *,
+  body[data-print-mode="zip"] #root > *,
+  body[data-print-mode="zip"] .min-h-screen > *:not(.print-report-zip) {
+    display: none !important;
+  }
+  body[data-print-mode="zip"] .print-report-zip {
+    display: block !important;
+    background: white !important;
+    color: #111 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+  }
+  body[data-print-mode="zip"] .print-report-zip * {
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ddd !important;
+  }
+  body[data-print-mode="zip"] .print-report-zip a {
+    color: #2563eb !important;
+    text-decoration: underline;
+  }
+  body[data-print-mode="zip"] .print-report-zip table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+  }
+  body[data-print-mode="zip"] .print-report-zip th {
+    background: #f3f4f6 !important;
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    font-size: 10px;
+  }
+  body[data-print-mode="zip"] .print-report-zip td {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    font-size: 10px;
+    vertical-align: top;
+  }
+  body[data-print-mode="zip"] .print-report-zip h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  body[data-print-mode="zip"] .print-report-zip h2 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #2563eb;
+  }
+  body[data-print-mode="zip"] .print-report-zip h3 {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 12px 0 4px;
+  }
+  body[data-print-mode="zip"] .print-report-zip p,
+  body[data-print-mode="zip"] .print-report-zip li {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  body[data-print-mode="zip"] .print-report-zip .page-break {
+    page-break-before: always;
+  }
+  body[data-print-mode="zip"] .print-report-zip .avoid-break {
+    page-break-inside: avoid;
+  }
+  body[data-print-mode="zip"] .print-report-zip .badge-ok {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-block;
+  }
+  body[data-print-mode="zip"] .print-report-zip .badge-warning {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-block;
+  }
+  body[data-print-mode="zip"] .print-report-zip .badge-critical {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-block;
+  }
+  body[data-print-mode="zip"] .print-report-zip .badge-info {
+    background: #dbeafe !important;
+    color: #1e40af !important;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-block;
+  }
+  body[data-print-mode="zip"] .print-report-zip .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+  }
+  body[data-print-mode="zip"] .print-report-zip .meta-item {
+    display: flex;
+    padding: 2px 0;
+    border-bottom: 1px solid #eee;
+  }
+  body[data-print-mode="zip"] .print-report-zip .meta-label {
+    width: 180px;
+    font-weight: 600;
+    font-size: 10px;
+    color: #555 !important;
+    flex-shrink: 0;
+  }
+  body[data-print-mode="zip"] .print-report-zip .meta-value {
+    font-size: 10px;
+    word-break: break-all;
+  }
+  body[data-print-mode="zip"] .print-report-zip .footer {
     margin-top: 24px;
     padding-top: 8px;
     border-top: 1px solid #d1d5db;
