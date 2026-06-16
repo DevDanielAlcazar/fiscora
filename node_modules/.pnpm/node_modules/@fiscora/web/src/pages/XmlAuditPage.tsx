@@ -1046,6 +1046,97 @@ export default function XmlAuditPage() {
                 );
               })()}
 
+            {result.analysisMeta && (
+              <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+                <h2 className="font-semibold text-lg">Metadata del análisis</h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Fecha generación</span>
+                    <span className="font-medium">{new Date(result.analysisMeta.generatedAt).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Engine version</span>
+                    <span className="font-medium">{result.analysisMeta.engineVersion}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Tipo documento</span>
+                    <span className="font-medium">{result.analysisMeta.coverage.documentKind}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Tiempo total</span>
+                    <span className="font-medium">{result.analysisMeta.performance.totalMs} ms</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Tamaño de entrada</span>
+                    <span className="font-medium">{result.analysisMeta.performance.inputKb} KB</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Hallazgos originales</span>
+                    <span className="font-medium">{result.analysisMeta.performance.findingsOriginalCount}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Hallazgos devueltos</span>
+                    <span className="font-medium">{result.analysisMeta.performance.findingsReturnedCount}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Truncado</span>
+                    <span className="font-medium">{result.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Sanitizado</span>
+                    <span className="font-medium">{result.analysisMeta.performance.sanitized ? "Sí" : "No"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">XML normalizado disponible</span>
+                    <span className="font-medium">{result.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}</span>
+                  </div>
+                </div>
+
+                <h3 className="font-semibold text-sm mt-4">Cobertura del análisis</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Módulo</th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">Detectado</th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">Analizado</th>
+                        <th className="text-right py-2 px-2 font-medium text-muted-foreground">Hallazgos</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Motivo omisión</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.analysisMeta.coverage.modules.map((m) => (
+                        <tr key={m.key} className="border-b border-border/50">
+                          <td className="py-1.5 px-2 font-medium whitespace-nowrap">{m.label}</td>
+                          <td className="py-1.5 px-2 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.detected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {m.detected ? "Sí" : "No"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.analyzed ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                              {m.analyzed ? "Sí" : "No"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.findingsCount}</td>
+                          <td className="py-1.5 px-2 text-muted-foreground italic text-xs">{m.skippedReason ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="text-xs text-muted-foreground mt-2">
+                  {result.analysisMeta.coverage.complementsDetected.length > 0 && (
+                    <p>Complementos detectados: {result.analysisMeta.coverage.complementsDetected.join(", ")}</p>
+                  )}
+                  {result.analysisMeta.coverage.complementsUnknown.length > 0 && (
+                    <p className="text-yellow-600">Complementos no clasificados: {result.analysisMeta.coverage.complementsUnknown.join(", ")}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {result.findings && (
               <div className="p-6 rounded-xl border border-border bg-card space-y-4">
                 <h2 className="font-semibold text-lg">Hallazgos del análisis</h2>
@@ -3717,6 +3808,36 @@ export default function XmlAuditPage() {
                 });
               }
 
+              if (r.analysisMeta) {
+                const p = r.analysisMeta.performance;
+                section("METADATA DEL ANALISIS");
+                sub("Rendimiento", {
+                  "Tiempo total (ms)": String(p.totalMs),
+                  "Tamaño entrada (bytes)": String(p.inputBytes),
+                  "Tamaño entrada (KB)": String(p.inputKb),
+                  "Hallazgos originales": String(p.findingsOriginalCount),
+                  "Hallazgos devueltos": String(p.findingsReturnedCount),
+                  Truncado: p.findingsTruncated ? "Sí" : "No",
+                  Sanitizado: p.sanitized ? "Sí" : "No",
+                  "XML normalizado disponible": p.normalizedXmlAvailable ? "Sí" : "No",
+                });
+                sub("Documento", {
+                  "Engine version": r.analysisMeta.engineVersion,
+                  "Tipo documento": r.analysisMeta.coverage.documentKind,
+                  "Complementos detectados": r.analysisMeta.coverage.complementsDetected.join(", "),
+                  "Complementos no clasificados": r.analysisMeta.coverage.complementsUnknown.join(", "),
+                  Addenda: r.analysisMeta.coverage.hasAddenda ? "Sí" : "No",
+                  "Timbre Fiscal Digital": r.analysisMeta.coverage.hasTimbreFiscalDigital ? "Sí" : "No",
+                  "Normalización segura": r.analysisMeta.coverage.hasSafeNormalization ? "Sí" : "No",
+                });
+                section("COBERTURA DEL ANALISIS");
+                row("Módulo", "Detectado", "Analizado", "Hallazgos", "Motivo omisión");
+                for (const m of r.analysisMeta.coverage.modules) {
+                  row(m.label, m.detected ? "Sí" : "No", m.analyzed ? "Sí" : "No", String(m.findingsCount), m.skippedReason ?? "");
+                }
+                lines.push("");
+              }
+
               if (r.findings && r.findings.length > 0) {
                 section("PRIORIDADES DE HALLAZGOS");
                 row("Prioridad", "Grupo accionable", "Código", "Severidad", "Categoría", "Título", "Acción recomendada");
@@ -3881,6 +4002,82 @@ export default function XmlAuditPage() {
                       <span style={{ fontWeight: 600 }}>Acción recomendada:</span>{" "}
                       {r.executiveSummary.recommendedAction}
                     </p>
+                  </div>
+                )}
+
+                {r.analysisMeta && (
+                  <div className="avoid-break">
+                    <h2>Metadata del análisis</h2>
+                    <div className="meta-grid">
+                      <div className="meta-item">
+                        <span className="meta-label">Fecha generación</span>
+                        <span className="meta-value">{new Date(r.analysisMeta.generatedAt).toLocaleString()}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Engine version</span>
+                        <span className="meta-value">{r.analysisMeta.engineVersion}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Tipo documento</span>
+                        <span className="meta-value">{r.analysisMeta.coverage.documentKind}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Tiempo total</span>
+                        <span className="meta-value">{r.analysisMeta.performance.totalMs} ms</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Tamaño de entrada</span>
+                        <span className="meta-value">{r.analysisMeta.performance.inputKb} KB</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Hallazgos originales</span>
+                        <span className="meta-value">{r.analysisMeta.performance.findingsOriginalCount}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Hallazgos devueltos</span>
+                        <span className="meta-value">{r.analysisMeta.performance.findingsReturnedCount}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Truncado</span>
+                        <span className="meta-value">{r.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Sanitizado</span>
+                        <span className="meta-value">{r.analysisMeta.performance.sanitized ? "Sí" : "No"}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">XML normalizado disponible</span>
+                        <span className="meta-value">{r.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}</span>
+                      </div>
+                    </div>
+                    <h3 style={{ fontSize: "14px", fontWeight: 600, marginTop: "16px", marginBottom: "8px" }}>Cobertura del análisis</h3>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <th style={{ textAlign: "left", padding: "4px 6px" }}>Módulo</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px" }}>Detectado</th>
+                          <th style={{ textAlign: "center", padding: "4px 6px" }}>Analizado</th>
+                          <th style={{ textAlign: "right", padding: "4px 6px" }}>Hallazgos</th>
+                          <th style={{ textAlign: "left", padding: "4px 6px" }}>Motivo omisión</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.analysisMeta.coverage.modules.map((m) => (
+                          <tr key={m.key} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                            <td style={{ padding: "3px 6px", fontWeight: 500 }}>{m.label}</td>
+                            <td style={{ padding: "3px 6px", textAlign: "center" }}>{m.detected ? "Sí" : "No"}</td>
+                            <td style={{ padding: "3px 6px", textAlign: "center" }}>{m.analyzed ? "Sí" : "No"}</td>
+                            <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace" }}>{m.findingsCount}</td>
+                            <td style={{ padding: "3px 6px", color: "#888", fontStyle: "italic" }}>{m.skippedReason ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {r.analysisMeta.coverage.complementsDetected.length > 0 && (
+                      <p style={{ fontSize: "10px", color: "#666", marginTop: "8px" }}>
+                        Complementos detectados: {r.analysisMeta.coverage.complementsDetected.join(", ")}
+                      </p>
+                    )}
                   </div>
                 )}
 

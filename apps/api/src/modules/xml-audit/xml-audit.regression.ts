@@ -3541,6 +3541,88 @@ async function testPayloadPolicyPresente(): Promise<void> {
   assertEqual(response.payloadPolicy!.findingsMaxTotal > 0, true, "findingsMaxTotal debe ser positivo");
 }
 
+// DP) analysisMeta presente en CFDI
+async function testAnalysisMetaPresenteCfdi(): Promise<void> {
+  const xml = buildCfdi40Ingreso();
+  const result = analyzeCfdi(xml, "meta-cfdi.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.analysisMeta, "analysisMeta debe existir");
+  assertEqual(response.analysisMeta!.coverage.documentKind, "CFDI", "documentKind debe ser CFDI");
+  assertEqual(response.analysisMeta!.coverage.modules.some((m) => m.key === "cfdi-base"), true, "debe incluir cfdi-base");
+  assertEqual(response.analysisMeta!.performance.totalMs >= 0, true, "totalMs >= 0");
+  assertEqual(response.analysisMeta!.performance.inputBytes > 0, true, "inputBytes > 0");
+  assertEqual(response.analysisMeta!.performance.sanitized, true, "sanitized debe ser true");
+  assertEqual(response.analysisMeta!.performance.findingsOriginalCount > 0, true, "debe haber hallazgos originales");
+  assertEqual(response.analysisMeta!.performance.findingsReturnedCount > 0, true, "debe haber hallazgos devueltos");
+}
+
+// DQ) analysisMeta presente en Retenciones
+async function testAnalysisMetaPresenteRetenciones(): Promise<void> {
+  const xml = buildRetencionesXml();
+  const result = analyzeCfdi(xml, "meta-retenciones.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.analysisMeta, "analysisMeta debe existir");
+  assertEqual(response.analysisMeta!.coverage.documentKind, "RETENCIONES", "documentKind debe ser RETENCIONES");
+  const cfdiModule = response.analysisMeta!.coverage.modules.find((m) => m.key === "cfdi-base");
+  assertTruthy(cfdiModule, "debe existir cfdi-base module");
+  assertEqual(cfdiModule!.detected, false, "cfdi-base no debe estar detectado");
+  assertEqual(cfdiModule!.skippedReason, "No aplica para XML de Retenciones", "skippedReason correcto");
+  const retModule = response.analysisMeta!.coverage.modules.find((m) => m.key === "retenciones");
+  assertTruthy(retModule, "debe existir retenciones module");
+  assertEqual(retModule!.detected, true, "retenciones debe estar detectado");
+}
+
+// DR) coverage detecta complemento (Nómina)
+async function testCoverageDetectaComplemento(): Promise<void> {
+  const xml = buildNominaXml({});
+  const result = analyzeCfdi(xml, "meta-nomina.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.analysisMeta, "analysisMeta debe existir");
+  const nominaModule = response.analysisMeta!.coverage.modules.find((m) => m.key === "nomina");
+  assertTruthy(nominaModule, "debe existir nomina module");
+  assertEqual(nominaModule!.detected, true, "nomina debe estar detectado");
+  assertEqual(nominaModule!.analyzed, true, "nomina debe estar analizado");
+}
+
+// DS) findingsCount por módulo
+async function testFindingsCountPorModulo(): Promise<void> {
+  const xml = buildCfdi40Ingreso();
+  const result = analyzeCfdi(xml, "meta-counts.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.analysisMeta, "analysisMeta debe existir");
+  const cfdiBase = response.analysisMeta!.coverage.modules.find((m) => m.key === "cfdi-base");
+  assertTruthy(cfdiBase, "debe existir cfdi-base module");
+  assertEqual(cfdiBase!.findingsCount > 0, true, "cfdi-base debe tener hallazgos > 0");
+  const conceptModule = response.analysisMeta!.coverage.modules.find((m) => m.key === "concept-taxes");
+  assertTruthy(conceptModule, "debe existir concept-taxes module");
+  assertEqual(conceptModule!.findingsCount >= 0, true, "concept-taxes debe tener hallazgos >= 0");
+}
+
+// DT) analysisMeta no contiene contenido sensible
+async function testAnalysisMetaNoContenidoSensible(): Promise<void> {
+  const xml = buildCfdi40Ingreso();
+  const result = analyzeCfdi(xml, "meta-seguro.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.analysisMeta, "analysisMeta debe existir");
+  const meta = response.analysisMeta!;
+  const coverage = meta.coverage;
+  const values = [
+    meta.engineVersion,
+    meta.generatedAt,
+    String(meta.performance.inputBytes),
+    String(meta.performance.inputKb),
+    String(meta.performance.totalMs),
+    coverage.documentKind,
+    ...coverage.modules.map((m) => m.key + m.label + (m.skippedReason ?? "")),
+    ...coverage.complementsDetected,
+    ...coverage.complementsKnown,
+    ...coverage.complementsUnknown,
+  ];
+  const combined = values.join(" ");
+  assertEqual(combined.includes("<cfdi:"), false, "no debe contener <cfdi:");
+  assertEqual(combined.includes("<retenciones:"), false, "no debe contener <retenciones:");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -3672,6 +3754,11 @@ async function main() {
   await runCase("DM) Evidence array grande se limita", testEvidenceArrayGrande);
   await runCase("DN) Findings por code se limitan", testFindingsPorCodeLimitados);
   await runCase("DO) Payload policy presente", testPayloadPolicyPresente);
+  await runCase("DP) analysisMeta presente en CFDI", testAnalysisMetaPresenteCfdi);
+  await runCase("DQ) analysisMeta presente en Retenciones", testAnalysisMetaPresenteRetenciones);
+  await runCase("DR) coverage detecta complemento", testCoverageDetectaComplemento);
+  await runCase("DS) findingsCount por módulo", testFindingsCountPorModulo);
+  await runCase("DT) analysisMeta no contiene contenido sensible", testAnalysisMetaNoContenidoSensible);
 
   printSummary();
 

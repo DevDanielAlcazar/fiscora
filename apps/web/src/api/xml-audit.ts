@@ -461,6 +461,45 @@ export interface AnalysisResult {
     findingsMaxPerCode: number;
     sanitized: boolean;
   };
+  analysisMeta?: AnalysisMetaInfo;
+}
+
+export interface AnalysisPerformanceInfo {
+  totalMs: number;
+  inputBytes: number;
+  inputKb: number;
+  findingsOriginalCount: number;
+  findingsReturnedCount: number;
+  findingsTruncated: boolean;
+  normalizedXmlAvailable: boolean;
+  sanitized: boolean;
+}
+
+export interface AnalysisCoverageModule {
+  key: string;
+  label: string;
+  detected: boolean;
+  analyzed: boolean;
+  skippedReason?: string | null;
+  findingsCount: number;
+}
+
+export interface AnalysisCoverageInfo {
+  documentKind: "CFDI" | "RETENCIONES" | "UNKNOWN";
+  modules: AnalysisCoverageModule[];
+  complementsDetected: string[];
+  complementsKnown: string[];
+  complementsUnknown: string[];
+  hasAddenda: boolean;
+  hasTimbreFiscalDigital: boolean;
+  hasSafeNormalization: boolean;
+}
+
+export interface AnalysisMetaInfo {
+  generatedAt: string;
+  engineVersion: string;
+  performance: AnalysisPerformanceInfo;
+  coverage: AnalysisCoverageInfo;
 }
 
 export interface AnalyzeResponse {

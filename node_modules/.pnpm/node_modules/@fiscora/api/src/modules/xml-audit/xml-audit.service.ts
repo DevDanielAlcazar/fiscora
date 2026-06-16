@@ -332,6 +332,182 @@ export function limitFindings(findings: Finding[]): Finding[] {
   return result;
 }
 
+export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCoverageInfo {
+  const docKind = result.documentKind as "CFDI" | "RETENCIONES" | "UNKNOWN";
+  const findings = result.findings ?? [];
+
+  const countByPrefix = (prefix: string): number =>
+    findings.filter((f) => f.code.startsWith(prefix)).length;
+
+  const detected = (complement: unknown): boolean =>
+    complement !== null && complement !== undefined;
+
+  const hasPayment = detected(result.paymentComplement);
+  const hasRelations = detected(result.cfdiRelations);
+  const hasCartaPorte = detected(result.cartaPorte);
+  const hasNomina = detected(result.nomina);
+  const hasComercioExterior = detected(result.comercioExterior);
+  const hasImpuestosLocales = detected(result.impuestosLocales);
+  const hasLeyendasFiscales = detected(result.leyendasFiscales);
+  const hasDonatarias = detected(result.donatarias);
+  const hasAddendaDetected = result.addenda?.detected === true;
+  const hasRetenciones = detected(result.retenciones);
+  const hasConcepts = result.concepts !== null && result.concepts !== undefined;
+  const hasGlobalTaxes = detected(result.globalTaxes);
+  const hasTimbreFiscalDigital = result.technicalDiagnostics?.hasTimbreFiscalDigital ?? false;
+  const hasSafeNormalization = result.technicalDiagnostics?.safeNormalizationApplied ?? false;
+
+  const isCfdi = docKind === "CFDI";
+  const isRetenciones = docKind === "RETENCIONES";
+
+  const skipped = (reason: string): string | null => reason;
+
+  const modules: AnalysisCoverageModule[] = [
+    {
+      key: "cfdi-base",
+      label: "CFDI Base",
+      detected: isCfdi,
+      analyzed: isCfdi,
+      skippedReason: isCfdi ? null : skipped("No aplica para XML de Retenciones"),
+      findingsCount: isCfdi ? countByPrefix("COMPROBANTE_") + countByPrefix("EMISOR_") + countByPrefix("RECEPTOR_") + countByPrefix("GENERIC_RFC_") + countByPrefix("EXPORTACION_") + countByPrefix("SERIE_FOLIO_") + countByPrefix("MONEDA_") + countByPrefix("LUGAR_EXPEDICION_") + countByPrefix("FECHA_") + countByPrefix("TOTAL_") + countByPrefix("SUBTOTAL_") + countByPrefix("FORMA_PAGO_") + countByPrefix("METODO_PAGO_") + countByPrefix("DESCUENTO_") : 0,
+    },
+    {
+      key: "retenciones",
+      label: "Retenciones",
+      detected: isRetenciones || hasRetenciones,
+      analyzed: hasRetenciones,
+      skippedReason: hasRetenciones ? null : isCfdi ? skipped("Complemento no detectado") : skipped("Tipo de documento no compatible"),
+      findingsCount: countByPrefix("RETENCIONES_"),
+    },
+    {
+      key: "timbre-fiscal-digital",
+      label: "Timbre Fiscal Digital",
+      detected: hasTimbreFiscalDigital,
+      analyzed: hasTimbreFiscalDigital,
+      skippedReason: hasTimbreFiscalDigital ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("MISSING_TFD_") + countByPrefix("TFD_") + countByPrefix("TIMBRADO_") + countByPrefix("MISSING_COMPROBANTE_") + countByPrefix("NO_CERTIFICADO_") + countByPrefix("MISSING_RFC_PROV_CERTIF") + countByPrefix("MISSING_NO_CERTIFICADO"),
+    },
+    {
+      key: "concept-taxes",
+      label: "Impuestos por concepto",
+      detected: isCfdi && hasConcepts,
+      analyzed: isCfdi && hasConcepts,
+      skippedReason: isCfdi && !hasConcepts ? skipped("Complemento no detectado") : !isCfdi ? skipped("No aplica para XML de Retenciones") : null,
+      findingsCount: countByPrefix("CONCEPT_"),
+    },
+    {
+      key: "global-taxes",
+      label: "Impuestos globales",
+      detected: hasGlobalTaxes,
+      analyzed: hasGlobalTaxes,
+      skippedReason: hasGlobalTaxes ? null : isRetenciones ? skipped("No aplica para XML de Retenciones") : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("GLOBAL_"),
+    },
+    {
+      key: "payment-complement",
+      label: "Complemento Pago",
+      detected: hasPayment,
+      analyzed: hasPayment,
+      skippedReason: hasPayment ? null : isRetenciones ? skipped("No aplica para XML de Retenciones") : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("PAYMENT_") + countByPrefix("RELATED_DOCUMENT_"),
+    },
+    {
+      key: "cfdi-relations",
+      label: "CFDI Relacionados",
+      detected: hasRelations,
+      analyzed: hasRelations,
+      skippedReason: hasRelations ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("CFDI_RELATION_") + countByPrefix("CFDI_RELATED_") + countByPrefix("CFDI_SELF_RELATION") + countByPrefix("EGRESO_WITHOUT_CFDI_RELACIONADOS") + countByPrefix("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW"),
+    },
+    {
+      key: "carta-porte",
+      label: "Carta Porte",
+      detected: hasCartaPorte,
+      analyzed: hasCartaPorte,
+      skippedReason: hasCartaPorte ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("CARTA_PORTE_"),
+    },
+    {
+      key: "nomina",
+      label: "Nómina",
+      detected: hasNomina,
+      analyzed: hasNomina,
+      skippedReason: hasNomina ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("NOMINA_") + countByPrefix("RECEPTOR_NOMINA_"),
+    },
+    {
+      key: "comercio-exterior",
+      label: "Comercio Exterior",
+      detected: hasComercioExterior,
+      analyzed: hasComercioExterior,
+      skippedReason: hasComercioExterior ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("COMERCIO_EXTERIOR_") + countByPrefix("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR"),
+    },
+    {
+      key: "impuestos-locales",
+      label: "Impuestos Locales",
+      detected: hasImpuestosLocales,
+      analyzed: hasImpuestosLocales,
+      skippedReason: hasImpuestosLocales ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("IMPUESTOS_LOCALES_"),
+    },
+    {
+      key: "leyendas-fiscales",
+      label: "Leyendas Fiscales",
+      detected: hasLeyendasFiscales,
+      analyzed: hasLeyendasFiscales,
+      skippedReason: hasLeyendasFiscales ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("LEYENDAS_FISCALES_") + countByPrefix("LEYENDA_FISCAL_"),
+    },
+    {
+      key: "donatarias",
+      label: "Donatarias",
+      detected: hasDonatarias,
+      analyzed: hasDonatarias,
+      skippedReason: hasDonatarias ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("DONATARIAS_"),
+    },
+    {
+      key: "addenda",
+      label: "Addenda",
+      detected: hasAddendaDetected,
+      analyzed: hasAddendaDetected,
+      skippedReason: hasAddendaDetected ? null : skipped("Complemento no detectado"),
+      findingsCount: countByPrefix("ADDENDA_"),
+    },
+  ];
+
+  const complementsDetected: string[] = [];
+  if (hasTimbreFiscalDigital) complementsDetected.push("TimbreFiscalDigital");
+  if (hasPayment) complementsDetected.push("Pagos");
+  if (hasCartaPorte) complementsDetected.push("CartaPorte");
+  if (hasNomina) complementsDetected.push("Nomina");
+  if (hasComercioExterior) complementsDetected.push("ComercioExterior");
+  if (hasImpuestosLocales) complementsDetected.push("ImpuestosLocales");
+  if (hasLeyendasFiscales) complementsDetected.push("LeyendasFiscales");
+  if (hasDonatarias) complementsDetected.push("Donatarias");
+  if (hasAddendaDetected) complementsDetected.push("Addenda");
+  if (hasRetenciones) complementsDetected.push("Retenciones");
+
+  const complementsKnown = complementsDetected.filter((c) =>
+    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda", "Retenciones"].includes(c)
+  );
+
+  const knownSet = new Set(complementsKnown);
+  const complementsUnknown = complementsDetected.filter((c) => !knownSet.has(c));
+
+  return {
+    documentKind: docKind,
+    modules,
+    complementsDetected,
+    complementsKnown,
+    complementsUnknown,
+    hasAddenda: hasAddendaDetected,
+    hasTimbreFiscalDigital,
+    hasSafeNormalization,
+  };
+}
+
 export interface GlobalTaxLine {
   type: "TRANSFERRED" | "WITHHELD";
   impuesto?: string | null;
@@ -358,6 +534,44 @@ export interface NormalizedXml {
   normalizationType: "TECHNICAL_SAFE";
   fiscalContentModified: false;
   stampRisk: "NONE";
+}
+
+export interface AnalysisPerformanceInfo {
+  totalMs: number;
+  inputBytes: number;
+  inputKb: number;
+  findingsOriginalCount: number;
+  findingsReturnedCount: number;
+  findingsTruncated: boolean;
+  normalizedXmlAvailable: boolean;
+  sanitized: boolean;
+}
+
+export interface AnalysisCoverageModule {
+  key: string;
+  label: string;
+  detected: boolean;
+  analyzed: boolean;
+  skippedReason?: string | null;
+  findingsCount: number;
+}
+
+export interface AnalysisCoverageInfo {
+  documentKind: "CFDI" | "RETENCIONES" | "UNKNOWN";
+  modules: AnalysisCoverageModule[];
+  complementsDetected: string[];
+  complementsKnown: string[];
+  complementsUnknown: string[];
+  hasAddenda: boolean;
+  hasTimbreFiscalDigital: boolean;
+  hasSafeNormalization: boolean;
+}
+
+export interface AnalysisMetaInfo {
+  generatedAt: string;
+  engineVersion: string;
+  performance: AnalysisPerformanceInfo;
+  coverage: AnalysisCoverageInfo;
 }
 
 function sha256Text(value: string): string {
@@ -675,6 +889,7 @@ export interface CfdiAnalysisResult {
     findingsMaxPerCode: number;
     sanitized: boolean;
   };
+  analysisMeta?: AnalysisMetaInfo;
 }
 
 export interface AnalysisResponse {
@@ -739,6 +954,7 @@ export interface AnalysisResponse {
     findingsMaxPerCode: number;
     sanitized: boolean;
   };
+  analysisMeta?: AnalysisMetaInfo;
 }
 
 const BOM = "\uFEFF";
@@ -1287,6 +1503,8 @@ const RFC_MORAL = /^[A-ZÑ&]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]
 const RFC_FISICA = /^[A-ZÑ&]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 
 export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnalysisResult {
+  const startedAt = Date.now();
+  const inputBytes = Buffer.byteLength(rawXml, "utf8");
   const issues: string[] = [];
   const warnings: string[] = [];
   const safeNormalizationNotes: string[] = [];
@@ -1372,7 +1590,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     diag.isStamped = diag.hasTimbreFiscalDigital;
     return buildRetencionesResult(
       retencionesNode, rawXml, xmlContent, originalFilename, originalSha256, normalizedSha256, diag,
-      safeNormalizationApplied, bomDetected, leadingContentBeforeXml,
+      safeNormalizationApplied, bomDetected, leadingContentBeforeXml, startedAt, inputBytes,
     );
   }
 
@@ -8236,6 +8454,68 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     };
   }
 
+  const totalMs = Date.now() - startedAt;
+  const findingsOriginalCount = findings.length;
+  const inputKb = Math.round((inputBytes / 1024) * 100) / 100;
+
+  const cDetected: string[] = [];
+  if (diag.hasTimbreFiscalDigital) cDetected.push("TimbreFiscalDigital");
+  if (paymentComplement) cDetected.push("Pagos");
+  if (cfdiRelations) cDetected.push("CfdiRelacionados");
+  if (cartaPorte) cDetected.push("CartaPorte");
+  if (nomina) cDetected.push("Nomina");
+  if (comercioExterior) cDetected.push("ComercioExterior");
+  if (impuestosLocales) cDetected.push("ImpuestosLocales");
+  if (leyendasFiscales) cDetected.push("LeyendasFiscales");
+  if (donatarias) cDetected.push("Donatarias");
+  if (addendaDetected) cDetected.push("Addenda");
+  const cKnown = cDetected.filter((c) =>
+    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda"].includes(c)
+  );
+  const cUnknown = cDetected.filter((c) => !new Set(cKnown).has(c));
+
+  const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
+
+  const analysisMeta: AnalysisMetaInfo = {
+    generatedAt: new Date().toISOString(),
+    engineVersion: "xml-audit-engine-1.0",
+    performance: {
+      totalMs,
+      inputBytes,
+      inputKb,
+      findingsOriginalCount,
+      findingsReturnedCount: findingsOriginalCount,
+      findingsTruncated: false,
+      normalizedXmlAvailable: normalizedXml?.available === true,
+      sanitized: false,
+    },
+    coverage: {
+      documentKind: "CFDI",
+      modules: [
+        { key: "cfdi-base", label: "CFDI Base", detected: true, analyzed: true, skippedReason: null, findingsCount: countBP("COMPROBANTE_") + countBP("EMISOR_") + countBP("RECEPTOR_") + countBP("GENERIC_RFC_") + countBP("EXPORTACION_") + countBP("SERIE_FOLIO_") + countBP("MONEDA_") + countBP("LUGAR_EXPEDICION_") + countBP("FECHA_") + countBP("TOTAL_") + countBP("SUBTOTAL_") + countBP("FORMA_PAGO_") + countBP("METODO_PAGO_") + countBP("DESCUENTO_") },
+        { key: "retenciones", label: "Retenciones", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
+        { key: "timbre-fiscal-digital", label: "Timbre Fiscal Digital", detected: diag.hasTimbreFiscalDigital, analyzed: diag.hasTimbreFiscalDigital, skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado", findingsCount: countBP("MISSING_TFD_") + countBP("TFD_") + countBP("TIMBRADO_") + countBP("MISSING_COMPROBANTE_") + countBP("NO_CERTIFICADO_") + countBP("MISSING_RFC_PROV_CERTIF") + countBP("MISSING_NO_CERTIFICADO") },
+        { key: "concept-taxes", label: "Impuestos por concepto", detected: concepts !== null && concepts !== undefined, analyzed: concepts !== null && concepts !== undefined, skippedReason: concepts ? null : "Complemento no detectado", findingsCount: countBP("CONCEPT_") },
+        { key: "global-taxes", label: "Impuestos globales", detected: globalTaxes !== null && globalTaxes !== undefined, analyzed: globalTaxes !== null && globalTaxes !== undefined, skippedReason: globalTaxes ? null : "Complemento no detectado", findingsCount: countBP("GLOBAL_") },
+        { key: "payment-complement", label: "Complemento Pago", detected: !!paymentComplement, analyzed: !!paymentComplement, skippedReason: paymentComplement ? null : "Complemento no detectado", findingsCount: countBP("PAYMENT_") + countBP("RELATED_DOCUMENT_") },
+        { key: "cfdi-relations", label: "CFDI Relacionados", detected: !!cfdiRelations, analyzed: !!cfdiRelations, skippedReason: cfdiRelations ? null : "Complemento no detectado", findingsCount: countBP("CFDI_RELATION_") + countBP("CFDI_RELATED_") + countBP("CFDI_SELF_RELATION") + countBP("EGRESO_WITHOUT_CFDI_RELACIONADOS") + countBP("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW") },
+        { key: "carta-porte", label: "Carta Porte", detected: !!cartaPorte, analyzed: !!cartaPorte, skippedReason: cartaPorte ? null : "Complemento no detectado", findingsCount: countBP("CARTA_PORTE_") },
+        { key: "nomina", label: "Nómina", detected: !!nomina, analyzed: !!nomina, skippedReason: nomina ? null : "Complemento no detectado", findingsCount: countBP("NOMINA_") + countBP("RECEPTOR_NOMINA_") },
+        { key: "comercio-exterior", label: "Comercio Exterior", detected: !!comercioExterior, analyzed: !!comercioExterior, skippedReason: comercioExterior ? null : "Complemento no detectado", findingsCount: countBP("COMERCIO_EXTERIOR_") + countBP("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR") },
+        { key: "impuestos-locales", label: "Impuestos Locales", detected: !!impuestosLocales, analyzed: !!impuestosLocales, skippedReason: impuestosLocales ? null : "Complemento no detectado", findingsCount: countBP("IMPUESTOS_LOCALES_") },
+        { key: "leyendas-fiscales", label: "Leyendas Fiscales", detected: !!leyendasFiscales, analyzed: !!leyendasFiscales, skippedReason: leyendasFiscales ? null : "Complemento no detectado", findingsCount: countBP("LEYENDAS_FISCALES_") + countBP("LEYENDA_FISCAL_") },
+        { key: "donatarias", label: "Donatarias", detected: !!donatarias, analyzed: !!donatarias, skippedReason: donatarias ? null : "Complemento no detectado", findingsCount: countBP("DONATARIAS_") },
+        { key: "addenda", label: "Addenda", detected: addendaDetected, analyzed: addendaDetected, skippedReason: addendaDetected ? null : "Complemento no detectado", findingsCount: countBP("ADDENDA_") },
+      ],
+      complementsDetected: cDetected,
+      complementsKnown: cKnown,
+      complementsUnknown: cUnknown,
+      hasAddenda: addendaDetected,
+      hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+      hasSafeNormalization: safeNormalizationApplied,
+    },
+  };
+
   return {
     documentKind: "CFDI",
     uuid,
@@ -8278,6 +8558,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     taxSummary: taxSummary ?? undefined,
     globalTaxes: globalTaxes ?? undefined,
     normalizedXml,
+    analysisMeta,
     regimenFiscalReceptor: regimenFiscalReceptor ?? undefined,
     domicilioFiscalReceptor: domicilioFiscalReceptor ?? undefined,
     lugarExpedicion: lugarExpedicion ?? undefined,
@@ -8305,6 +8586,8 @@ function buildRetencionesResult(
   safeNormalizationApplied: boolean,
   bomDetected: boolean,
   leadingContentBeforeXml: boolean,
+  startedAt: number,
+  inputBytes: number,
 ): CfdiAnalysisResult {
   const issues: string[] = [];
   const warnings: string[] = [];
@@ -8990,6 +9273,60 @@ function buildRetencionesResult(
     };
   }
 
+  const totalMs = Date.now() - startedAt;
+  const findingsOriginalCount = findings.length;
+  const inputKb2 = Math.round((inputBytes / 1024) * 100) / 100;
+
+  const cDetected2: string[] = [];
+  if (diag.hasTimbreFiscalDigital) cDetected2.push("TimbreFiscalDigital");
+  if (hasComplemento) cDetected2.push(...complementoNames.filter((n) => n !== "TimbreFiscalDigital"));
+  const cKnown2 = cDetected2.filter((c) =>
+    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda"].includes(c)
+  );
+  const cUnknown2 = cDetected2.filter((c) => !new Set(cKnown2).has(c));
+
+  const countBP2 = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
+
+  const analysisMeta: AnalysisMetaInfo = {
+    generatedAt: new Date().toISOString(),
+    engineVersion: "xml-audit-engine-1.0",
+    performance: {
+      totalMs,
+      inputBytes,
+      inputKb: inputKb2,
+      findingsOriginalCount,
+      findingsReturnedCount: findingsOriginalCount,
+      findingsTruncated: false,
+      normalizedXmlAvailable: normalizedXml?.available === true,
+      sanitized: false,
+    },
+    coverage: {
+      documentKind: "RETENCIONES",
+      modules: [
+        { key: "cfdi-base", label: "CFDI Base", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
+        { key: "retenciones", label: "Retenciones", detected: true, analyzed: true, skippedReason: null, findingsCount: countBP2("RETENCIONES_") },
+        { key: "timbre-fiscal-digital", label: "Timbre Fiscal Digital", detected: diag.hasTimbreFiscalDigital, analyzed: diag.hasTimbreFiscalDigital, skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado", findingsCount: countBP2("MISSING_TFD_") + countBP2("TFD_") + countBP2("TIMBRADO_") + countBP2("MISSING_COMPROBANTE_") + countBP2("NO_CERTIFICADO_") + countBP2("MISSING_RFC_PROV_CERTIF") + countBP2("MISSING_NO_CERTIFICADO") },
+        { key: "concept-taxes", label: "Impuestos por concepto", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
+        { key: "global-taxes", label: "Impuestos globales", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
+        { key: "payment-complement", label: "Complemento Pago", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
+        { key: "cfdi-relations", label: "CFDI Relacionados", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "carta-porte", label: "Carta Porte", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "nomina", label: "Nómina", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "comercio-exterior", label: "Comercio Exterior", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "impuestos-locales", label: "Impuestos Locales", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "leyendas-fiscales", label: "Leyendas Fiscales", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "donatarias", label: "Donatarias", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        { key: "addenda", label: "Addenda", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+      ],
+      complementsDetected: cDetected2,
+      complementsKnown: cKnown2,
+      complementsUnknown: cUnknown2,
+      hasAddenda: false,
+      hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+      hasSafeNormalization: safeNormalizationApplied,
+    },
+  };
+
   return {
     documentKind: "RETENCIONES",
     uuid,
@@ -9051,6 +9388,7 @@ function buildRetencionesResult(
     taxSummary: undefined,
     globalTaxes: undefined,
     normalizedXml,
+    analysisMeta,
     regimenFiscalReceptor: undefined,
     domicilioFiscalReceptor: undefined,
     lugarExpedicion: undefined,
@@ -9068,6 +9406,32 @@ function buildRetencionesResult(
 }
 
 export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse {
+  const processedFindings = (() => {
+    const enriched = result.findings.map((f) => ({
+      ...f,
+      priority: getFindingPriority(f.severity, f.category),
+      actionGroup: getFindingActionGroup(f),
+    }));
+    const sanitized = enriched.map((f) => sanitizeFinding(f));
+    return limitFindings(sanitized);
+  })();
+
+  const findingsReturnedCount = processedFindings.length;
+  const hasTruncatedFinding = processedFindings.some((f) => f.code === "FINDINGS_TRUNCATED_FOR_RESPONSE");
+  const findingsTruncated = hasTruncatedFinding || result.findings.length > findingsReturnedCount;
+
+  const analysisMeta: AnalysisMetaInfo | undefined = result.analysisMeta
+    ? {
+        ...result.analysisMeta,
+        performance: {
+          ...result.analysisMeta.performance,
+          findingsReturnedCount,
+          findingsTruncated,
+          sanitized: true,
+        },
+      }
+    : undefined;
+
   return {
     documentKind: result.documentKind,
     uuid: result.uuid,
@@ -9093,15 +9457,7 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     totalImpuestosRetenidos: result.totalImpuestosRetenidos,
     issues: result.issues,
     warnings: result.warnings,
-    findings: (() => {
-      const enriched = result.findings.map((f) => ({
-        ...f,
-        priority: getFindingPriority(f.severity, f.category),
-        actionGroup: getFindingActionGroup(f),
-      }));
-      const sanitized = enriched.map((f) => sanitizeFinding(f));
-      return limitFindings(sanitized);
-    })(),
+    findings: processedFindings,
     technicalDiagnostics: result.technicalDiagnostics,
     executiveSummary: result.executiveSummary,
     paymentComplement: result.paymentComplement,
@@ -9119,6 +9475,7 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
     taxSummary: result.taxSummary,
     globalTaxes: result.globalTaxes,
     normalizedXml: result.normalizedXml,
+    analysisMeta,
     regimenFiscalReceptor: result.regimenFiscalReceptor,
     domicilioFiscalReceptor: result.domicilioFiscalReceptor,
     lugarExpedicion: result.lugarExpedicion,
