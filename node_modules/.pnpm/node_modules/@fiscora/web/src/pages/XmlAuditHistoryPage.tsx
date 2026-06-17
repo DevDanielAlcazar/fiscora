@@ -5,9 +5,12 @@ import {
   getXmlAuditHistoryDetail,
   type XmlAuditHistoryResponse,
   type XmlAuditHistoryQuery,
+  type XmlAuditHistoryDetail,
 } from "../api/xml-audit";
 import ActionableSummary from "./xml-audit/ActionableSummary";
 import FindingGlossary from "./xml-audit/FindingGlossary";
+import { exportXmlAuditHistoryCsv } from "./xml-audit-history/historyCsvExport";
+import PrintableHistoryDetailReport from "./xml-audit-history/PrintableHistoryDetailReport";
 
 export default function XmlAuditHistoryPage() {
   const navigate = useNavigate();
@@ -15,8 +18,9 @@ export default function XmlAuditHistoryPage() {
   const [error, setError] = useState("");
   const [data, setData] = useState<XmlAuditHistoryResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<any | null>(null);
+  const [detail, setDetail] = useState<XmlAuditHistoryDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [printMode, setPrintMode] = useState(false);
 
   // Filters
   const [page, setPage] = useState(1);
@@ -27,6 +31,7 @@ export default function XmlAuditHistoryPage() {
   const [riskLevel, setRiskLevel] = useState("");
   const [documentKind, setDocumentKind] = useState("");
   const [search, setSearch] = useState("");
+  const [currentFilters, setCurrentFilters] = useState<XmlAuditHistoryQuery>({});
 
   async function fetchHistory(p = 1) {
     const token = localStorage.getItem("accessToken");
@@ -49,6 +54,7 @@ export default function XmlAuditHistoryPage() {
       if (documentKind) query.documentKind = documentKind;
       if (search) query.search = search;
 
+      setCurrentFilters(query);
       const res = await getXmlAuditHistory(token, query);
       setData(res);
       setPage(p);
@@ -62,6 +68,19 @@ export default function XmlAuditHistoryPage() {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  useEffect(() => {
+    if (!printMode) return;
+    const timer = setTimeout(() => {
+      window.print();
+    }, 100);
+    const onAfterPrint = () => setPrintMode(false);
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("afterprint", onAfterPrint);
+    };
+  }, [printMode]);
 
   async function handleViewDetail(id: string) {
     const token = localStorage.getItem("accessToken");
@@ -78,6 +97,16 @@ export default function XmlAuditHistoryPage() {
     } finally {
       setLoadingDetail(false);
     }
+  }
+
+  function handleExportCsv() {
+    if (data) {
+      exportXmlAuditHistoryCsv(data, currentFilters);
+    }
+  }
+
+  function handlePrintDetail() {
+    setPrintMode(true);
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -132,6 +161,20 @@ export default function XmlAuditHistoryPage() {
             {error}
           </div>
         )}
+
+        <div className="flex gap-2">
+          {data && data.items.length > 0 && (
+            <button
+              onClick={handleExportCsv}
+              className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exportar historial CSV
+            </button>
+          )}
+        </div>
 
         {/* Filters */}
         <form onSubmit={handleSearch} className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -445,7 +488,29 @@ export default function XmlAuditHistoryPage() {
               ) : null}
             </div>
 
-            <div className="p-4 border-t border-gray-800 flex justify-end bg-gray-800/30">
+            <div className="p-4 border-t border-gray-800 flex justify-end gap-2 bg-gray-800/30">
+              {detail && (
+                <button
+                  onClick={handlePrintDetail}
+                  className="px-4 py-2 rounded-lg bg-blue-700 text-white font-bold text-sm hover:bg-blue-600 transition-all flex items-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                    />
+                  </svg>
+                  Imprimir detalle / Guardar PDF
+                </button>
+              )}
               <button
                 onClick={() => setSelectedId(null)}
                 className="px-6 py-2 rounded-lg bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-all"
@@ -456,6 +521,8 @@ export default function XmlAuditHistoryPage() {
           </div>
         </div>
       )}
+
+      {detail && <PrintableHistoryDetailReport detail={detail} />}
     </div>
   );
 }
