@@ -746,3 +746,109 @@ export async function analyzeXml(token: string, file: File): Promise<AnalysisRes
   const data: AnalyzeResponse = await res.json();
   return data.analysis;
 }
+
+export interface XmlAuditHistoryItem {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  sourceType: "INDIVIDUAL" | "ZIP" | null;
+  sourceFilename: string | null;
+  batchId: string | null;
+  zipFilename: string | null;
+  zipEntryName: string | null;
+  zipEntryIndex: number | null;
+  analysisStatus: "ANALYZED" | "FAILED";
+  errorCode: string | null;
+  errorMessage: string | null;
+  uuid: string | null;
+  tipoComprobante: string | null;
+  documentKind: DocumentKind;
+  rfcEmisor: string | null;
+  nombreEmisor: string | null;
+  rfcReceptor: string | null;
+  nombreReceptor: string | null;
+  fecha: string | null;
+  total: string | null;
+  moneda: string | null;
+  riskLevel: string | null;
+  findingsCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  hasBom: boolean;
+  hasTechnicalNormalization: boolean;
+  hasNormalizedXml: boolean;
+  priorityMax: string | null;
+  actionGroupTop: string | null;
+}
+
+export interface XmlAuditHistoryResponse {
+  items: XmlAuditHistoryItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface XmlAuditHistoryQuery {
+  page?: number;
+  pageSize?: number;
+  sourceType?: string;
+  analysisStatus?: string;
+  riskLevel?: string;
+  documentKind?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
+export interface XmlAuditHistoryDetail extends XmlAuditHistoryItem {
+  analysisJson: AnalysisResult;
+}
+
+export async function getXmlAuditHistory(
+  token: string,
+  query: XmlAuditHistoryQuery,
+): Promise<XmlAuditHistoryResponse> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.sourceType) params.set("sourceType", query.sourceType);
+  if (query.analysisStatus) params.set("analysisStatus", query.analysisStatus);
+  if (query.riskLevel) params.set("riskLevel", query.riskLevel);
+  if (query.documentKind) params.set("documentKind", query.documentKind);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.search) params.set("search", query.search);
+
+  const res = await fetch(`/api/modules/xml-audit/history?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error("No fue posible consultar el historial de análisis.");
+  }
+
+  return res.json();
+}
+
+export async function getXmlAuditHistoryDetail(
+  token: string,
+  id: string,
+): Promise<XmlAuditHistoryDetail> {
+  const res = await fetch(`/api/modules/xml-audit/history/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 404) {
+    throw new Error("Registro de análisis no encontrado.");
+  }
+
+  if (!res.ok) {
+    throw new Error("No fue posible consultar el detalle del análisis.");
+  }
+
+  return res.json();
+}

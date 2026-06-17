@@ -13,6 +13,7 @@ import BillingSuccessPage from "./pages/BillingSuccessPage";
 import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
 import XmlAuditPage from "./pages/XmlAuditPage";
+import XmlAuditHistoryPage from "./pages/XmlAuditHistoryPage";
 import LaborPage from "./pages/LaborPage";
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/billing/cancel" element={<BillingCancelPage />} />
       <Route path="/plans" element={<PlansPage />} />
       <Route path="/modules/xml-audit" element={<XmlAuditPage />} />
+      <Route path="/modules/xml-audit/history" element={<XmlAuditHistoryPage />} />
       <Route path="/modules/labor" element={<LaborPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

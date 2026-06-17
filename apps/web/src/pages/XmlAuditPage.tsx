@@ -323,7 +323,29 @@ export default function XmlAuditPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-2xl font-extrabold tracking-tight">Auditoría XML</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold tracking-tight">Auditoría XML</h1>
+          <button
+            onClick={() => navigate("/modules/xml-audit/history")}
+            className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            Ver historial reciente
+          </button>
+        </div>
 
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
           <label className="block text-sm font-medium text-muted-foreground">

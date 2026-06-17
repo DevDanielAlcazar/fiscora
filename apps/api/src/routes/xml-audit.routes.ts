@@ -593,4 +593,39 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
       return reply.send(result);
     },
   });
+
+  fastify.get("/api/modules/xml-audit/history", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const query = request.query as any;
+      const history = await XmlAnalysisRecordService.getUserHistory({
+        prisma: fastify.prisma,
+        userId: request.user.userId,
+        organizationId: request.user.organizationId,
+        query,
+      });
+      return reply.send(history);
+    },
+  });
+
+  fastify.get("/api/modules/xml-audit/history/:id", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const detail = await XmlAnalysisRecordService.getRecordDetail({
+        prisma: fastify.prisma,
+        userId: request.user.userId,
+        organizationId: request.user.organizationId,
+        id,
+      });
+
+      if (!detail) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Registro de análisis no encontrado." },
+        });
+      }
+
+      return reply.send(detail);
+    },
+  });
 }
