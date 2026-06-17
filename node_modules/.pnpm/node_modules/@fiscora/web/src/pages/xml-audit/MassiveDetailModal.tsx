@@ -5,7 +5,10 @@ interface MassiveDetailModalProps {
   onClose: () => void;
 }
 
-export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: MassiveDetailModalProps) {
+export default function MassiveDetailModal({
+  selectedMassiveDetail,
+  onClose,
+}: MassiveDetailModalProps) {
   if (!selectedMassiveDetail) return null;
 
   const sd = selectedMassiveDetail;
@@ -81,15 +84,11 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
         <div className="p-6 space-y-6">
           {!isAnalyzed ? (
             <div className="p-4 rounded-lg border border-red-200 bg-red-50 space-y-3">
-              <p className="text-sm font-semibold text-red-800">
-                Error al analizar el archivo
-              </p>
+              <p className="text-sm font-semibold text-red-800">Error al analizar el archivo</p>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between py-1 border-b border-red-200/50">
                   <span className="text-red-600">Código de error</span>
-                  <span className="font-medium text-red-800 font-mono">
-                    {sd.errorCode ?? "—"}
-                  </span>
+                  <span className="font-medium text-red-800 font-mono">{sd.errorCode ?? "—"}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-red-200/50">
                   <span className="text-red-600">Mensaje de error</span>
@@ -147,10 +146,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                     {findings.map((f, fi) => {
                       const b = badge[f.severity] ?? badge.INFO;
                       return (
-                        <div
-                          key={fi}
-                          className={`p-3 rounded-lg border ${b.style} space-y-1.5`}
-                        >
+                        <div key={fi} className={`p-3 rounded-lg border ${b.style} space-y-1.5`}>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span
                               className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}
@@ -239,14 +235,10 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                     <span className="text-muted-foreground">
                       Contenido antes del inicio del XML
                     </span>
-                    <span className="font-medium">
-                      {td?.leadingContentBeforeXml ? "Sí" : "No"}
-                    </span>
+                    <span className="font-medium">{td?.leadingContentBeforeXml ? "Sí" : "No"}</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/50 col-span-2">
-                    <span className="text-muted-foreground">
-                      Normalización segura aplicada
-                    </span>
+                    <span className="text-muted-foreground">Normalización segura aplicada</span>
                     <span className="font-medium">
                       {td?.safeNormalizationApplied ? "Sí" : "No"}
                     </span>
@@ -275,15 +267,11 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                       <div className="flex justify-between py-0.5">
                         <span className="text-blue-600">Archivo</span>
-                        <span className="font-medium text-blue-800 font-mono">
-                          {nx.filename}
-                        </span>
+                        <span className="font-medium text-blue-800 font-mono">{nx.filename}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-blue-600">Tipo normalización</span>
-                        <span className="font-medium text-blue-800">
-                          {nx.normalizationType}
-                        </span>
+                        <span className="font-medium text-blue-800">{nx.normalizationType}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-blue-600">Contenido fiscal modificado</span>
@@ -296,17 +284,13 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                         <span className="font-medium text-blue-800">{nx.stampRisk}</span>
                       </div>
                       <div className="flex justify-between py-0.5 col-span-2">
-                        <span className="text-blue-600 shrink-0">
-                          Hash original SHA-256
-                        </span>
+                        <span className="text-blue-600 shrink-0">Hash original SHA-256</span>
                         <span className="font-mono text-blue-800 break-all text-right ml-4">
                           {nx.originalSha256}
                         </span>
                       </div>
                       <div className="flex justify-between py-0.5 col-span-2">
-                        <span className="text-blue-600 shrink-0">
-                          Hash normalizado SHA-256
-                        </span>
+                        <span className="text-blue-600 shrink-0">Hash normalizado SHA-256</span>
                         <span className="font-mono text-blue-800 break-all text-right ml-4">
                           {nx.normalizedSha256}
                         </span>
@@ -342,10 +326,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {a.structureDiagnostics.namespaces.map((ns, ni) => (
-                          <span
-                            key={ni}
-                            className="text-xs bg-muted px-2 py-0.5 rounded font-mono"
-                          >
+                          <span key={ni} className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
                             {ns}
                           </span>
                         ))}
@@ -360,10 +341,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {a.structureDiagnostics.complementNames.map((name, ni) => (
-                          <span
-                            key={ni}
-                            className="text-xs bg-muted px-2 py-0.5 rounded font-mono"
-                          >
+                          <span key={ni} className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
                             {name}
                           </span>
                         ))}
@@ -496,15 +474,11 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                   <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                     <div className="flex justify-between py-1.5 border-b border-border/50">
                       <span className="text-muted-foreground">Versión</span>
-                      <span className="font-medium">
-                        {a.paymentComplement.version ?? "—"}
-                      </span>
+                      <span className="font-medium">{a.paymentComplement.version ?? "—"}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-border/50">
                       <span className="text-muted-foreground">Pagos detectados</span>
-                      <span className="font-medium">
-                        {a.paymentComplement.pagos.length}
-                      </span>
+                      <span className="font-medium">{a.paymentComplement.pagos.length}</span>
                     </div>
                   </div>
                   {a.paymentComplement.pagos.length > 0 && (
@@ -568,9 +542,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                                       <td className="py-1 pr-1">{doc.serie ?? "—"}</td>
                                       <td className="py-1 pr-1">{doc.folio ?? "—"}</td>
                                       <td className="py-1 pr-1">{doc.monedaDR ?? "—"}</td>
-                                      <td className="py-1 pr-1">
-                                        {doc.numParcialidad ?? "—"}
-                                      </td>
+                                      <td className="py-1 pr-1">{doc.numParcialidad ?? "—"}</td>
                                       <td className="py-1 pr-1">{doc.impPagado ?? "—"}</td>
                                     </tr>
                                   ))}
@@ -605,14 +577,9 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                       <tbody>
                         {a.concepts.map((c, ci) => (
                           <tr key={ci} className="border-b border-border/30">
-                            <td className="py-1 pr-1 font-mono">
-                              {c.claveProdServ ?? "—"}
-                            </td>
+                            <td className="py-1 pr-1 font-mono">{c.claveProdServ ?? "—"}</td>
                             <td className="py-1 pr-1">{c.cantidad ?? "—"}</td>
-                            <td
-                              className="py-1 pr-1 max-w-[180px] truncate"
-                              title={c.descripcion}
-                            >
+                            <td className="py-1 pr-1 max-w-[180px] truncate" title={c.descripcion}>
                               {c.descripcion ?? "—"}
                             </td>
                             <td className="py-1 pr-1">{c.valorUnitario ?? "—"}</td>
@@ -633,9 +600,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                   </p>
                   {a.taxSummary.transferred.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Trasladados
-                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">Trasladados</p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs border-collapse">
                           <thead>
@@ -699,9 +664,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                     className={`p-3 rounded-lg border ${a.totalsValidation.matches ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-muted-foreground">
-                        Totales
-                      </span>
+                      <span className="text-xs font-semibold text-muted-foreground">Totales</span>
                       <span
                         className={`text-xs font-bold px-2 py-0.5 rounded-full border ${a.totalsValidation.matches ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-700 bg-red-50 border-red-200"}`}
                       >
@@ -711,9 +674,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Subtotal XML</span>
-                        <span className="font-medium">
-                          {a.totalsValidation.subtotalXml ?? "—"}
-                        </span>
+                        <span className="font-medium">{a.totalsValidation.subtotalXml ?? "—"}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Subtotal calculado</span>
@@ -728,9 +689,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                         </span>
                       </div>
                       <div className="flex justify-between py-0.5">
-                        <span className="text-muted-foreground">
-                          Imp. trasladados calc.
-                        </span>
+                        <span className="text-muted-foreground">Imp. trasladados calc.</span>
                         <span className="font-medium">
                           {a.totalsValidation.transferredTaxesCalculated ?? "—"}
                         </span>
@@ -749,9 +708,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Total XML</span>
-                        <span className="font-medium">
-                          {a.totalsValidation.totalXml ?? "—"}
-                        </span>
+                        <span className="font-medium">{a.totalsValidation.totalXml ?? "—"}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Total calculado</span>
@@ -761,9 +718,7 @@ export default function MassiveDetailModal({ selectedMassiveDetail, onClose }: M
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Diferencia</span>
-                        <span className="font-medium">
-                          {a.totalsValidation.difference ?? "—"}
-                        </span>
+                        <span className="font-medium">{a.totalsValidation.difference ?? "—"}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
                         <span className="text-muted-foreground">Tolerancia</span>

@@ -8,11 +8,7 @@ interface Props {
 export default function PrintableIndividualReport({ result }: Props) {
   function severityBadge(s: string) {
     const cls =
-      s === "CRITICAL"
-        ? "badge-critical"
-        : s === "WARNING"
-          ? "badge-warning"
-          : "badge-info";
+      s === "CRITICAL" ? "badge-critical" : s === "WARNING" ? "badge-warning" : "badge-info";
     return <span className={cls}>{s}</span>;
   }
   return (
@@ -78,8 +74,8 @@ export default function PrintableIndividualReport({ result }: Props) {
             border: "1px solid #e5e7eb",
           }}
         >
-          Este reporte se genera con base en el XML analizado en memoria. No sustituye la
-          validación oficial del SAT ni constituye dictamen fiscal.
+          Este reporte se genera con base en el XML analizado en memoria. No sustituye la validación
+          oficial del SAT ni constituye dictamen fiscal.
         </p>
 
         {result.executiveSummary && (
@@ -108,7 +104,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <div className="meta-grid">
               <div className="meta-item">
                 <span className="meta-label">Fecha generación</span>
-                <span className="meta-value">{new Date(result.analysisMeta.generatedAt).toLocaleString()}</span>
+                <span className="meta-value">
+                  {new Date(result.analysisMeta.generatedAt).toLocaleString()}
+                </span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Engine version</span>
@@ -128,26 +126,40 @@ export default function PrintableIndividualReport({ result }: Props) {
               </div>
               <div className="meta-item">
                 <span className="meta-label">Hallazgos originales</span>
-                <span className="meta-value">{result.analysisMeta.performance.findingsOriginalCount}</span>
+                <span className="meta-value">
+                  {result.analysisMeta.performance.findingsOriginalCount}
+                </span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Hallazgos devueltos</span>
-                <span className="meta-value">{result.analysisMeta.performance.findingsReturnedCount}</span>
+                <span className="meta-value">
+                  {result.analysisMeta.performance.findingsReturnedCount}
+                </span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Truncado</span>
-                <span className="meta-value">{result.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}</span>
+                <span className="meta-value">
+                  {result.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}
+                </span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Sanitizado</span>
-                <span className="meta-value">{result.analysisMeta.performance.sanitized ? "Sí" : "No"}</span>
+                <span className="meta-value">
+                  {result.analysisMeta.performance.sanitized ? "Sí" : "No"}
+                </span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">XML normalizado disponible</span>
-                <span className="meta-value">{result.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}</span>
+                <span className="meta-value">
+                  {result.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}
+                </span>
               </div>
             </div>
-            <h3 style={{ fontSize: "14px", fontWeight: 600, marginTop: "16px", marginBottom: "8px" }}>Cobertura del análisis</h3>
+            <h3
+              style={{ fontSize: "14px", fontWeight: 600, marginTop: "16px", marginBottom: "8px" }}
+            >
+              Cobertura del análisis
+            </h3>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
@@ -162,17 +174,26 @@ export default function PrintableIndividualReport({ result }: Props) {
                 {result.analysisMeta.coverage.modules.map((m) => (
                   <tr key={m.key} style={{ borderBottom: "1px solid #e5e7eb" }}>
                     <td style={{ padding: "3px 6px", fontWeight: 500 }}>{m.label}</td>
-                    <td style={{ padding: "3px 6px", textAlign: "center" }}>{m.detected ? "Sí" : "No"}</td>
-                    <td style={{ padding: "3px 6px", textAlign: "center" }}>{m.analyzed ? "Sí" : "No"}</td>
-                    <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace" }}>{m.findingsCount}</td>
-                    <td style={{ padding: "3px 6px", color: "#888", fontStyle: "italic" }}>{m.skippedReason ?? "—"}</td>
+                    <td style={{ padding: "3px 6px", textAlign: "center" }}>
+                      {m.detected ? "Sí" : "No"}
+                    </td>
+                    <td style={{ padding: "3px 6px", textAlign: "center" }}>
+                      {m.analyzed ? "Sí" : "No"}
+                    </td>
+                    <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace" }}>
+                      {m.findingsCount}
+                    </td>
+                    <td style={{ padding: "3px 6px", color: "#888", fontStyle: "italic" }}>
+                      {m.skippedReason ?? "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {result.analysisMeta.coverage.complementsDetected.length > 0 && (
               <p style={{ fontSize: "10px", color: "#666", marginTop: "8px" }}>
-                Complementos detectados: {result.analysisMeta.coverage.complementsDetected.join(", ")}
+                Complementos detectados:{" "}
+                {result.analysisMeta.coverage.complementsDetected.join(", ")}
               </p>
             )}
           </div>
@@ -259,15 +280,11 @@ export default function PrintableIndividualReport({ result }: Props) {
               <div className="findings-count">
                 <span>
                   Críticos:{" "}
-                  <strong>
-                    {result.findings.filter((f) => f.severity === "CRITICAL").length}
-                  </strong>
+                  <strong>{result.findings.filter((f) => f.severity === "CRITICAL").length}</strong>
                 </span>
                 <span>
                   Advertencias:{" "}
-                  <strong>
-                    {result.findings.filter((f) => f.severity === "WARNING").length}
-                  </strong>
+                  <strong>{result.findings.filter((f) => f.severity === "WARNING").length}</strong>
                 </span>
                 <span>
                   Informativos:{" "}
@@ -279,14 +296,23 @@ export default function PrintableIndividualReport({ result }: Props) {
                   Prioridades del análisis
                 </p>
                 <div style={{ display: "flex", gap: "12px", fontSize: "10px" }}>
-                  {([
-                    { key: "BLOCKER", label: "Bloqueantes" },
-                    { key: "HIGH", label: "Alta" },
-                    { key: "MEDIUM", label: "Media" },
-                    { key: "LOW", label: "Informativa" },
-                  ] as const).map(({ key, label }) => (
+                  {(
+                    [
+                      { key: "BLOCKER", label: "Bloqueantes" },
+                      { key: "HIGH", label: "Alta" },
+                      { key: "MEDIUM", label: "Media" },
+                      { key: "LOW", label: "Informativa" },
+                    ] as const
+                  ).map(({ key, label }) => (
                     <span key={key}>
-                      {label}: <strong>{result.findings!.filter((f: import("../../api/xml-audit").Finding) => f.priority === key).length}</strong>
+                      {label}:{" "}
+                      <strong>
+                        {
+                          result.findings!.filter(
+                            (f: import("../../api/xml-audit").Finding) => f.priority === key,
+                          ).length
+                        }
+                      </strong>
                     </span>
                   ))}
                 </div>
@@ -299,8 +325,10 @@ export default function PrintableIndividualReport({ result }: Props) {
                       </p>
                       {sorted.map((f, i) => (
                         <p key={i} style={{ fontSize: "9px", margin: "1px 0" }}>
-                          <strong>#{i + 1} {f.code}</strong> ({f.priority ?? "LOW"}):{" "}
-                          {f.recommendedAction ?? f.title}
+                          <strong>
+                            #{i + 1} {f.code}
+                          </strong>{" "}
+                          ({f.priority ?? "LOW"}): {f.recommendedAction ?? f.title}
                         </p>
                       ))}
                     </div>
@@ -342,9 +370,7 @@ export default function PrintableIndividualReport({ result }: Props) {
                       <td style={{ fontSize: "9px" }}>{f.category}</td>
                       <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{f.code}</td>
                       <td>
-                        <p style={{ fontWeight: 600, margin: 0, fontSize: "10px" }}>
-                          {f.title}
-                        </p>
+                        <p style={{ fontWeight: 600, margin: 0, fontSize: "10px" }}>{f.title}</p>
                         <p style={{ margin: "2px 0 0", fontSize: "9px" }}>{f.message}</p>
                         {f.recommendedAction && (
                           <p style={{ margin: "2px 0 0", fontSize: "9px", color: "#555" }}>
@@ -356,8 +382,7 @@ export default function PrintableIndividualReport({ result }: Props) {
                         {f.evidence && f.evidence.length > 0
                           ? f.evidence.map((e, i) => (
                               <div key={i}>
-                                <span style={{ fontWeight: 600 }}>{e.label}:</span>{" "}
-                                {e.value ?? "—"}
+                                <span style={{ fontWeight: 600 }}>{e.label}:</span> {e.value ?? "—"}
                               </div>
                             ))
                           : "—"}
@@ -468,9 +493,7 @@ export default function PrintableIndividualReport({ result }: Props) {
           </table>
           {result.structureDiagnostics.namespaces.length > 0 && (
             <div style={{ marginTop: "8px" }}>
-              <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>
-                Namespaces:
-              </p>
+              <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Namespaces:</p>
               <ul style={{ margin: 0, paddingLeft: "16px" }}>
                 {result.structureDiagnostics.namespaces.map((ns, i) => (
                   <li key={i} style={{ fontFamily: "monospace", fontSize: "9px" }}>
@@ -644,9 +667,7 @@ export default function PrintableIndividualReport({ result }: Props) {
                   <tbody>
                     {group.relatedCfdis.map((rel, ri) => (
                       <tr key={ri} style={{ fontSize: "10px" }}>
-                        <td style={{ padding: "2px 8px 2px 0", verticalAlign: "top" }}>
-                          {ri + 1}
-                        </td>
+                        <td style={{ padding: "2px 8px 2px 0", verticalAlign: "top" }}>{ri + 1}</td>
                         <td style={{ fontFamily: "monospace", padding: "2px 0" }}>
                           {rel.uuid ?? "—"}
                         </td>
@@ -693,9 +714,7 @@ export default function PrintableIndividualReport({ result }: Props) {
             </p>
             {result.cartaPorte.ubicaciones.length > 0 && (
               <div style={{ marginTop: "8px" }}>
-                <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>
-                  Ubicaciones
-                </p>
+                <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Ubicaciones</p>
                 <table>
                   <thead>
                     <tr style={{ fontSize: "9px", borderBottom: "1px solid #ccc" }}>
@@ -704,17 +723,13 @@ export default function PrintableIndividualReport({ result }: Props) {
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>RFC</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>Nombre</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>Fecha</th>
-                      <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>
-                        Distancia
-                      </th>
+                      <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>Distancia</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.cartaPorte.ubicaciones.map((ubi, ui) => (
                       <tr key={ui} style={{ fontSize: "9px" }}>
-                        <td style={{ padding: "2px 4px 2px 0" }}>
-                          {ubi.tipoUbicacion ?? "—"}
-                        </td>
+                        <td style={{ padding: "2px 4px 2px 0" }}>{ubi.tipoUbicacion ?? "—"}</td>
                         <td style={{ padding: "2px 4px", fontFamily: "monospace" }}>
                           {ubi.idUbicacion ?? "—"}
                         </td>
@@ -724,9 +739,7 @@ export default function PrintableIndividualReport({ result }: Props) {
                         <td style={{ padding: "2px 4px" }}>
                           {ubi.nombreRemitenteDestinatario ?? "—"}
                         </td>
-                        <td style={{ padding: "2px 4px" }}>
-                          {ubi.fechaHoraSalidaLlegada ?? "—"}
-                        </td>
+                        <td style={{ padding: "2px 4px" }}>{ubi.fechaHoraSalidaLlegada ?? "—"}</td>
                         <td style={{ padding: "2px 0 2px 4px", textAlign: "right" }}>
                           {ubi.distanciaRecorrida ?? "—"}
                         </td>
@@ -738,22 +751,16 @@ export default function PrintableIndividualReport({ result }: Props) {
             )}
             {result.cartaPorte.mercancias.length > 0 && (
               <div style={{ marginTop: "8px" }}>
-                <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>
-                  Mercancías
-                </p>
+                <p style={{ fontWeight: 600, fontSize: "11px", margin: "0 0 4px" }}>Mercancías</p>
                 <table>
                   <thead>
                     <tr style={{ fontSize: "9px", borderBottom: "1px solid #ccc" }}>
-                      <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>
-                        BienesTransp
-                      </th>
+                      <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>BienesTransp</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>Descripción</th>
                       <th style={{ textAlign: "right", padding: "2px 4px" }}>Cantidad</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>Unidad</th>
                       <th style={{ textAlign: "right", padding: "2px 4px" }}>Peso KG</th>
-                      <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>
-                        Valor
-                      </th>
+                      <th style={{ textAlign: "right", padding: "2px 0 2px 4px" }}>Valor</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -792,24 +799,18 @@ export default function PrintableIndividualReport({ result }: Props) {
                       <th style={{ textAlign: "left", padding: "2px 4px 2px 0" }}>Tipo</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>RFC</th>
                       <th style={{ textAlign: "left", padding: "2px 4px" }}>Nombre</th>
-                      <th style={{ textAlign: "left", padding: "2px 0 2px 4px" }}>
-                        Licencia
-                      </th>
+                      <th style={{ textAlign: "left", padding: "2px 0 2px 4px" }}>Licencia</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.cartaPorte.figurasTransporte.map((fig, fi) => (
                       <tr key={fi} style={{ fontSize: "9px" }}>
-                        <td style={{ padding: "2px 4px 2px 0" }}>
-                          {fig.tipoFigura ?? "—"}
-                        </td>
+                        <td style={{ padding: "2px 4px 2px 0" }}>{fig.tipoFigura ?? "—"}</td>
                         <td style={{ padding: "2px 4px", fontFamily: "monospace" }}>
                           {fig.rfcFigura ?? "—"}
                         </td>
                         <td style={{ padding: "2px 4px" }}>{fig.nombreFigura ?? "—"}</td>
-                        <td style={{ padding: "2px 0 2px 4px" }}>
-                          {fig.numLicencia ?? "—"}
-                        </td>
+                        <td style={{ padding: "2px 0 2px 4px" }}>{fig.numLicencia ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1005,7 +1006,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Versión
+                  </td>
                   <td>{result.comercioExterior.version ?? "—"}</td>
                 </tr>
                 <tr>
@@ -1058,7 +1061,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Versión
+                  </td>
                   <td>{result.impuestosLocales.version ?? "—"}</td>
                 </tr>
                 <tr>
@@ -1139,7 +1144,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Versión
+                  </td>
                   <td>{result.leyendasFiscales.version ?? "—"}</td>
                 </tr>
                 <tr>
@@ -1183,7 +1190,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Versión
+                  </td>
                   <td>{result.donatarias.version ?? "—"}</td>
                 </tr>
                 <tr>
@@ -1210,7 +1219,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Versión</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Versión
+                  </td>
                   <td>{result.retenciones.version ?? "—"}</td>
                 </tr>
                 <tr>
@@ -1248,7 +1259,9 @@ export default function PrintableIndividualReport({ result }: Props) {
                 <caption className="text-sm font-bold mb-1 text-left">Emisor</caption>
                 <tbody>
                   <tr>
-                    <td className="font-semibold pr-2" style={{ width: "200px" }}>RFC</td>
+                    <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                      RFC
+                    </td>
                     <td>{result.retenciones.emisor.rfcEmisor ?? "—"}</td>
                   </tr>
                   <tr>
@@ -1267,12 +1280,18 @@ export default function PrintableIndividualReport({ result }: Props) {
                 <caption className="text-sm font-bold mb-1 text-left">Receptor</caption>
                 <tbody>
                   <tr>
-                    <td className="font-semibold pr-2" style={{ width: "200px" }}>Nacionalidad</td>
+                    <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                      Nacionalidad
+                    </td>
                     <td>{result.retenciones.receptor.nacionalidad ?? "—"}</td>
                   </tr>
                   <tr>
                     <td className="font-semibold pr-2">RFC / NumRegIdTrib</td>
-                    <td>{result.retenciones.receptor.rfcReceptor ?? result.retenciones.receptor.numRegIdTrib ?? "—"}</td>
+                    <td>
+                      {result.retenciones.receptor.rfcReceptor ??
+                        result.retenciones.receptor.numRegIdTrib ??
+                        "—"}
+                    </td>
                   </tr>
                   <tr>
                     <td className="font-semibold pr-2">Nombre</td>
@@ -1290,7 +1309,9 @@ export default function PrintableIndividualReport({ result }: Props) {
                 <caption className="text-sm font-bold mb-1 text-left">Periodo</caption>
                 <tbody>
                   <tr>
-                    <td className="font-semibold pr-2" style={{ width: "200px" }}>Mes inicial</td>
+                    <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                      Mes inicial
+                    </td>
                     <td>{result.retenciones.periodo.mesIni ?? "—"}</td>
                   </tr>
                   <tr>
@@ -1310,7 +1331,9 @@ export default function PrintableIndividualReport({ result }: Props) {
                   <caption className="text-sm font-bold mb-1 text-left">Totales</caption>
                   <tbody>
                     <tr>
-                      <td className="font-semibold pr-2" style={{ width: "200px" }}>Monto total operación</td>
+                      <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                        Monto total operación
+                      </td>
                       <td>{result.retenciones.totales.montoTotOperacion ?? "—"}</td>
                     </tr>
                     <tr>
@@ -1366,7 +1389,9 @@ export default function PrintableIndividualReport({ result }: Props) {
             <table className="w-full text-xs border-collapse mb-3">
               <tbody>
                 <tr>
-                  <td className="font-semibold pr-2" style={{ width: "200px" }}>Detectada</td>
+                  <td className="font-semibold pr-2" style={{ width: "200px" }}>
+                    Detectada
+                  </td>
                   <td>Sí</td>
                 </tr>
                 <tr>
@@ -1487,9 +1512,7 @@ export default function PrintableIndividualReport({ result }: Props) {
             <h2>Resumen de impuestos</h2>
             {result.taxSummary.transferred.length > 0 && (
               <div style={{ marginBottom: "8px" }}>
-                <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>
-                  Trasladados
-                </p>
+                <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Trasladados</p>
                 <table>
                   <thead>
                     <tr>
@@ -1516,9 +1539,7 @@ export default function PrintableIndividualReport({ result }: Props) {
             )}
             {result.taxSummary.retained.length > 0 && (
               <div>
-                <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>
-                  Retenidos
-                </p>
+                <p style={{ fontWeight: 600, fontSize: "10px", margin: "0 0 4px" }}>Retenidos</p>
                 <table>
                   <thead>
                     <tr>

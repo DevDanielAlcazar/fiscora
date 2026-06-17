@@ -629,6 +629,75 @@ export interface XmlAnalyticsQuery {
   analysisStatus?: string;
 }
 
+export interface DocumentKindAggregate {
+  documentKind: "CFDI" | "RETENCIONES" | "UNKNOWN" | "NO_DATA";
+  count: number;
+}
+
+export interface PriorityAggregate {
+  priority: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW" | "NO_DATA";
+  findings: number;
+  recordsAffected: number;
+}
+
+export interface ActionGroupAggregate {
+  actionGroup: string;
+  findings: number;
+  recordsAffected: number;
+  critical: number;
+  warning: number;
+  info: number;
+}
+
+export interface ModuleCoverageAggregate {
+  key: string;
+  label: string;
+  detectedInRecords: number;
+  analyzedInRecords: number;
+  findings: number;
+  recordsWithFindings: number;
+}
+
+export interface PerformanceAggregate {
+  recordsWithMeta: number;
+  totalMs: number;
+  avgMs: number;
+  maxMs: number;
+  minMs: number;
+  totalInputKb: number;
+  avgInputKb: number;
+  totalFindingsOriginal: number;
+  totalFindingsReturned: number;
+  recordsWithTruncatedFindings: number;
+}
+
+export interface TopFindingCodeAggregate {
+  code: string;
+  title: string;
+  severityMax: string;
+  priorityMax: string;
+  actionGroup: string | null;
+  count: number;
+  recordsAffected: number;
+}
+
+export interface TopModuleAggregate {
+  key: string;
+  label: string;
+  findings: number;
+  recordsAffected: number;
+}
+
+export interface AnalyticsV2 {
+  documentKinds: DocumentKindAggregate[];
+  priorities: PriorityAggregate[];
+  actionGroups: ActionGroupAggregate[];
+  modulesCoverage: ModuleCoverageAggregate[];
+  performance: PerformanceAggregate;
+  topFindingCodes: TopFindingCodeAggregate[];
+  topModulesByFindings: TopModuleAggregate[];
+}
+
 export interface XmlAnalyticsSummary {
   range: { from: string | null; to: string | null };
   totals: {
@@ -673,6 +742,7 @@ export interface XmlAnalyticsSummary {
     failed: number;
     critical: number;
   }[];
+  analyticsV2?: AnalyticsV2;
 }
 
 export async function getXmlAnalyticsSummary(

@@ -3,11 +3,21 @@ import type { Finding } from "../../api/xml-audit";
 export const priorityOrder: Record<string, number> = { BLOCKER: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 export const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
 export const categoryOrder: Record<string, number> = {
-  TOTALS: 0, TAX: 1, COMPLEMENT: 2, FISCAL: 3, TECHNICAL: 4, STRUCTURE: 5,
+  TOTALS: 0,
+  TAX: 1,
+  COMPLEMENT: 2,
+  FISCAL: 3,
+  TECHNICAL: 4,
+  STRUCTURE: 5,
 };
 
 export function getPriorityLabel(p: string | undefined): string {
-  const labels: Record<string, string> = { BLOCKER: "Bloqueante", HIGH: "Alta", MEDIUM: "Media", LOW: "Informativa" };
+  const labels: Record<string, string> = {
+    BLOCKER: "Bloqueante",
+    HIGH: "Alta",
+    MEDIUM: "Media",
+    LOW: "Informativa",
+  };
   return labels[p ?? ""] ?? "—";
 }
 

@@ -36,7 +36,9 @@ export default function XmlAuditPage() {
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
-  const [priorityFilter, setPriorityFilter] = useState<"ALL" | "BLOCKER" | "HIGH" | "MEDIUM" | "LOW">("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<
+    "ALL" | "BLOCKER" | "HIGH" | "MEDIUM" | "LOW"
+  >("ALL");
   const [categoryFilter, setCategoryFilter] = useState<
     "ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT"
   >("ALL");
@@ -70,12 +72,18 @@ export default function XmlAuditPage() {
       return;
     }
     document.body.dataset.printMode = printMode;
-    const timer = setTimeout(() => { window.print(); }, 0);
-    return () => { clearTimeout(timer); };
+    const timer = setTimeout(() => {
+      window.print();
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [printMode]);
 
   useEffect(() => {
-    function onAfterPrint() { setPrintMode("none"); }
+    function onAfterPrint() {
+      setPrintMode("none");
+    }
     window.addEventListener("afterprint", onAfterPrint);
     return () => window.removeEventListener("afterprint", onAfterPrint);
   }, []);
@@ -601,7 +609,10 @@ export default function XmlAuditPage() {
                 </div>
               )}
 
-              <MassiveExecutiveSummary fullAnalysisResult={fullAnalysisResult} onOpenDetail={(file) => setSelectedMassiveDetail(file)} />
+              <MassiveExecutiveSummary
+                fullAnalysisResult={fullAnalysisResult}
+                onOpenDetail={(file) => setSelectedMassiveDetail(file)}
+              />
 
               <MassiveResultsTable
                 fullAnalysisResult={fullAnalysisResult}
@@ -764,7 +775,9 @@ export default function XmlAuditPage() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Fecha generación</span>
-                    <span className="font-medium">{new Date(result.analysisMeta.generatedAt).toLocaleString()}</span>
+                    <span className="font-medium">
+                      {new Date(result.analysisMeta.generatedAt).toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Engine version</span>
@@ -776,31 +789,45 @@ export default function XmlAuditPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Tiempo total</span>
-                    <span className="font-medium">{result.analysisMeta.performance.totalMs} ms</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.totalMs} ms
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Tamaño de entrada</span>
-                    <span className="font-medium">{result.analysisMeta.performance.inputKb} KB</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.inputKb} KB
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Hallazgos originales</span>
-                    <span className="font-medium">{result.analysisMeta.performance.findingsOriginalCount}</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.findingsOriginalCount}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Hallazgos devueltos</span>
-                    <span className="font-medium">{result.analysisMeta.performance.findingsReturnedCount}</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.findingsReturnedCount}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Truncado</span>
-                    <span className="font-medium">{result.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.findingsTruncated ? "Sí" : "No"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Sanitizado</span>
-                    <span className="font-medium">{result.analysisMeta.performance.sanitized ? "Sí" : "No"}</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.sanitized ? "Sí" : "No"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">XML normalizado disponible</span>
-                    <span className="font-medium">{result.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}</span>
+                    <span className="font-medium">
+                      {result.analysisMeta.performance.normalizedXmlAvailable ? "Sí" : "No"}
+                    </span>
                   </div>
                 </div>
 
@@ -809,11 +836,21 @@ export default function XmlAuditPage() {
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Módulo</th>
-                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">Detectado</th>
-                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">Analizado</th>
-                        <th className="text-right py-2 px-2 font-medium text-muted-foreground">Hallazgos</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Motivo omisión</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                          Módulo
+                        </th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">
+                          Detectado
+                        </th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">
+                          Analizado
+                        </th>
+                        <th className="text-right py-2 px-2 font-medium text-muted-foreground">
+                          Hallazgos
+                        </th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                          Motivo omisión
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -821,17 +858,23 @@ export default function XmlAuditPage() {
                         <tr key={m.key} className="border-b border-border/50">
                           <td className="py-1.5 px-2 font-medium whitespace-nowrap">{m.label}</td>
                           <td className="py-1.5 px-2 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.detected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.detected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                            >
                               {m.detected ? "Sí" : "No"}
                             </span>
                           </td>
                           <td className="py-1.5 px-2 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.analyzed ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${m.analyzed ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}
+                            >
                               {m.analyzed ? "Sí" : "No"}
                             </span>
                           </td>
                           <td className="py-1.5 px-2 text-right font-mono">{m.findingsCount}</td>
-                          <td className="py-1.5 px-2 text-muted-foreground italic text-xs">{m.skippedReason ?? "—"}</td>
+                          <td className="py-1.5 px-2 text-muted-foreground italic text-xs">
+                            {m.skippedReason ?? "—"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -840,10 +883,16 @@ export default function XmlAuditPage() {
 
                 <div className="text-xs text-muted-foreground mt-2">
                   {result.analysisMeta.coverage.complementsDetected.length > 0 && (
-                    <p>Complementos detectados: {result.analysisMeta.coverage.complementsDetected.join(", ")}</p>
+                    <p>
+                      Complementos detectados:{" "}
+                      {result.analysisMeta.coverage.complementsDetected.join(", ")}
+                    </p>
                   )}
                   {result.analysisMeta.coverage.complementsUnknown.length > 0 && (
-                    <p className="text-yellow-600">Complementos no clasificados: {result.analysisMeta.coverage.complementsUnknown.join(", ")}</p>
+                    <p className="text-yellow-600">
+                      Complementos no clasificados:{" "}
+                      {result.analysisMeta.coverage.complementsUnknown.join(", ")}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1023,10 +1072,13 @@ export default function XmlAuditPage() {
                                 {f.priority && (
                                   <span
                                     className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                                      f.priority === "BLOCKER" ? "text-red-700 bg-red-50 border-red-200" :
-                                      f.priority === "HIGH" ? "text-orange-700 bg-orange-50 border-orange-200" :
-                                      f.priority === "MEDIUM" ? "text-yellow-700 bg-yellow-50 border-yellow-200" :
-                                      "text-blue-700 bg-blue-50 border-blue-200"
+                                      f.priority === "BLOCKER"
+                                        ? "text-red-700 bg-red-50 border-red-200"
+                                        : f.priority === "HIGH"
+                                          ? "text-orange-700 bg-orange-50 border-orange-200"
+                                          : f.priority === "MEDIUM"
+                                            ? "text-yellow-700 bg-yellow-50 border-yellow-200"
+                                            : "text-blue-700 bg-blue-50 border-blue-200"
                                     }`}
                                   >
                                     {getPriorityLabel(f.priority)}
@@ -1085,9 +1137,11 @@ export default function XmlAuditPage() {
                                       )}
                                     </div>
                                   );
-        })()}
+                                })()}
 
-      {fullAnalysisResult && <PrintableZipReport fullAnalysisResult={fullAnalysisResult} />}
+                              {fullAnalysisResult && (
+                                <PrintableZipReport fullAnalysisResult={fullAnalysisResult} />
+                              )}
                             </div>
                           );
                         });
@@ -1651,19 +1705,27 @@ export default function XmlAuditPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Tipo operación</span>
-                    <span className="font-medium">{result.comercioExterior.tipoOperacion ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.tipoOperacion ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Clave de pedimento</span>
-                    <span className="font-medium">{result.comercioExterior.claveDePedimento ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.claveDePedimento ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Certificado de origen</span>
-                    <span className="font-medium">{result.comercioExterior.certificadoOrigen ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.certificadoOrigen ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">No. exportador confiable</span>
-                    <span className="font-medium">{result.comercioExterior.numeroExportadorConfiable ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.numeroExportadorConfiable ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Incoterm</span>
@@ -1671,11 +1733,15 @@ export default function XmlAuditPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">SubDivisión</span>
-                    <span className="font-medium">{result.comercioExterior.subDivision ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.subDivision ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">TipoCambioUSD</span>
-                    <span className="font-medium">{result.comercioExterior.tipoCambioUSD ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.comercioExterior.tipoCambioUSD ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">TotalUSD</span>
@@ -1701,15 +1767,21 @@ export default function XmlAuditPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Total retenciones</span>
-                    <span className="font-medium">{result.impuestosLocales.totalDeRetenciones ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.impuestosLocales.totalDeRetenciones ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Total traslados</span>
-                    <span className="font-medium">{result.impuestosLocales.totalDeTraslados ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.impuestosLocales.totalDeTraslados ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Retenciones</span>
-                    <span className="font-medium">{result.impuestosLocales.retenciones.length}</span>
+                    <span className="font-medium">
+                      {result.impuestosLocales.retenciones.length}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Traslados</span>
@@ -1830,7 +1902,9 @@ export default function XmlAuditPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">FechaAutorizacion</span>
-                    <span className="font-medium">{result.donatarias.fechaAutorizacion ?? "—"}</span>
+                    <span className="font-medium">
+                      {result.donatarias.fechaAutorizacion ?? "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Leyenda</span>
@@ -1883,11 +1957,15 @@ export default function XmlAuditPage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">RFC</span>
-                        <span className="font-medium">{result.retenciones.emisor.rfcEmisor ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.emisor.rfcEmisor ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Nombre</span>
-                        <span className="font-medium">{result.retenciones.emisor.nombre ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.emisor.nombre ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">CURP</span>
@@ -1902,19 +1980,29 @@ export default function XmlAuditPage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Nacionalidad</span>
-                        <span className="font-medium">{result.retenciones.receptor.nacionalidad ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.receptor.nacionalidad ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">RFC / NumRegIdTrib</span>
-                        <span className="font-medium">{result.retenciones.receptor.rfcReceptor ?? result.retenciones.receptor.numRegIdTrib ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.receptor.rfcReceptor ??
+                            result.retenciones.receptor.numRegIdTrib ??
+                            "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Nombre</span>
-                        <span className="font-medium">{result.retenciones.receptor.nombre ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.receptor.nombre ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">CURP</span>
-                        <span className="font-medium">{result.retenciones.receptor.curp ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.receptor.curp ?? "—"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1925,15 +2013,21 @@ export default function XmlAuditPage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Mes inicial</span>
-                        <span className="font-medium">{result.retenciones.periodo.mesIni ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.periodo.mesIni ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Mes final</span>
-                        <span className="font-medium">{result.retenciones.periodo.mesFin ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.periodo.mesFin ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Ejercicio</span>
-                        <span className="font-medium">{result.retenciones.periodo.ejercicio ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.periodo.ejercicio ?? "—"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1944,19 +2038,27 @@ export default function XmlAuditPage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Monto total operación</span>
-                        <span className="font-medium">{result.retenciones.totales.montoTotOperacion ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.totales.montoTotOperacion ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Monto total gravado</span>
-                        <span className="font-medium">{result.retenciones.totales.montoTotGrav ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.totales.montoTotGrav ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Monto total exento</span>
-                        <span className="font-medium">{result.retenciones.totales.montoTotExent ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.totales.montoTotExent ?? "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border/50">
                         <span className="text-muted-foreground">Monto total retenido</span>
-                        <span className="font-medium">{result.retenciones.totales.montoTotRet ?? "—"}</span>
+                        <span className="font-medium">
+                          {result.retenciones.totales.montoTotRet ?? "—"}
+                        </span>
                       </div>
                     </div>
                     {result.retenciones.totales.impuestosRetenidos.length > 0 && (
@@ -2018,7 +2120,9 @@ export default function XmlAuditPage() {
                 </div>
                 {result.addenda.signals.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Señales detectadas ({result.addenda.signals.length})</h3>
+                    <h3 className="text-sm font-semibold">
+                      Señales detectadas ({result.addenda.signals.length})
+                    </h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs border-collapse">
                         <thead>
@@ -2045,7 +2149,9 @@ export default function XmlAuditPage() {
                 )}
                 {result.addenda.nodeSummary.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Resumen de nodos ({result.addenda.nodeSummary.length})</h3>
+                    <h3 className="text-sm font-semibold">
+                      Resumen de nodos ({result.addenda.nodeSummary.length})
+                    </h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs border-collapse">
                         <thead>

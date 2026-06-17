@@ -15,7 +15,10 @@ interface MassiveExecutiveSummaryProps {
   onOpenDetail: (file: ZipFullAnalysisFileResult) => void;
 }
 
-export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDetail }: MassiveExecutiveSummaryProps) {
+export default function MassiveExecutiveSummary({
+  fullAnalysisResult,
+  onOpenDetail,
+}: MassiveExecutiveSummaryProps) {
   const perfAgg = aggregateMassivePerformance(fullAnalysisResult.results);
   const totals = aggregateMassiveTotals(fullAnalysisResult.results);
   const priorities = aggregateMassivePriorities(fullAnalysisResult.results);
@@ -26,7 +29,6 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
 
   return (
     <div className="space-y-4 mt-4">
-
       <h3 className="font-semibold text-sm">Resumen ejecutivo del ZIP</h3>
 
       <div className="grid grid-cols-4 gap-3">
@@ -59,7 +61,9 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
           <p className="text-xs text-muted-foreground">Tiempo promedio ms</p>
         </div>
         <div className="p-3 rounded-lg border border-border bg-card text-center">
-          <p className="text-2xl font-bold text-yellow-600">{perfAgg ? perfAgg.filesTruncated : "—"}</p>
+          <p className="text-2xl font-bold text-yellow-600">
+            {perfAgg ? perfAgg.filesTruncated : "—"}
+          </p>
           <p className="text-xs text-muted-foreground">Con truncamiento</p>
         </div>
       </div>
@@ -76,14 +80,25 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
               </tr>
             </thead>
             <tbody>
-              {[["BLOCKER", "Bloqueante", "text-red-600"], ["HIGH", "Alta", "text-orange-600"], ["MEDIUM", "Media", "text-yellow-600"], ["LOW", "Informativa", "text-muted-foreground"]].map(([key, label, cls]) => {
+              {[
+                ["BLOCKER", "Bloqueante", "text-red-600"],
+                ["HIGH", "Alta", "text-orange-600"],
+                ["MEDIUM", "Media", "text-yellow-600"],
+                ["LOW", "Informativa", "text-muted-foreground"],
+              ].map(([key, label, cls]) => {
                 const count = priorities[key as keyof PriorityCounts] as number;
                 if (count === 0) return null;
                 return (
                   <tr key={key} className="border-b border-border/30">
                     <td className={`py-1 pr-2 font-medium ${cls}`}>{label}</td>
                     <td className="py-1 pr-2 text-right font-mono">{count}</td>
-                    <td className="py-1 pr-2 text-right font-mono">{key === "BLOCKER" ? priorities.filesWithBlocker : key === "HIGH" ? priorities.filesWithHigh : "—"}</td>
+                    <td className="py-1 pr-2 text-right font-mono">
+                      {key === "BLOCKER"
+                        ? priorities.filesWithBlocker
+                        : key === "HIGH"
+                          ? priorities.filesWithHigh
+                          : "—"}
+                    </td>
                   </tr>
                 );
               })}
@@ -113,9 +128,15 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
                     <td className="py-1 pr-2 font-medium">{g.group}</td>
                     <td className="py-1 pr-2 text-right font-mono">{g.totalFindings}</td>
                     <td className="py-1 pr-2 text-right font-mono">{g.affectedFiles.length}</td>
-                    <td className="py-1 pr-2 text-right font-mono text-red-600">{g.criticalCount}</td>
-                    <td className="py-1 pr-2 text-right font-mono text-yellow-600">{g.warningCount}</td>
-                    <td className="py-1 pr-2 text-right font-mono text-muted-foreground">{g.infoCount}</td>
+                    <td className="py-1 pr-2 text-right font-mono text-red-600">
+                      {g.criticalCount}
+                    </td>
+                    <td className="py-1 pr-2 text-right font-mono text-yellow-600">
+                      {g.warningCount}
+                    </td>
+                    <td className="py-1 pr-2 text-right font-mono text-muted-foreground">
+                      {g.infoCount}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -142,13 +163,25 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
               <tbody>
                 {topFindings.map((f) => (
                   <tr key={f.code} className="border-b border-border/30">
-                    <td className="py-1 pr-2 font-mono max-w-[120px] truncate" title={f.code}>{f.code}</td>
-                    <td className="py-1 pr-2 max-w-[200px] truncate" title={f.title}>{f.title}</td>
-                    <td className="py-1 pr-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxSeverity === "CRITICAL" ? "bg-red-100 text-red-700" : f.maxSeverity === "WARNING" ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"}`}>{f.maxSeverity}</span>
+                    <td className="py-1 pr-2 font-mono max-w-[120px] truncate" title={f.code}>
+                      {f.code}
+                    </td>
+                    <td className="py-1 pr-2 max-w-[200px] truncate" title={f.title}>
+                      {f.title}
                     </td>
                     <td className="py-1 pr-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : f.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : f.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>{f.maxPriority}</span>
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxSeverity === "CRITICAL" ? "bg-red-100 text-red-700" : f.maxSeverity === "WARNING" ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"}`}
+                      >
+                        {f.maxSeverity}
+                      </span>
+                    </td>
+                    <td className="py-1 pr-2 text-center">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${f.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : f.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : f.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {f.maxPriority}
+                      </span>
                     </td>
                     <td className="py-1 pr-2 text-right font-mono">{f.totalAppearances}</td>
                     <td className="py-1 pr-2 text-right font-mono">{f.affectedFiles.length}</td>
@@ -183,7 +216,9 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
                     <td className="py-1 pr-2 text-right font-mono">{m.analyzedIn}</td>
                     <td className="py-1 pr-2 text-right font-mono">{m.totalFindings}</td>
                     <td className="py-1 pr-2 text-right font-mono">{m.filesWithFindings}</td>
-                    <td className="py-1 pr-2 text-muted-foreground italic text-xs max-w-[180px] truncate">{m.skippedReasons.length > 0 ? m.skippedReasons[0] : "—"}</td>
+                    <td className="py-1 pr-2 text-muted-foreground italic text-xs max-w-[180px] truncate">
+                      {m.skippedReasons.length > 0 ? m.skippedReasons[0] : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -206,11 +241,15 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">XML más lento</span>
-              <span className="font-medium font-mono text-xs">{perfAgg.maxMsFile} ({perfAgg.maxMs} ms)</span>
+              <span className="font-medium font-mono text-xs">
+                {perfAgg.maxMsFile} ({perfAgg.maxMs} ms)
+              </span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">XML más rápido</span>
-              <span className="font-medium font-mono text-xs">{perfAgg.minMsFile} ({perfAgg.minMs} ms)</span>
+              <span className="font-medium font-mono text-xs">
+                {perfAgg.minMsFile} ({perfAgg.minMs} ms)
+              </span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">Tamaño total analizado</span>
@@ -251,16 +290,34 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
               <tbody>
                 {affectedFiles.map((af, i) => (
                   <tr key={i} className="border-b border-border/30">
-                    <td className="py-1 pr-2 font-mono max-w-[160px] truncate" title={af.file.name}>{af.file.name}</td>
+                    <td className="py-1 pr-2 font-mono max-w-[160px] truncate" title={af.file.name}>
+                      {af.file.name}
+                    </td>
                     <td className="py-1 pr-2 text-right font-mono">{af.totalFindings}</td>
                     <td className="py-1 pr-2 text-right font-mono text-red-600">{af.criticals}</td>
-                    <td className="py-1 pr-2 text-right font-mono text-yellow-600">{af.warnings}</td>
-                    <td className="py-1 pr-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${af.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : af.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : af.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>{af.maxPriority}</span>
+                    <td className="py-1 pr-2 text-right font-mono text-yellow-600">
+                      {af.warnings}
                     </td>
-                    <td className="py-1 pr-2 text-xs max-w-[140px] truncate" title={af.topActionGroup}>{af.topActionGroup}</td>
                     <td className="py-1 pr-2 text-center">
-                      <button onClick={() => onOpenDetail(af.file)} className="text-primary font-semibold hover:underline text-xs">Ver detalle</button>
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${af.maxPriority === "BLOCKER" ? "bg-red-100 text-red-700" : af.maxPriority === "HIGH" ? "bg-orange-100 text-orange-700" : af.maxPriority === "MEDIUM" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {af.maxPriority}
+                      </span>
+                    </td>
+                    <td
+                      className="py-1 pr-2 text-xs max-w-[140px] truncate"
+                      title={af.topActionGroup}
+                    >
+                      {af.topActionGroup}
+                    </td>
+                    <td className="py-1 pr-2 text-center">
+                      <button
+                        onClick={() => onOpenDetail(af.file)}
+                        className="text-primary font-semibold hover:underline text-xs"
+                      >
+                        Ver detalle
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -269,7 +326,6 @@ export default function MassiveExecutiveSummary({ fullAnalysisResult, onOpenDeta
           </div>
         </div>
       )}
-
     </div>
   );
 }

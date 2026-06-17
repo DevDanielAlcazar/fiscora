@@ -5,6 +5,8 @@ import {
   type XmlAnalyticsSummary,
   type XmlAnalyticsQuery,
 } from "../api/admin";
+import { exportAdminAnalyticsCsv } from "./admin-analytics/adminAnalyticsCsv";
+import PrintableAdminAnalyticsReport from "./admin-analytics/PrintableAdminAnalyticsReport";
 
 export default function AdminAnalyticsPage() {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ export default function AdminAnalyticsPage() {
   const [fTo, setFTo] = useState("");
   const [fSourceType, setFSourceType] = useState("");
   const [fAnalysisStatus, setFAnalysisStatus] = useState("");
+  const [currentFilters, setCurrentFilters] = useState<XmlAnalyticsQuery>({});
 
   async function fetchData() {
     const token = localStorage.getItem("accessToken");
@@ -31,6 +34,7 @@ export default function AdminAnalyticsPage() {
       if (fTo) query.to = fTo;
       if (fSourceType) query.sourceType = fSourceType;
       if (fAnalysisStatus) query.analysisStatus = fAnalysisStatus;
+      setCurrentFilters(query);
       const res = await getXmlAnalyticsSummary(token, query);
       setData(res);
     } catch (err) {
@@ -53,6 +57,16 @@ export default function AdminAnalyticsPage() {
     setFSourceType("");
     setFAnalysisStatus("");
     fetchData();
+  }
+
+  function handleExportCsv() {
+    if (data) {
+      exportAdminAnalyticsCsv(data, currentFilters);
+    }
+  }
+
+  function handlePrint() {
+    window.print();
   }
 
   function formatDate(dateStr: string) {
@@ -105,8 +119,8 @@ export default function AdminAnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gray-950 text-gray-100 print:bg-white print:text-black">
+      <div className="max-w-7xl mx-auto px-4 py-6 print:hidden">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Analítica XML</h1>
@@ -116,12 +130,58 @@ export default function AdminAnalyticsPage() {
                 : "No hay datos disponibles"}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/admin/xml-analyses")}
-            className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all"
-          >
-            Ver análisis XML
-          </button>
+          <div className="flex gap-2">
+            {data && (
+              <>
+                <button
+                  onClick={handleExportCsv}
+                  className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Exportar analytics CSV
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-semibold hover:bg-blue-600 transition-all flex items-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                    />
+                  </svg>
+                  Imprimir reporte / Guardar PDF
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => navigate("/admin/xml-analyses")}
+              className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all"
+            >
+              Ver análisis XML
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -346,6 +406,308 @@ export default function AdminAnalyticsPage() {
               </div>
             </div>
 
+            {data.analyticsV2 && (
+              <>
+                <h2 className="text-lg font-semibold mb-3 mt-8">Documentos analizados</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  {data.analyticsV2.documentKinds.length === 0 ? (
+                    <div className="col-span-full text-center text-gray-500 py-4">
+                      Sin información disponible
+                    </div>
+                  ) : (
+                    data.analyticsV2.documentKinds.map((dk) => (
+                      <div
+                        key={dk.documentKind}
+                        className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4 flex flex-col"
+                      >
+                        <span className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                          {dk.documentKind === "CFDI"
+                            ? "CFDI"
+                            : dk.documentKind === "RETENCIONES"
+                              ? "Retenciones"
+                              : dk.documentKind === "UNKNOWN"
+                                ? "Unknown"
+                                : "Sin data"}
+                        </span>
+                        <span className="text-2xl font-bold text-blue-400">{dk.count}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            {data.analyticsV2 && (
+              <>
+                <h2 className="text-lg font-semibold mb-3">Prioridades globales</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                  {data.analyticsV2.priorities.length === 0 ? (
+                    <div className="col-span-full text-center text-gray-500 py-4">
+                      Sin información disponible
+                    </div>
+                  ) : (
+                    data.analyticsV2.priorities.map((p) => (
+                      <div
+                        key={p.priority}
+                        className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4 flex flex-col"
+                      >
+                        <span className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                          {p.priority === "BLOCKER"
+                            ? "Bloqueantes"
+                            : p.priority === "HIGH"
+                              ? "Alta"
+                              : p.priority === "MEDIUM"
+                                ? "Media"
+                                : p.priority === "LOW"
+                                  ? "Informativa"
+                                  : "Sin data"}
+                        </span>
+                        <span
+                          className={`text-2xl font-bold ${
+                            p.priority === "BLOCKER"
+                              ? "text-red-400"
+                              : p.priority === "HIGH"
+                                ? "text-orange-400"
+                                : p.priority === "MEDIUM"
+                                  ? "text-yellow-400"
+                                  : "text-gray-300"
+                          }`}
+                        >
+                          {p.findings}
+                        </span>
+                        <span className="text-xs text-gray-500 mt-1">
+                          {p.recordsAffected} registros
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            {data.analyticsV2 && data.analyticsV2.actionGroups.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3">Grupos accionables</h2>
+                <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-gray-700/50">
+                        <th className="pb-2 font-medium">Grupo accionable</th>
+                        <th className="pb-2 font-medium text-right">Hallazgos</th>
+                        <th className="pb-2 font-medium text-right">Registros afectados</th>
+                        <th className="pb-2 font-medium text-right">Críticos</th>
+                        <th className="pb-2 font-medium text-right">Advertencias</th>
+                        <th className="pb-2 font-medium text-right">Info</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.analyticsV2.actionGroups.map((ag) => (
+                        <tr
+                          key={ag.actionGroup}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
+                          <td className="py-2 max-w-[200px] truncate" title={ag.actionGroup}>
+                            {ag.actionGroup}
+                          </td>
+                          <td className="py-2 text-right font-mono">{ag.findings}</td>
+                          <td className="py-2 text-right font-mono">{ag.recordsAffected}</td>
+                          <td className="py-2 text-right font-mono text-red-400">{ag.critical}</td>
+                          <td className="py-2 text-right font-mono text-yellow-400">
+                            {ag.warning}
+                          </td>
+                          <td className="py-2 text-right font-mono text-cyan-400">{ag.info}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {data.analyticsV2 && data.analyticsV2.modulesCoverage.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3">Cobertura por módulo</h2>
+                <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-gray-700/50">
+                        <th className="pb-2 font-medium">Módulo</th>
+                        <th className="pb-2 font-medium text-right">Detectado en registros</th>
+                        <th className="pb-2 font-medium text-right">Analizado en registros</th>
+                        <th className="pb-2 font-medium text-right">Hallazgos</th>
+                        <th className="pb-2 font-medium text-right">Registros con hallazgos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.analyticsV2.modulesCoverage.map((m) => (
+                        <tr
+                          key={m.key}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
+                          <td className="py-2 max-w-[200px] truncate" title={m.label}>
+                            {m.label}
+                          </td>
+                          <td className="py-2 text-right font-mono">{m.detectedInRecords}</td>
+                          <td className="py-2 text-right font-mono">{m.analyzedInRecords}</td>
+                          <td className="py-2 text-right font-mono">{m.findings}</td>
+                          <td className="py-2 text-right font-mono">{m.recordsWithFindings}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {data.analyticsV2 && (
+              <>
+                <h2 className="text-lg font-semibold mb-3">Performance del motor</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+                  {card(
+                    "Registros con metadata",
+                    data.analyticsV2.performance.recordsWithMeta,
+                    "text-blue-400",
+                  )}
+                  {card(
+                    "Tiempo promedio",
+                    `${data.analyticsV2.performance.avgMs} ms`,
+                    "text-cyan-400",
+                  )}
+                  {card(
+                    "Tiempo máximo",
+                    `${data.analyticsV2.performance.maxMs} ms`,
+                    "text-orange-400",
+                  )}
+                  {card(
+                    "Tiempo mínimo",
+                    `${data.analyticsV2.performance.minMs} ms`,
+                    "text-green-400",
+                  )}
+                  {card(
+                    "KB promedio",
+                    `${data.analyticsV2.performance.avgInputKb} KB`,
+                    "text-purple-400",
+                  )}
+                  {card(
+                    "Hallazgos originales",
+                    data.analyticsV2.performance.totalFindingsOriginal,
+                    "text-yellow-400",
+                  )}
+                  {card(
+                    "Hallazgos devueltos",
+                    data.analyticsV2.performance.totalFindingsReturned,
+                    "text-blue-400",
+                  )}
+                  {card(
+                    "Registros truncados",
+                    data.analyticsV2.performance.recordsWithTruncatedFindings,
+                    data.analyticsV2.performance.recordsWithTruncatedFindings > 0
+                      ? "text-red-400"
+                      : "text-gray-300",
+                  )}
+                </div>
+              </>
+            )}
+
+            {data.analyticsV2 && data.analyticsV2.topFindingCodes.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3">Top hallazgos</h2>
+                <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-gray-700/50">
+                        <th className="pb-2 font-medium">Código</th>
+                        <th className="pb-2 font-medium">Título</th>
+                        <th className="pb-2 font-medium text-right">Severidad</th>
+                        <th className="pb-2 font-medium text-right">Prioridad</th>
+                        <th className="pb-2 font-medium">Grupo accionable</th>
+                        <th className="pb-2 font-medium text-right">Apariciones</th>
+                        <th className="pb-2 font-medium text-right">Registros afectados</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.analyticsV2.topFindingCodes.map((fc) => (
+                        <tr
+                          key={fc.code}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
+                          <td
+                            className="py-2 font-mono text-xs max-w-[120px] truncate"
+                            title={fc.code}
+                          >
+                            {fc.code}
+                          </td>
+                          <td className="py-2 max-w-[200px] truncate" title={fc.title}>
+                            {fc.title}
+                          </td>
+                          <td
+                            className={`py-2 text-right font-mono ${
+                              fc.severityMax === "CRITICAL"
+                                ? "text-red-400"
+                                : fc.severityMax === "WARNING"
+                                  ? "text-yellow-400"
+                                  : "text-cyan-400"
+                            }`}
+                          >
+                            {fc.severityMax}
+                          </td>
+                          <td
+                            className={`py-2 text-right font-mono ${
+                              fc.priorityMax === "BLOCKER"
+                                ? "text-red-400"
+                                : fc.priorityMax === "HIGH"
+                                  ? "text-orange-400"
+                                  : fc.priorityMax === "MEDIUM"
+                                    ? "text-yellow-400"
+                                    : "text-gray-300"
+                            }`}
+                          >
+                            {fc.priorityMax}
+                          </td>
+                          <td className="py-2 max-w-[150px] truncate" title={fc.actionGroup ?? "—"}>
+                            {fc.actionGroup ?? "—"}
+                          </td>
+                          <td className="py-2 text-right font-mono">{fc.count}</td>
+                          <td className="py-2 text-right font-mono">{fc.recordsAffected}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {data.analyticsV2 && data.analyticsV2.topModulesByFindings.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3">Top módulos por hallazgos</h2>
+                <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-gray-700/50">
+                        <th className="pb-2 font-medium">Módulo</th>
+                        <th className="pb-2 font-medium text-right">Hallazgos</th>
+                        <th className="pb-2 font-medium text-right">Registros afectados</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.analyticsV2.topModulesByFindings.map((tm) => (
+                        <tr
+                          key={tm.key}
+                          className="border-b border-gray-700/30 hover:bg-gray-700/20"
+                        >
+                          <td className="py-2 max-w-[200px] truncate" title={tm.label}>
+                            {tm.label}
+                          </td>
+                          <td className="py-2 text-right font-mono">{tm.findings}</td>
+                          <td className="py-2 text-right font-mono">{tm.recordsAffected}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <h2 className="text-lg font-semibold mb-3">Top organizaciones</h2>
             <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 mb-6 overflow-x-auto">
               <table className="w-full text-sm">
@@ -517,6 +879,8 @@ export default function AdminAnalyticsPage() {
           </>
         )}
       </div>
+
+      {data && <PrintableAdminAnalyticsReport summary={data} filters={currentFilters} />}
     </div>
   );
 }

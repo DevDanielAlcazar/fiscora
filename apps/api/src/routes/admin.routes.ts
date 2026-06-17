@@ -1901,6 +1901,443 @@ export async function adminRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // ── Analytics V2 helpers ──────────────────────────────────────
+
+  interface DocumentKindAgg {
+    documentKind: "CFDI" | "RETENCIONES" | "UNKNOWN" | "NO_DATA";
+    count: number;
+  }
+
+  function deriveDocumentKinds(
+    records: { analysisJson: unknown; analysisStatus: string }[],
+  ): DocumentKindAgg[] {
+    const map = new Map<string, number>();
+    for (const r of records) {
+      if (
+        r.analysisStatus !== "ANALYZED" ||
+        !r.analysisJson ||
+        typeof r.analysisJson !== "object"
+      ) {
+        map.set("NO_DATA", (map.get("NO_DATA") ?? 0) + 1);
+        continue;
+      }
+      const aj = r.analysisJson as Record<string, unknown>;
+      let dk = aj.documentKind as string | undefined;
+      if (!dk) {
+        const meta = aj.analysisMeta as Record<string, unknown> | undefined;
+        const cov = meta?.coverage as Record<string, unknown> | undefined;
+        dk = cov?.documentKind as string | undefined;
+      }
+      if (dk && ["CFDI", "RETENCIONES", "UNKNOWN"].includes(dk)) {
+        map.set(dk, (map.get(dk) ?? 0) + 1);
+      } else {
+        map.set("NO_DATA", (map.get("NO_DATA") ?? 0) + 1);
+      }
+    }
+    const order = ["CFDI", "RETENCIONES", "UNKNOWN", "NO_DATA"];
+    return Array.from(map.entries())
+      .map(([documentKind, count]) => ({ documentKind, count }) as DocumentKindAgg)
+      .sort((a, b) => order.indexOf(a.documentKind) - order.indexOf(b.documentKind));
+  }
+
+  interface PriorityAgg {
+    priority: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW" | "NO_DATA";
+    findings: number;
+    recordsAffected: number;
+  }
+
+  function derivePriorities(
+    records: { id: string; analysisJson: unknown; analysisStatus: string }[],
+  ): PriorityAgg[] {
+    const map = new Map<string, { findings: number; records: Set<string> }>();
+    const initPriority = (p: string) => {
+      if (!map.has(p)) map.set(p, { findings: 0, records: new Set() });
+    };
+    initPriority("BLOCKER");
+    initPriority("HIGH");
+    initPriority("MEDIUM");
+    initPriority("LOW");
+    initPriority("NO_DATA");
+
+    for (const r of records) {
+      if (
+        r.analysisStatus !== "ANALYZED" ||
+        !r.analysisJson ||
+        typeof r.analysisJson !== "object"
+      ) {
+        const nd = map.get("NO_DATA")!;
+        nd.findings++;
+        nd.records.add(r.id);
+        continue;
+      }
+      const aj = r.analysisJson as Record<string, unknown>;
+      const findings = aj.findings as Array<Record<string, unknown>> | undefined;
+      if (!findings || !Array.isArray(findings) || findings.length === 0) {
+        const nd = map.get("NO_DATA")!;
+        nd.findings++;
+        nd.records.add(r.id);
+        continue;
+      }
+      const recordPriorities = new Set<string>();
+      for (const f of findings) {
+        let priority = f.priority as string | undefined;
+        if (!priority) {
+          const severity = f.severity as string | undefined;
+          if (severity === "CRITICAL") priority = "BLOCKER";
+          else if (severity === "WARNING") priority = "HIGH";
+          else if (severity === "INFO") priority = "LOW";
+          else priority = "NO_DATA";
+        }
+        if (!["BLOCKER", "HIGH", "MEDIUM", "LOW"].includes(priority)) priority = "NO_DATA";
+        const entry = map.get(priority)!;
+        entry.findings++;
+        recordPriorities.add(priority);
+      }
+      for (const p of recordPriorities) {
+        map.get(p)!.records.add(r.id);
+      }
+    }
+
+    const order = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "NO_DATA"];
+    return Array.from(map.entries())
+      .map(
+        ([priority, data]) =>
+          ({
+            priority,
+            findings: data.findings,
+            recordsAffected: data.records.size,
+          }) as PriorityAgg,
+      )
+      .sort((a, b) => order.indexOf(a.priority) - order.indexOf(b.priority));
+  }
+
+  interface ActionGroupAgg {
+    actionGroup: string;
+    findings: number;
+    recordsAffected: number;
+    critical: number;
+    warning: number;
+    info: number;
+  }
+
+  function deriveActionGroups(
+    records: { id: string; analysisJson: unknown; analysisStatus: string }[],
+  ): ActionGroupAgg[] {
+    const map = new Map<
+      string,
+      { findings: number; records: Set<string>; critical: number; warning: number; info: number }
+    >();
+    for (const r of records) {
+      if (r.analysisStatus !== "ANALYZED" || !r.analysisJson || typeof r.analysisJson !== "object")
+        continue;
+      const aj = r.analysisJson as Record<string, unknown>;
+      const findings = aj.findings as Array<Record<string, unknown>> | undefined;
+      if (!findings || !Array.isArray(findings)) continue;
+      const recordGroups = new Set<string>();
+      for (const f of findings) {
+        const ag = (f.actionGroup as string) || "Sin grupo";
+        let entry = map.get(ag);
+        if (!entry) {
+          entry = { findings: 0, records: new Set(), critical: 0, warning: 0, info: 0 };
+          map.set(ag, entry);
+        }
+        entry.findings++;
+        recordGroups.add(ag);
+        const severity = f.severity as string;
+        if (severity === "CRITICAL") entry.critical++;
+        else if (severity === "WARNING") entry.warning++;
+        else if (severity === "INFO") entry.info++;
+      }
+      for (const ag of recordGroups) {
+        map.get(ag)!.records.add(r.id);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([actionGroup, data]) => ({
+        actionGroup,
+        findings: data.findings,
+        recordsAffected: data.records.size,
+        critical: data.critical,
+        warning: data.warning,
+        info: data.info,
+      }))
+      .sort((a, b) => b.findings - a.findings);
+  }
+
+  interface ModuleCoverageAgg {
+    key: string;
+    label: string;
+    detectedInRecords: number;
+    analyzedInRecords: number;
+    findings: number;
+    recordsWithFindings: number;
+  }
+
+  function deriveModulesCoverage(
+    records: { id: string; analysisJson: unknown; analysisStatus: string }[],
+  ): ModuleCoverageAgg[] {
+    const map = new Map<
+      string,
+      {
+        label: string;
+        detected: Set<string>;
+        analyzed: Set<string>;
+        findings: number;
+        recordsWithFindings: Set<string>;
+      }
+    >();
+    for (const r of records) {
+      if (r.analysisStatus !== "ANALYZED" || !r.analysisJson || typeof r.analysisJson !== "object")
+        continue;
+      const aj = r.analysisJson as Record<string, unknown>;
+      const meta = aj.analysisMeta as Record<string, unknown> | undefined;
+      const cov = meta?.coverage as Record<string, unknown> | undefined;
+      const modules = cov?.modules as Array<Record<string, unknown>> | undefined;
+      if (!modules || !Array.isArray(modules)) continue;
+      for (const mod of modules) {
+        const key = mod.key as string;
+        const label = mod.label as string;
+        if (!key) continue;
+        let entry = map.get(key);
+        if (!entry) {
+          entry = {
+            label,
+            detected: new Set(),
+            analyzed: new Set(),
+            findings: 0,
+            recordsWithFindings: new Set(),
+          };
+          map.set(key, entry);
+        }
+        if (mod.detected) entry.detected.add(r.id);
+        if (mod.analyzed) entry.analyzed.add(r.id);
+        const fCount = typeof mod.findingsCount === "number" ? mod.findingsCount : 0;
+        if (fCount > 0) {
+          entry.findings += fCount;
+          entry.recordsWithFindings.add(r.id);
+        }
+      }
+    }
+    return Array.from(map.entries())
+      .map(([key, data]) => ({
+        key,
+        label: data.label,
+        detectedInRecords: data.detected.size,
+        analyzedInRecords: data.analyzed.size,
+        findings: data.findings,
+        recordsWithFindings: data.recordsWithFindings.size,
+      }))
+      .sort((a, b) => b.findings - a.findings);
+  }
+
+  interface PerformanceAgg {
+    recordsWithMeta: number;
+    totalMs: number;
+    avgMs: number;
+    maxMs: number;
+    minMs: number;
+    totalInputKb: number;
+    avgInputKb: number;
+    totalFindingsOriginal: number;
+    totalFindingsReturned: number;
+    recordsWithTruncatedFindings: number;
+  }
+
+  function derivePerformance(
+    records: { analysisJson: unknown; analysisStatus: string }[],
+  ): PerformanceAgg {
+    let recordsWithMeta = 0;
+    let totalMs = 0;
+    let maxMs = 0;
+    let minMs = Infinity;
+    let totalInputKb = 0;
+    let totalFindingsOriginal = 0;
+    let totalFindingsReturned = 0;
+    let recordsWithTruncatedFindings = 0;
+    for (const r of records) {
+      if (r.analysisStatus !== "ANALYZED" || !r.analysisJson || typeof r.analysisJson !== "object")
+        continue;
+      const aj = r.analysisJson as Record<string, unknown>;
+      const meta = aj.analysisMeta as Record<string, unknown> | undefined;
+      const perf = meta?.performance as Record<string, unknown> | undefined;
+      if (!perf) continue;
+      recordsWithMeta++;
+      const ms = typeof perf.totalMs === "number" ? perf.totalMs : 0;
+      totalMs += ms;
+      if (ms > maxMs) maxMs = ms;
+      if (ms < minMs) minMs = ms;
+      const kb = typeof perf.inputKb === "number" ? perf.inputKb : 0;
+      totalInputKb += kb;
+      const orig = typeof perf.findingsOriginalCount === "number" ? perf.findingsOriginalCount : 0;
+      totalFindingsOriginal += orig;
+      const ret = typeof perf.findingsReturnedCount === "number" ? perf.findingsReturnedCount : 0;
+      totalFindingsReturned += ret;
+      if (perf.findingsTruncated) recordsWithTruncatedFindings++;
+    }
+    return {
+      recordsWithMeta,
+      totalMs,
+      avgMs: recordsWithMeta > 0 ? Math.round((totalMs / recordsWithMeta) * 100) / 100 : 0,
+      maxMs,
+      minMs: recordsWithMeta > 0 ? minMs : 0,
+      totalInputKb: Math.round(totalInputKb * 100) / 100,
+      avgInputKb:
+        recordsWithMeta > 0 ? Math.round((totalInputKb / recordsWithMeta) * 100) / 100 : 0,
+      totalFindingsOriginal,
+      totalFindingsReturned,
+      recordsWithTruncatedFindings,
+    };
+  }
+
+  interface TopFindingCodeAgg {
+    code: string;
+    title: string;
+    severityMax: string;
+    priorityMax: string;
+    actionGroup: string | null;
+    count: number;
+    recordsAffected: number;
+  }
+
+  const severityRank: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+  const priorityRank: Record<string, number> = { BLOCKER: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+
+  function deriveTopFindingCodes(
+    records: { id: string; analysisJson: unknown; analysisStatus: string }[],
+  ): TopFindingCodeAgg[] {
+    const map = new Map<
+      string,
+      {
+        title: string;
+        severityMax: string;
+        priorityMax: string;
+        actionGroupCounts: Map<string, number>;
+        count: number;
+        records: Set<string>;
+      }
+    >();
+    for (const r of records) {
+      if (r.analysisStatus !== "ANALYZED" || !r.analysisJson || typeof r.analysisJson !== "object")
+        continue;
+      const aj = r.analysisJson as Record<string, unknown>;
+      const findings = aj.findings as Array<Record<string, unknown>> | undefined;
+      if (!findings || !Array.isArray(findings)) continue;
+      for (const f of findings) {
+        const code = f.code as string;
+        if (!code) continue;
+        let entry = map.get(code);
+        if (!entry) {
+          entry = {
+            title: "",
+            severityMax: "INFO",
+            priorityMax: "LOW",
+            actionGroupCounts: new Map(),
+            count: 0,
+            records: new Set(),
+          };
+          map.set(code, entry);
+        }
+        entry.count++;
+        entry.records.add(r.id);
+        if (!entry.title && f.title) entry.title = f.title as string;
+        const sev = f.severity as string;
+        if (
+          sev &&
+          severityRank[sev] !== undefined &&
+          severityRank[sev] < severityRank[entry.severityMax]
+        ) {
+          entry.severityMax = sev;
+        }
+        const pri = f.priority as string;
+        if (
+          pri &&
+          priorityRank[pri] !== undefined &&
+          priorityRank[pri] < priorityRank[entry.priorityMax]
+        ) {
+          entry.priorityMax = pri;
+        } else if (!pri) {
+          const derivedSev = f.severity as string;
+          let derivedPri = "LOW";
+          if (derivedSev === "CRITICAL") derivedPri = "BLOCKER";
+          else if (derivedSev === "WARNING") derivedPri = "HIGH";
+          if (priorityRank[derivedPri] < priorityRank[entry.priorityMax]) {
+            entry.priorityMax = derivedPri;
+          }
+        }
+        const ag = f.actionGroup as string | undefined;
+        if (ag) {
+          entry.actionGroupCounts.set(ag, (entry.actionGroupCounts.get(ag) ?? 0) + 1);
+        }
+      }
+    }
+    return Array.from(map.entries())
+      .map(([code, data]) => {
+        let bestAg: string | null = null;
+        let bestCount = 0;
+        for (const [ag, c] of data.actionGroupCounts) {
+          if (c > bestCount) {
+            bestCount = c;
+            bestAg = ag;
+          }
+        }
+        return {
+          code,
+          title: data.title || code,
+          severityMax: data.severityMax,
+          priorityMax: data.priorityMax,
+          actionGroup: bestAg,
+          count: data.count,
+          recordsAffected: data.records.size,
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+  }
+
+  interface TopModuleAgg {
+    key: string;
+    label: string;
+    findings: number;
+    recordsAffected: number;
+  }
+
+  function deriveTopModulesByFindings(
+    records: { id: string; analysisJson: unknown; analysisStatus: string }[],
+  ): TopModuleAgg[] {
+    const map = new Map<string, { label: string; findings: number; records: Set<string> }>();
+    for (const r of records) {
+      if (r.analysisStatus !== "ANALYZED" || !r.analysisJson || typeof r.analysisJson !== "object")
+        continue;
+      const aj = r.analysisJson as Record<string, unknown>;
+      const meta = aj.analysisMeta as Record<string, unknown> | undefined;
+      const cov = meta?.coverage as Record<string, unknown> | undefined;
+      const modules = cov?.modules as Array<Record<string, unknown>> | undefined;
+      if (!modules || !Array.isArray(modules)) continue;
+      for (const mod of modules) {
+        const key = mod.key as string;
+        if (!key) continue;
+        const fCount = typeof mod.findingsCount === "number" ? mod.findingsCount : 0;
+        if (fCount === 0) continue;
+        let entry = map.get(key);
+        if (!entry) {
+          entry = { label: (mod.label as string) || key, findings: 0, records: new Set() };
+          map.set(key, entry);
+        }
+        entry.findings += fCount;
+        entry.records.add(r.id);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([key, data]) => ({
+        key,
+        label: data.label,
+        findings: data.findings,
+        recordsAffected: data.records.size,
+      }))
+      .sort((a, b) => b.findings - a.findings)
+      .slice(0, 10);
+  }
+
   fastify.get("/api/admin/xml-analytics/summary", {
     preHandler: [fastify.authenticate],
     handler: async (request, reply) => {
@@ -1970,6 +2407,31 @@ export async function adminRoutes(fastify: FastifyInstance) {
           organization: { select: { name: true } },
         },
       });
+
+      // Second query with analysisJson for analyticsV2 (same filters, same limit)
+      const v2Records = await fastify.prisma.xmlAnalysisRecord.findMany({
+        where: where as any,
+        orderBy: { createdAt: "desc" },
+        take: 50000,
+        select: {
+          id: true,
+          analysisStatus: true,
+          analysisJson: true,
+        },
+      });
+
+      let analyticsV2: Record<string, unknown> | undefined;
+      if (v2Records.length > 0) {
+        analyticsV2 = {
+          documentKinds: deriveDocumentKinds(v2Records),
+          priorities: derivePriorities(v2Records),
+          actionGroups: deriveActionGroups(v2Records),
+          modulesCoverage: deriveModulesCoverage(v2Records),
+          performance: derivePerformance(v2Records),
+          topFindingCodes: deriveTopFindingCodes(v2Records),
+          topModulesByFindings: deriveTopModulesByFindings(v2Records),
+        };
+      }
 
       const rangeFrom =
         records.length > 0
@@ -2171,6 +2633,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         topOrganizations,
         topUsers,
         recentBatches,
+        analyticsV2,
       });
     },
   });

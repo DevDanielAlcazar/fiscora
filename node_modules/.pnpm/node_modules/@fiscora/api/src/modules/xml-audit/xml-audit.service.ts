@@ -153,7 +153,10 @@ export interface Finding {
   actionGroup?: string;
 }
 
-export function getFindingPriority(severity: Finding["severity"], category: Finding["category"]): Finding["priority"] {
+export function getFindingPriority(
+  severity: Finding["severity"],
+  category: Finding["category"],
+): Finding["priority"] {
   if (severity === "CRITICAL") return "BLOCKER";
   if (severity === "WARNING") {
     if (["TOTALS", "TAX", "COMPLEMENT"].includes(category)) return "HIGH";
@@ -190,9 +193,17 @@ const FINDINGS_MAX_TOTAL = 500;
 const FINDINGS_MAX_PER_CODE = 50;
 
 const SENSITIVE_EVIDENCE_LABELS = new Set([
-  "rawxml", "sourcexml", "normalizedxmlcontent",
-  "filecontent", "base64",
-  "token", "authorization", "password", "secret", "session", "cookie",
+  "rawxml",
+  "sourcexml",
+  "normalizedxmlcontent",
+  "filecontent",
+  "base64",
+  "token",
+  "authorization",
+  "password",
+  "secret",
+  "session",
+  "cookie",
 ]);
 
 // ─── Sanitization helpers ─────────────────────────────────────────────────
@@ -200,10 +211,13 @@ const SENSITIVE_EVIDENCE_LABELS = new Set([
 export function sanitizeEvidenceValue(value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") {
-    const cleaned = value.split("").filter((c) => {
-      const code = c.charCodeAt(0);
-      return code >= 32 || code === 9 || code === 10 || code === 13;
-    }).join("");
+    const cleaned = value
+      .split("")
+      .filter((c) => {
+        const code = c.charCodeAt(0);
+        return code >= 32 || code === 9 || code === 10 || code === 13;
+      })
+      .join("");
     if (cleaned.length > FINDING_EVIDENCE_MAX_STRING_LENGTH) {
       return cleaned.slice(0, FINDING_EVIDENCE_MAX_STRING_LENGTH) + "… [truncated]";
     }
@@ -319,8 +333,10 @@ export function limitFindings(findings: Finding[]): Finding[] {
       category: "STRUCTURE",
       code: "FINDINGS_TRUNCATED_FOR_RESPONSE",
       title: "Hallazgos truncados por límites de respuesta",
-      message: "El análisis generó más hallazgos de los permitidos para una respuesta segura y eficiente.",
-      recommendedAction: "Descarga el reporte o revisa el XML en partes si necesitas mayor detalle.",
+      message:
+        "El análisis generó más hallazgos de los permitidos para una respuesta segura y eficiente.",
+      recommendedAction:
+        "Descarga el reporte o revisa el XML en partes si necesitas mayor detalle.",
       evidence: [
         { label: "originalCount", value: String(originalCount) },
         { label: "returnedCount", value: String(result.length) },
@@ -369,14 +385,33 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       detected: isCfdi,
       analyzed: isCfdi,
       skippedReason: isCfdi ? null : skipped("No aplica para XML de Retenciones"),
-      findingsCount: isCfdi ? countByPrefix("COMPROBANTE_") + countByPrefix("EMISOR_") + countByPrefix("RECEPTOR_") + countByPrefix("GENERIC_RFC_") + countByPrefix("EXPORTACION_") + countByPrefix("SERIE_FOLIO_") + countByPrefix("MONEDA_") + countByPrefix("LUGAR_EXPEDICION_") + countByPrefix("FECHA_") + countByPrefix("TOTAL_") + countByPrefix("SUBTOTAL_") + countByPrefix("FORMA_PAGO_") + countByPrefix("METODO_PAGO_") + countByPrefix("DESCUENTO_") : 0,
+      findingsCount: isCfdi
+        ? countByPrefix("COMPROBANTE_") +
+          countByPrefix("EMISOR_") +
+          countByPrefix("RECEPTOR_") +
+          countByPrefix("GENERIC_RFC_") +
+          countByPrefix("EXPORTACION_") +
+          countByPrefix("SERIE_FOLIO_") +
+          countByPrefix("MONEDA_") +
+          countByPrefix("LUGAR_EXPEDICION_") +
+          countByPrefix("FECHA_") +
+          countByPrefix("TOTAL_") +
+          countByPrefix("SUBTOTAL_") +
+          countByPrefix("FORMA_PAGO_") +
+          countByPrefix("METODO_PAGO_") +
+          countByPrefix("DESCUENTO_")
+        : 0,
     },
     {
       key: "retenciones",
       label: "Retenciones",
       detected: isRetenciones || hasRetenciones,
       analyzed: hasRetenciones,
-      skippedReason: hasRetenciones ? null : isCfdi ? skipped("Complemento no detectado") : skipped("Tipo de documento no compatible"),
+      skippedReason: hasRetenciones
+        ? null
+        : isCfdi
+          ? skipped("Complemento no detectado")
+          : skipped("Tipo de documento no compatible"),
       findingsCount: countByPrefix("RETENCIONES_"),
     },
     {
@@ -385,14 +420,26 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       detected: hasTimbreFiscalDigital,
       analyzed: hasTimbreFiscalDigital,
       skippedReason: hasTimbreFiscalDigital ? null : skipped("Complemento no detectado"),
-      findingsCount: countByPrefix("MISSING_TFD_") + countByPrefix("TFD_") + countByPrefix("TIMBRADO_") + countByPrefix("MISSING_COMPROBANTE_") + countByPrefix("NO_CERTIFICADO_") + countByPrefix("MISSING_RFC_PROV_CERTIF") + countByPrefix("MISSING_NO_CERTIFICADO"),
+      findingsCount:
+        countByPrefix("MISSING_TFD_") +
+        countByPrefix("TFD_") +
+        countByPrefix("TIMBRADO_") +
+        countByPrefix("MISSING_COMPROBANTE_") +
+        countByPrefix("NO_CERTIFICADO_") +
+        countByPrefix("MISSING_RFC_PROV_CERTIF") +
+        countByPrefix("MISSING_NO_CERTIFICADO"),
     },
     {
       key: "concept-taxes",
       label: "Impuestos por concepto",
       detected: isCfdi && hasConcepts,
       analyzed: isCfdi && hasConcepts,
-      skippedReason: isCfdi && !hasConcepts ? skipped("Complemento no detectado") : !isCfdi ? skipped("No aplica para XML de Retenciones") : null,
+      skippedReason:
+        isCfdi && !hasConcepts
+          ? skipped("Complemento no detectado")
+          : !isCfdi
+            ? skipped("No aplica para XML de Retenciones")
+            : null,
       findingsCount: countByPrefix("CONCEPT_"),
     },
     {
@@ -400,7 +447,11 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       label: "Impuestos globales",
       detected: hasGlobalTaxes,
       analyzed: hasGlobalTaxes,
-      skippedReason: hasGlobalTaxes ? null : isRetenciones ? skipped("No aplica para XML de Retenciones") : skipped("Complemento no detectado"),
+      skippedReason: hasGlobalTaxes
+        ? null
+        : isRetenciones
+          ? skipped("No aplica para XML de Retenciones")
+          : skipped("Complemento no detectado"),
       findingsCount: countByPrefix("GLOBAL_"),
     },
     {
@@ -408,7 +459,11 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       label: "Complemento Pago",
       detected: hasPayment,
       analyzed: hasPayment,
-      skippedReason: hasPayment ? null : isRetenciones ? skipped("No aplica para XML de Retenciones") : skipped("Complemento no detectado"),
+      skippedReason: hasPayment
+        ? null
+        : isRetenciones
+          ? skipped("No aplica para XML de Retenciones")
+          : skipped("Complemento no detectado"),
       findingsCount: countByPrefix("PAYMENT_") + countByPrefix("RELATED_DOCUMENT_"),
     },
     {
@@ -417,7 +472,12 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       detected: hasRelations,
       analyzed: hasRelations,
       skippedReason: hasRelations ? null : skipped("Complemento no detectado"),
-      findingsCount: countByPrefix("CFDI_RELATION_") + countByPrefix("CFDI_RELATED_") + countByPrefix("CFDI_SELF_RELATION") + countByPrefix("EGRESO_WITHOUT_CFDI_RELACIONADOS") + countByPrefix("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW"),
+      findingsCount:
+        countByPrefix("CFDI_RELATION_") +
+        countByPrefix("CFDI_RELATED_") +
+        countByPrefix("CFDI_SELF_RELATION") +
+        countByPrefix("EGRESO_WITHOUT_CFDI_RELACIONADOS") +
+        countByPrefix("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW"),
     },
     {
       key: "carta-porte",
@@ -441,7 +501,9 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
       detected: hasComercioExterior,
       analyzed: hasComercioExterior,
       skippedReason: hasComercioExterior ? null : skipped("Complemento no detectado"),
-      findingsCount: countByPrefix("COMERCIO_EXTERIOR_") + countByPrefix("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR"),
+      findingsCount:
+        countByPrefix("COMERCIO_EXTERIOR_") +
+        countByPrefix("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR"),
     },
     {
       key: "impuestos-locales",
@@ -490,7 +552,18 @@ export function buildAnalysisCoverage(result: CfdiAnalysisResult): AnalysisCover
   if (hasRetenciones) complementsDetected.push("Retenciones");
 
   const complementsKnown = complementsDetected.filter((c) =>
-    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda", "Retenciones"].includes(c)
+    [
+      "TimbreFiscalDigital",
+      "Pagos",
+      "CartaPorte",
+      "Nomina",
+      "ComercioExterior",
+      "ImpuestosLocales",
+      "LeyendasFiscales",
+      "Donatarias",
+      "Addenda",
+      "Retenciones",
+    ].includes(c),
   );
 
   const knownSet = new Set(complementsKnown);
@@ -1089,11 +1162,14 @@ function looksLikeAuthorizationNumber(value: string | null | undefined): boolean
 function looksLikeRfc(value: string | null | undefined): boolean {
   if (!value) return false;
   const cleaned = value.trim().toUpperCase();
-  return /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{2,3}[0-9A-Z]$/.test(cleaned);
+  return /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{2,3}[0-9A-Z]$/.test(
+    cleaned,
+  );
 }
 
 function hasTimbreInNode(node: Record<string, unknown>): boolean {
-  const complemento = (get(node, "cfdi:Complemento") as Record<string, unknown>) ??
+  const complemento =
+    (get(node, "cfdi:Complemento") as Record<string, unknown>) ??
     (get(node, "retenciones:Complemento") as Record<string, unknown>) ??
     (get(node, "Complemento") as Record<string, unknown>) ??
     {};
@@ -1354,18 +1430,61 @@ const ADDENDA_VALUE_TRUNCATE = 120;
 function normalizeAddendaKey(key: string): string {
   return key
     .toLowerCase()
-    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
     .replace(/[_\-:.\s]+/g, "")
     .replace(/[^a-z0-9]/g, "");
 }
 
-function classifyAddendaSignal(normalizedKey: string, path: string, value: string): { label: string; confidence: "HIGH" | "MEDIUM" | "LOW" } | null {
+function classifyAddendaSignal(
+  normalizedKey: string,
+  path: string,
+  value: string,
+): { label: string; confidence: "HIGH" | "MEDIUM" | "LOW" } | null {
   const highKeywords: Record<string, string[]> = {
-    PURCHASE_ORDER: ["ordencompra", "ordendecompra", "purchaseorder", "purchaseordernumber", "po", "ponumber", "pedido", "pedidoexterno", "numpedido", "numeropedido", "ordernumber"],
-    GOODS_RECEIPT: ["entradamercancia", "entrada", "recepcion", "receipt", "goodsreceipt", "gr", "grnumber", "remision", "deliverynote", "recepcionmercancia"],
-    VENDOR_ID: ["proveedor", "vendor", "supplier", "supplierid", "vendorid", "numeroproveedor", "numproveedor"],
+    PURCHASE_ORDER: [
+      "ordencompra",
+      "ordendecompra",
+      "purchaseorder",
+      "purchaseordernumber",
+      "po",
+      "ponumber",
+      "pedido",
+      "pedidoexterno",
+      "numpedido",
+      "numeropedido",
+      "ordernumber",
+    ],
+    GOODS_RECEIPT: [
+      "entradamercancia",
+      "entrada",
+      "recepcion",
+      "receipt",
+      "goodsreceipt",
+      "gr",
+      "grnumber",
+      "remision",
+      "deliverynote",
+      "recepcionmercancia",
+    ],
+    VENDOR_ID: [
+      "proveedor",
+      "vendor",
+      "supplier",
+      "supplierid",
+      "vendorid",
+      "numeroproveedor",
+      "numproveedor",
+    ],
     CUSTOMER_ID: ["cliente", "customer", "customerid", "shipto", "soldto", "billto"],
-    REFERENCE: ["referencia", "reference", "ref", "foliointerno", "documentref", "documentreference"],
+    REFERENCE: [
+      "referencia",
+      "reference",
+      "ref",
+      "foliointerno",
+      "documentref",
+      "documentreference",
+    ],
     COMPANY_CODE: ["sociedad", "companycode", "bukrs"],
     PLANT: ["centro", "plant", "werks", "site"],
   };
@@ -1418,7 +1537,9 @@ function extractAddendaInfo(addendaNode: Record<string, unknown>): AddendaInfo {
       if (val === null || val === undefined) continue;
 
       if (typeof val === "object" && !Array.isArray(val)) {
-        const childKeys = Object.keys(val as Record<string, unknown>).filter((k) => !k.startsWith("@_"));
+        const childKeys = Object.keys(val as Record<string, unknown>).filter(
+          (k) => !k.startsWith("@_"),
+        );
         if (childKeys.length > 0) {
           childCount++;
           traverse(val as Record<string, unknown>, childPath, depth + 1);
@@ -1443,9 +1564,10 @@ function extractAddendaInfo(addendaNode: Record<string, unknown>): AddendaInfo {
         // long string without spaces that might still be a key
       }
 
-      const truncatedVal = strVal.length > ADDENDA_VALUE_TRUNCATE
-        ? strVal.slice(0, ADDENDA_VALUE_TRUNCATE) + "..."
-        : strVal;
+      const truncatedVal =
+        strVal.length > ADDENDA_VALUE_TRUNCATE
+          ? strVal.slice(0, ADDENDA_VALUE_TRUNCATE) + "..."
+          : strVal;
 
       const normalizedKey = normalizeAddendaKey(key);
       const classification = classifyAddendaSignal(normalizedKey, childPath, truncatedVal);
@@ -1583,14 +1705,26 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     null;
 
   const isRetenciones =
-    retencionesNode !== null && typeof retencionesNode === "object" && Object.keys(retencionesNode).length > 0;
+    retencionesNode !== null &&
+    typeof retencionesNode === "object" &&
+    Object.keys(retencionesNode).length > 0;
 
   if (isRetenciones) {
     diag.hasTimbreFiscalDigital = hasTimbreInNode(retencionesNode);
     diag.isStamped = diag.hasTimbreFiscalDigital;
     return buildRetencionesResult(
-      retencionesNode, rawXml, xmlContent, originalFilename, originalSha256, normalizedSha256, diag,
-      safeNormalizationApplied, bomDetected, leadingContentBeforeXml, startedAt, inputBytes,
+      retencionesNode,
+      rawXml,
+      xmlContent,
+      originalFilename,
+      originalSha256,
+      normalizedSha256,
+      diag,
+      safeNormalizationApplied,
+      bomDetected,
+      leadingContentBeforeXml,
+      startedAt,
+      inputBytes,
     );
   }
 
@@ -2388,7 +2522,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       tipoOperacion: str(get(comercioExteriorNode, "@_TipoOperacion")) ?? null,
       claveDePedimento: str(get(comercioExteriorNode, "@_ClaveDePedimento")) ?? null,
       certificadoOrigen: str(get(comercioExteriorNode, "@_CertificadoOrigen")) ?? null,
-      numeroExportadorConfiable: str(get(comercioExteriorNode, "@_NumeroExportadorConfiable")) ?? null,
+      numeroExportadorConfiable:
+        str(get(comercioExteriorNode, "@_NumeroExportadorConfiable")) ?? null,
       incoterm: str(get(comercioExteriorNode, "@_Incoterm")) ?? null,
       subDivision: str(get(comercioExteriorNode, "@_SubDivision")) ?? null,
       observaciones: str(get(comercioExteriorNode, "@_Observaciones")) ?? null,
@@ -2411,7 +2546,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     Object.keys(impuestosLocalesNode).length > 0
   ) {
     const ilVersion = strAttr(impuestosLocalesNode, "Version");
-    const ilTotalRetenciones = strAttr(impuestosLocalesNode, "TotaldeRetenciones", "TotalDeRetenciones");
+    const ilTotalRetenciones = strAttr(
+      impuestosLocalesNode,
+      "TotaldeRetenciones",
+      "TotalDeRetenciones",
+    );
     const ilTotalTraslados = strAttr(impuestosLocalesNode, "TotaldeTraslados", "TotalDeTraslados");
 
     // RetencionesLocales
@@ -2448,13 +2587,13 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       trasladosRaw = Array.isArray(rawTr) ? rawTr : rawTr ? [rawTr] : [];
     }
 
-    const traslados: ImpuestoLocalTrasladoInfo[] = (
-      trasladosRaw as Record<string, unknown>[]
-    ).map((t) => ({
-      impLocTrasladado: str(get(t, "@_ImpLocTrasladado")) ?? null,
-      tasaDeTraslado: strAttr(t, "TasadeTraslado", "TasaDeTraslado"),
-      importe: str(get(t, "@_Importe")) ?? null,
-    }));
+    const traslados: ImpuestoLocalTrasladoInfo[] = (trasladosRaw as Record<string, unknown>[]).map(
+      (t) => ({
+        impLocTrasladado: str(get(t, "@_ImpLocTrasladado")) ?? null,
+        tasaDeTraslado: strAttr(t, "TasadeTraslado", "TasaDeTraslado"),
+        importe: str(get(t, "@_Importe")) ?? null,
+      }),
+    );
 
     impuestosLocales = {
       version: ilVersion,
@@ -5485,7 +5624,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     // E) COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW
-    if (isNonEmptyString(comercioExterior.tipoOperacion) && !["1", "2"].includes(comercioExterior.tipoOperacion.trim())) {
+    if (
+      isNonEmptyString(comercioExterior.tipoOperacion) &&
+      !["1", "2"].includes(comercioExterior.tipoOperacion.trim())
+    ) {
       addFindingOnce({
         severity: "INFO",
         category: "COMPLEMENT",
@@ -5511,10 +5653,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "COMPLEMENT",
           code: "COMERCIO_EXTERIOR_TOTAL_USD_MISMATCH",
           title: "TotalUSD no coincide con total del CFDI",
-          message:
-            "El valor de TotalUSD en el complemento difiere del total del comprobante.",
-          recommendedAction:
-            "Verifica que el monto en dólares coincida con el total del CFDI.",
+          message: "El valor de TotalUSD en el complemento difiere del total del comprobante.",
+          recommendedAction: "Verifica que el monto en dólares coincida con el total del CFDI.",
           evidence: [
             { label: "TotalUSD", value: comercioExterior.totalUSD ?? "—" },
             { label: "Total CFDI", value: total },
@@ -5530,10 +5670,12 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     const ilRetTotal = toMoneyNumber(impuestosLocales.totalDeRetenciones);
     const ilTrasTotal = toMoneyNumber(impuestosLocales.totalDeTraslados);
     const sumaRetenciones = impuestosLocales.retenciones.reduce(
-      (acc, r) => acc + toMoneyNumber(r.importe), 0,
+      (acc, r) => acc + toMoneyNumber(r.importe),
+      0,
     );
     const sumaTraslados = impuestosLocales.traslados.reduce(
-      (acc, t) => acc + toMoneyNumber(t.importe), 0,
+      (acc, t) => acc + toMoneyNumber(t.importe),
+      0,
     );
 
     // A) IMPUESTOS_LOCALES_DETECTED
@@ -5581,8 +5723,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         title: "Versión de Impuestos Locales requiere revisión",
         message:
           "El complemento Impuestos Locales tiene una versión no reconocida por el motor actual.",
-        recommendedAction:
-          "Confirma que la versión del complemento corresponda al XML analizado.",
+        recommendedAction: "Confirma que la versión del complemento corresponda al XML analizado.",
         evidence: [
           { label: "Versión detectada", value: impuestosLocales.version ?? "—" },
           { label: "UUID", value: uuid ?? "—" },
@@ -5597,8 +5738,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "COMPLEMENT",
         code: "IMPUESTOS_LOCALES_WITHOUT_LINES",
         title: "Impuestos Locales sin retenciones ni traslados",
-        message:
-          "El complemento Impuestos Locales no contiene retenciones ni traslados locales.",
+        message: "El complemento Impuestos Locales no contiene retenciones ni traslados locales.",
         recommendedAction:
           "Revisa si el complemento fue generado incompleto o si no debía incluirse.",
         evidence: [
@@ -5755,8 +5895,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "COMPLEMENT",
           code: "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISMATCH",
           title: "Total de retenciones locales no coincide",
-          message:
-            "TotaldeRetenciones no coincide con la suma de retenciones locales.",
+          message: "TotaldeRetenciones no coincide con la suma de retenciones locales.",
           recommendedAction:
             "Revisa TotaldeRetenciones y los importes de RetencionesLocales antes de utilizar este XML.",
           evidence: [
@@ -5779,8 +5918,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           category: "COMPLEMENT",
           code: "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISMATCH",
           title: "Total de traslados locales no coincide",
-          message:
-            "TotaldeTraslados no coincide con la suma de traslados locales.",
+          message: "TotaldeTraslados no coincide con la suma de traslados locales.",
           recommendedAction:
             "Revisa TotaldeTraslados y los importes de TrasladosLocales antes de utilizar este XML.",
           evidence: [
@@ -5795,14 +5933,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     // M) IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISSING_REVIEW
-    if (impuestosLocales.retenciones.length > 0 && !isNonEmptyString(impuestosLocales.totalDeRetenciones)) {
+    if (
+      impuestosLocales.retenciones.length > 0 &&
+      !isNonEmptyString(impuestosLocales.totalDeRetenciones)
+    ) {
       addFindingOnce({
         severity: "INFO",
         category: "COMPLEMENT",
         code: "IMPUESTOS_LOCALES_TOTAL_RETENCIONES_MISSING_REVIEW",
         title: "Total de retenciones locales no declarado",
-        message:
-          "Se detectaron retenciones locales, pero no se detectó TotaldeRetenciones.",
+        message: "Se detectaron retenciones locales, pero no se detectó TotaldeRetenciones.",
         recommendedAction:
           "Revisa si el complemento debe declarar el total de retenciones locales.",
         evidence: [
@@ -5814,16 +5954,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     // N) IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISSING_REVIEW
-    if (impuestosLocales.traslados.length > 0 && !isNonEmptyString(impuestosLocales.totalDeTraslados)) {
+    if (
+      impuestosLocales.traslados.length > 0 &&
+      !isNonEmptyString(impuestosLocales.totalDeTraslados)
+    ) {
       addFindingOnce({
         severity: "INFO",
         category: "COMPLEMENT",
         code: "IMPUESTOS_LOCALES_TOTAL_TRASLADOS_MISSING_REVIEW",
         title: "Total de traslados locales no declarado",
-        message:
-          "Se detectaron traslados locales, pero no se detectó TotaldeTraslados.",
-        recommendedAction:
-          "Revisa si el complemento debe declarar el total de traslados locales.",
+        message: "Se detectaron traslados locales, pero no se detectó TotaldeTraslados.",
+        recommendedAction: "Revisa si el complemento debe declarar el total de traslados locales.",
         evidence: [
           { label: "Suma traslados", value: formatMoney(sumaTraslados) },
           { label: "Total líneas traslado", value: String(impuestosLocales.traslados.length) },
@@ -5883,8 +6024,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "STRUCTURE",
         code: "ADDENDA_PURCHASE_ORDER_DETECTED",
         title: "Orden de compra detectada en Addenda",
-        message:
-          "Se detectó una posible orden de compra o pedido dentro de la Addenda.",
+        message: "Se detectó una posible orden de compra o pedido dentro de la Addenda.",
         recommendedAction:
           "Usa esta referencia para conciliación operativa o match contra ERP si aplica.",
         evidence: poSignals.slice(0, 5).map((s) => ({
@@ -5906,8 +6046,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         title: "Recepción o entrada de mercancía detectada en Addenda",
         message:
           "Se detectó una posible recepción, entrada de mercancía o goods receipt dentro de la Addenda.",
-        recommendedAction:
-          "Usa esta referencia para conciliación operativa si aplica.",
+        recommendedAction: "Usa esta referencia para conciliación operativa si aplica.",
         evidence: grSignals.slice(0, 5).map((s) => ({
           label: `Señal GOODS_RECEIPT`,
           value: `${s.path} = ${s.value} (${s.confidence})`,
@@ -5925,8 +6064,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "STRUCTURE",
         code: "ADDENDA_VENDOR_REFERENCE_DETECTED",
         title: "Referencia de proveedor detectada en Addenda",
-        message:
-          "Se detectó una posible referencia de proveedor dentro de la Addenda.",
+        message: "Se detectó una posible referencia de proveedor dentro de la Addenda.",
         recommendedAction:
           "Valida si esta referencia corresponde al número de proveedor usado por el cliente o ERP.",
         evidence: vendorSignals.slice(0, 5).map((s) => ({
@@ -6147,8 +6285,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         category: "COMPLEMENT",
         code: "DONATARIAS_VERSION_REVIEW",
         title: "Versión de Donatarias requiere revisión",
-        message:
-          "El complemento Donatarias tiene una versión no reconocida por el motor actual.",
+        message: "El complemento Donatarias tiene una versión no reconocida por el motor actual.",
         recommendedAction: "Confirma que la versión del complemento corresponda al XML analizado.",
         evidence: [
           { label: "Versión detectada", value: donatarias.version },
@@ -6165,8 +6302,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         code: "DONATARIAS_MISSING_NO_AUTORIZACION",
         title: "Número de autorización de Donatarias faltante",
         message: "No se detectó NoAutorizacion en el complemento Donatarias.",
-        recommendedAction:
-          "Revisa el número de autorización de donataria capturado en el XML.",
+        recommendedAction: "Revisa el número de autorización de donataria capturado en el XML.",
         evidence: [
           { label: "Versión", value: donatarias.version ?? "—" },
           { label: "FechaAutorizacion", value: donatarias.fechaAutorizacion ?? "—" },
@@ -6176,7 +6312,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     // M) DONATARIAS_NO_AUTORIZACION_FORMAT_REVIEW
-    if (isNonEmptyString(donatarias.noAutorizacion) && !looksLikeAuthorizationNumber(donatarias.noAutorizacion)) {
+    if (
+      isNonEmptyString(donatarias.noAutorizacion) &&
+      !looksLikeAuthorizationNumber(donatarias.noAutorizacion)
+    ) {
       addFindingOnce({
         severity: "INFO",
         category: "COMPLEMENT",
@@ -6210,7 +6349,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     // O) DONATARIAS_FECHA_AUTORIZACION_INVALID
-    if (isNonEmptyString(donatarias.fechaAutorizacion) && !parseCfdiDate(donatarias.fechaAutorizacion)) {
+    if (
+      isNonEmptyString(donatarias.fechaAutorizacion) &&
+      !parseCfdiDate(donatarias.fechaAutorizacion)
+    ) {
       addFindingOnce({
         severity: "WARNING",
         category: "COMPLEMENT",
@@ -8155,11 +8297,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "EMISOR_REGIMEN_FISCAL_UNKNOWN_REVIEW",
       title: "Régimen fiscal del emisor no reconocido",
-      message: "El RégimenFiscal del emisor no está reconocido por el catálogo mínimo local del motor.",
+      message:
+        "El RégimenFiscal del emisor no está reconocido por el catálogo mínimo local del motor.",
       recommendedAction: "Revisa que el régimen fiscal del emisor sea válido para el CFDI.",
       evidence: [
         { label: "RFC emisor", value: rfcEmisor ?? "—" },
-        { label: "RégimenFiscal", value: regimenFiscalLabel ? `${regimenFiscal!} - ${regimenFiscalLabel}` : regimenFiscal! },
+        {
+          label: "RégimenFiscal",
+          value: regimenFiscalLabel ? `${regimenFiscal!} - ${regimenFiscalLabel}` : regimenFiscal!,
+        },
         { label: "UUID", value: uuid ?? "—" },
       ],
     });
@@ -8173,7 +8319,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       code: "RECEPTOR_REGIMEN_FISCAL_MISSING",
       title: "Régimen fiscal del receptor faltante",
       message: "No se detectó RégimenFiscalReceptor en el receptor del CFDI.",
-      recommendedAction: "Revisa que el nodo Receptor incluya RégimenFiscalReceptor conforme al CFDI 4.0.",
+      recommendedAction:
+        "Revisa que el nodo Receptor incluya RégimenFiscalReceptor conforme al CFDI 4.0.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
         { label: "Nombre receptor", value: nombreReceptor ?? "—" },
@@ -8190,11 +8337,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "RECEPTOR_REGIMEN_FISCAL_UNKNOWN_REVIEW",
       title: "Régimen fiscal del receptor no reconocido",
-      message: "El RégimenFiscalReceptor no está reconocido por el catálogo mínimo local del motor.",
+      message:
+        "El RégimenFiscalReceptor no está reconocido por el catálogo mínimo local del motor.",
       recommendedAction: "Revisa que el régimen fiscal del receptor sea válido para el CFDI.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
-        { label: "RégimenFiscalReceptor", value: regimenFiscalReceptorLabel ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}` : regimenFiscalReceptor! },
+        {
+          label: "RégimenFiscalReceptor",
+          value: regimenFiscalReceptorLabel
+            ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}`
+            : regimenFiscalReceptor!,
+        },
         { label: "UsoCFDI", value: usoCfdi ?? "—" },
         { label: "UUID", value: uuid ?? "—" },
       ],
@@ -8237,14 +8390,21 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   // G) EMISOR_RECEPTOR_SAME_RFC_REVIEW
-  if (isNonEmptyString(rfcEmisor) && isNonEmptyString(rfcReceptor) && normalizeRfc(rfcEmisor) === normalizeRfc(rfcReceptor) && !isNominaStrict) {
+  if (
+    isNonEmptyString(rfcEmisor) &&
+    isNonEmptyString(rfcReceptor) &&
+    normalizeRfc(rfcEmisor) === normalizeRfc(rfcReceptor) &&
+    !isNominaStrict
+  ) {
     addFindingOnce({
       severity: "INFO",
       category: "FISCAL",
       code: "EMISOR_RECEPTOR_SAME_RFC_REVIEW",
       title: "Emisor y receptor con el mismo RFC",
-      message: "El emisor y receptor tienen el mismo RFC. Puede ser válido en algunos escenarios, pero requiere revisión.",
-      recommendedAction: "Confirma si la operación permite que emisor y receptor sean el mismo contribuyente.",
+      message:
+        "El emisor y receptor tienen el mismo RFC. Puede ser válido en algunos escenarios, pero requiere revisión.",
+      recommendedAction:
+        "Confirma si la operación permite que emisor y receptor sean el mismo contribuyente.",
       evidence: [
         { label: "RFC emisor", value: rfcEmisor! },
         { label: "RFC receptor", value: rfcReceptor! },
@@ -8255,13 +8415,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   // K) FOREIGN_GENERIC_RFC_WITH_MXN_REVIEW
-  if (isGenericForeignRfc(rfcReceptor) && normalizeCurrency(moneda) === "MXN" && isNonEmptyString(exportacion) && ["02", "03", "04"].includes(normalizeExportacion(exportacion))) {
+  if (
+    isGenericForeignRfc(rfcReceptor) &&
+    normalizeCurrency(moneda) === "MXN" &&
+    isNonEmptyString(exportacion) &&
+    ["02", "03", "04"].includes(normalizeExportacion(exportacion))
+  ) {
     addFindingOnce({
       severity: "INFO",
       category: "FISCAL",
       code: "FOREIGN_GENERIC_RFC_WITH_MXN_REVIEW",
       title: "RFC extranjero con exportación y moneda MXN",
-      message: "El receptor usa RFC genérico extranjero con operación marcada como exportación y moneda MXN.",
+      message:
+        "El receptor usa RFC genérico extranjero con operación marcada como exportación y moneda MXN.",
       recommendedAction: "Confirma moneda, tipo de cambio y tratamiento de exportación.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
@@ -8308,18 +8474,28 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   // O) RECEPTOR_NOMINA_REGIMEN_REVIEW
-  if (isNominaStrict && isNonEmptyString(regimenFiscalReceptor) && regimenFiscalReceptor !== "605") {
+  if (
+    isNominaStrict &&
+    isNonEmptyString(regimenFiscalReceptor) &&
+    regimenFiscalReceptor !== "605"
+  ) {
     addFindingOnce({
       severity: "INFO",
       category: "FISCAL",
       code: "RECEPTOR_NOMINA_REGIMEN_REVIEW",
       title: "Nómina con régimen receptor distinto de sueldos y salarios",
       message: "El CFDI de nómina tiene RégimenFiscalReceptor distinto de 605.",
-      recommendedAction: "Confirma que el régimen fiscal del receptor sea consistente con el recibo de nómina.",
+      recommendedAction:
+        "Confirma que el régimen fiscal del receptor sea consistente con el recibo de nómina.",
       evidence: [
         { label: "Tipo comprobante", value: tipoComprobante! },
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
-        { label: "RégimenFiscalReceptor", value: regimenFiscalReceptorLabel ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}` : regimenFiscalReceptor! },
+        {
+          label: "RégimenFiscalReceptor",
+          value: regimenFiscalReceptorLabel
+            ? `${regimenFiscalReceptor!} - ${regimenFiscalReceptorLabel}`
+            : regimenFiscalReceptor!,
+        },
         { label: "UUID", value: uuid ?? "—" },
       ],
     });
@@ -8332,11 +8508,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "RECEPTOR_USO_CFDI_DEDUCCIONES_WITH_GENERIC_RFC_REVIEW",
       title: "UsoCFDI de deducción personal con RFC genérico",
-      message: "El comprobante usa un UsoCFDI de deducción personal con RFC genérico, lo cual requiere revisión fiscal.",
-      recommendedAction: "Confirma que el receptor y el UsoCFDI sean correctos para efectos fiscales.",
+      message:
+        "El comprobante usa un UsoCFDI de deducción personal con RFC genérico, lo cual requiere revisión fiscal.",
+      recommendedAction:
+        "Confirma que el receptor y el UsoCFDI sean correctos para efectos fiscales.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
-        { label: "UsoCFDI", value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi! },
+        {
+          label: "UsoCFDI",
+          value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi!,
+        },
         { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
         { label: "UUID", value: uuid ?? "—" },
       ],
@@ -8350,11 +8531,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       category: "FISCAL",
       code: "RECEPTOR_USO_CFDI_INVERSION_WITH_GENERIC_RFC_REVIEW",
       title: "UsoCFDI de inversión con RFC genérico",
-      message: "El comprobante usa UsoCFDI de inversión con RFC genérico. Puede requerir revisión según el escenario.",
+      message:
+        "El comprobante usa UsoCFDI de inversión con RFC genérico. Puede requerir revisión según el escenario.",
       recommendedAction: "Confirma si el uso de CFDI y receptor son consistentes.",
       evidence: [
         { label: "RFC receptor", value: rfcReceptor ?? "—" },
-        { label: "UsoCFDI", value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi! },
+        {
+          label: "UsoCFDI",
+          value: getUsoCfdiLabel(usoCfdi) ? `${usoCfdi!} - ${getUsoCfdiLabel(usoCfdi)}` : usoCfdi!,
+        },
         { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
         { label: "UUID", value: uuid ?? "—" },
       ],
@@ -8470,7 +8655,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   if (donatarias) cDetected.push("Donatarias");
   if (addendaDetected) cDetected.push("Addenda");
   const cKnown = cDetected.filter((c) =>
-    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda"].includes(c)
+    [
+      "TimbreFiscalDigital",
+      "Pagos",
+      "CartaPorte",
+      "Nomina",
+      "ComercioExterior",
+      "ImpuestosLocales",
+      "LeyendasFiscales",
+      "Donatarias",
+      "Addenda",
+    ].includes(c),
   );
   const cUnknown = cDetected.filter((c) => !new Set(cKnown).has(c));
 
@@ -8492,20 +8687,145 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     coverage: {
       documentKind: "CFDI",
       modules: [
-        { key: "cfdi-base", label: "CFDI Base", detected: true, analyzed: true, skippedReason: null, findingsCount: countBP("COMPROBANTE_") + countBP("EMISOR_") + countBP("RECEPTOR_") + countBP("GENERIC_RFC_") + countBP("EXPORTACION_") + countBP("SERIE_FOLIO_") + countBP("MONEDA_") + countBP("LUGAR_EXPEDICION_") + countBP("FECHA_") + countBP("TOTAL_") + countBP("SUBTOTAL_") + countBP("FORMA_PAGO_") + countBP("METODO_PAGO_") + countBP("DESCUENTO_") },
-        { key: "retenciones", label: "Retenciones", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
-        { key: "timbre-fiscal-digital", label: "Timbre Fiscal Digital", detected: diag.hasTimbreFiscalDigital, analyzed: diag.hasTimbreFiscalDigital, skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado", findingsCount: countBP("MISSING_TFD_") + countBP("TFD_") + countBP("TIMBRADO_") + countBP("MISSING_COMPROBANTE_") + countBP("NO_CERTIFICADO_") + countBP("MISSING_RFC_PROV_CERTIF") + countBP("MISSING_NO_CERTIFICADO") },
-        { key: "concept-taxes", label: "Impuestos por concepto", detected: concepts !== null && concepts !== undefined, analyzed: concepts !== null && concepts !== undefined, skippedReason: concepts ? null : "Complemento no detectado", findingsCount: countBP("CONCEPT_") },
-        { key: "global-taxes", label: "Impuestos globales", detected: globalTaxes !== null && globalTaxes !== undefined, analyzed: globalTaxes !== null && globalTaxes !== undefined, skippedReason: globalTaxes ? null : "Complemento no detectado", findingsCount: countBP("GLOBAL_") },
-        { key: "payment-complement", label: "Complemento Pago", detected: !!paymentComplement, analyzed: !!paymentComplement, skippedReason: paymentComplement ? null : "Complemento no detectado", findingsCount: countBP("PAYMENT_") + countBP("RELATED_DOCUMENT_") },
-        { key: "cfdi-relations", label: "CFDI Relacionados", detected: !!cfdiRelations, analyzed: !!cfdiRelations, skippedReason: cfdiRelations ? null : "Complemento no detectado", findingsCount: countBP("CFDI_RELATION_") + countBP("CFDI_RELATED_") + countBP("CFDI_SELF_RELATION") + countBP("EGRESO_WITHOUT_CFDI_RELACIONADOS") + countBP("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW") },
-        { key: "carta-porte", label: "Carta Porte", detected: !!cartaPorte, analyzed: !!cartaPorte, skippedReason: cartaPorte ? null : "Complemento no detectado", findingsCount: countBP("CARTA_PORTE_") },
-        { key: "nomina", label: "Nómina", detected: !!nomina, analyzed: !!nomina, skippedReason: nomina ? null : "Complemento no detectado", findingsCount: countBP("NOMINA_") + countBP("RECEPTOR_NOMINA_") },
-        { key: "comercio-exterior", label: "Comercio Exterior", detected: !!comercioExterior, analyzed: !!comercioExterior, skippedReason: comercioExterior ? null : "Complemento no detectado", findingsCount: countBP("COMERCIO_EXTERIOR_") + countBP("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR") },
-        { key: "impuestos-locales", label: "Impuestos Locales", detected: !!impuestosLocales, analyzed: !!impuestosLocales, skippedReason: impuestosLocales ? null : "Complemento no detectado", findingsCount: countBP("IMPUESTOS_LOCALES_") },
-        { key: "leyendas-fiscales", label: "Leyendas Fiscales", detected: !!leyendasFiscales, analyzed: !!leyendasFiscales, skippedReason: leyendasFiscales ? null : "Complemento no detectado", findingsCount: countBP("LEYENDAS_FISCALES_") + countBP("LEYENDA_FISCAL_") },
-        { key: "donatarias", label: "Donatarias", detected: !!donatarias, analyzed: !!donatarias, skippedReason: donatarias ? null : "Complemento no detectado", findingsCount: countBP("DONATARIAS_") },
-        { key: "addenda", label: "Addenda", detected: addendaDetected, analyzed: addendaDetected, skippedReason: addendaDetected ? null : "Complemento no detectado", findingsCount: countBP("ADDENDA_") },
+        {
+          key: "cfdi-base",
+          label: "CFDI Base",
+          detected: true,
+          analyzed: true,
+          skippedReason: null,
+          findingsCount:
+            countBP("COMPROBANTE_") +
+            countBP("EMISOR_") +
+            countBP("RECEPTOR_") +
+            countBP("GENERIC_RFC_") +
+            countBP("EXPORTACION_") +
+            countBP("SERIE_FOLIO_") +
+            countBP("MONEDA_") +
+            countBP("LUGAR_EXPEDICION_") +
+            countBP("FECHA_") +
+            countBP("TOTAL_") +
+            countBP("SUBTOTAL_") +
+            countBP("FORMA_PAGO_") +
+            countBP("METODO_PAGO_") +
+            countBP("DESCUENTO_"),
+        },
+        {
+          key: "retenciones",
+          label: "Retenciones",
+          detected: false,
+          analyzed: false,
+          skippedReason: "No aplica para XML de Retenciones",
+          findingsCount: 0,
+        },
+        {
+          key: "timbre-fiscal-digital",
+          label: "Timbre Fiscal Digital",
+          detected: diag.hasTimbreFiscalDigital,
+          analyzed: diag.hasTimbreFiscalDigital,
+          skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado",
+          findingsCount:
+            countBP("MISSING_TFD_") +
+            countBP("TFD_") +
+            countBP("TIMBRADO_") +
+            countBP("MISSING_COMPROBANTE_") +
+            countBP("NO_CERTIFICADO_") +
+            countBP("MISSING_RFC_PROV_CERTIF") +
+            countBP("MISSING_NO_CERTIFICADO"),
+        },
+        {
+          key: "concept-taxes",
+          label: "Impuestos por concepto",
+          detected: concepts !== null && concepts !== undefined,
+          analyzed: concepts !== null && concepts !== undefined,
+          skippedReason: concepts ? null : "Complemento no detectado",
+          findingsCount: countBP("CONCEPT_"),
+        },
+        {
+          key: "global-taxes",
+          label: "Impuestos globales",
+          detected: globalTaxes !== null && globalTaxes !== undefined,
+          analyzed: globalTaxes !== null && globalTaxes !== undefined,
+          skippedReason: globalTaxes ? null : "Complemento no detectado",
+          findingsCount: countBP("GLOBAL_"),
+        },
+        {
+          key: "payment-complement",
+          label: "Complemento Pago",
+          detected: !!paymentComplement,
+          analyzed: !!paymentComplement,
+          skippedReason: paymentComplement ? null : "Complemento no detectado",
+          findingsCount: countBP("PAYMENT_") + countBP("RELATED_DOCUMENT_"),
+        },
+        {
+          key: "cfdi-relations",
+          label: "CFDI Relacionados",
+          detected: !!cfdiRelations,
+          analyzed: !!cfdiRelations,
+          skippedReason: cfdiRelations ? null : "Complemento no detectado",
+          findingsCount:
+            countBP("CFDI_RELATION_") +
+            countBP("CFDI_RELATED_") +
+            countBP("CFDI_SELF_RELATION") +
+            countBP("EGRESO_WITHOUT_CFDI_RELACIONADOS") +
+            countBP("PAYMENT_WITH_CFDI_RELACIONADOS_REVIEW"),
+        },
+        {
+          key: "carta-porte",
+          label: "Carta Porte",
+          detected: !!cartaPorte,
+          analyzed: !!cartaPorte,
+          skippedReason: cartaPorte ? null : "Complemento no detectado",
+          findingsCount: countBP("CARTA_PORTE_"),
+        },
+        {
+          key: "nomina",
+          label: "Nómina",
+          detected: !!nomina,
+          analyzed: !!nomina,
+          skippedReason: nomina ? null : "Complemento no detectado",
+          findingsCount: countBP("NOMINA_") + countBP("RECEPTOR_NOMINA_"),
+        },
+        {
+          key: "comercio-exterior",
+          label: "Comercio Exterior",
+          detected: !!comercioExterior,
+          analyzed: !!comercioExterior,
+          skippedReason: comercioExterior ? null : "Complemento no detectado",
+          findingsCount:
+            countBP("COMERCIO_EXTERIOR_") + countBP("EXPORTACION_WITHOUT_COMERCIO_EXTERIOR"),
+        },
+        {
+          key: "impuestos-locales",
+          label: "Impuestos Locales",
+          detected: !!impuestosLocales,
+          analyzed: !!impuestosLocales,
+          skippedReason: impuestosLocales ? null : "Complemento no detectado",
+          findingsCount: countBP("IMPUESTOS_LOCALES_"),
+        },
+        {
+          key: "leyendas-fiscales",
+          label: "Leyendas Fiscales",
+          detected: !!leyendasFiscales,
+          analyzed: !!leyendasFiscales,
+          skippedReason: leyendasFiscales ? null : "Complemento no detectado",
+          findingsCount: countBP("LEYENDAS_FISCALES_") + countBP("LEYENDA_FISCAL_"),
+        },
+        {
+          key: "donatarias",
+          label: "Donatarias",
+          detected: !!donatarias,
+          analyzed: !!donatarias,
+          skippedReason: donatarias ? null : "Complemento no detectado",
+          findingsCount: countBP("DONATARIAS_"),
+        },
+        {
+          key: "addenda",
+          label: "Addenda",
+          detected: addendaDetected,
+          analyzed: addendaDetected,
+          skippedReason: addendaDetected ? null : "Complemento no detectado",
+          findingsCount: countBP("ADDENDA_"),
+        },
       ],
       complementsDetected: cDetected,
       complementsKnown: cKnown,
@@ -8618,9 +8938,11 @@ function buildRetencionesResult(
   const lugarExpRetenc = strAttr(root, "LugarExpRetenc");
 
   // Emisor
-  const emisorNode = (get(root, "cfdi:Emisor") as Record<string, unknown>) ??
+  const emisorNode =
+    (get(root, "cfdi:Emisor") as Record<string, unknown>) ??
     (get(root, "retenciones:Emisor") as Record<string, unknown>) ??
-    (get(root, "Emisor") as Record<string, unknown>) ?? null;
+    (get(root, "Emisor") as Record<string, unknown>) ??
+    null;
   let emisor: RetencionesEmisorInfo | undefined;
   if (emisorNode && typeof emisorNode === "object") {
     emisor = {
@@ -8631,32 +8953,49 @@ function buildRetencionesResult(
   }
 
   // Receptor
-  const receptorNode = (get(root, "cfdi:Receptor") as Record<string, unknown>) ??
+  const receptorNode =
+    (get(root, "cfdi:Receptor") as Record<string, unknown>) ??
     (get(root, "retenciones:Receptor") as Record<string, unknown>) ??
-    (get(root, "Receptor") as Record<string, unknown>) ?? null;
+    (get(root, "Receptor") as Record<string, unknown>) ??
+    null;
   let receptor: RetencionesReceptorInfo | undefined;
   if (receptorNode && typeof receptorNode === "object") {
-    const nacional = (get(receptorNode, "cfdi:Nacional") as Record<string, unknown>) ??
+    const nacional =
+      (get(receptorNode, "cfdi:Nacional") as Record<string, unknown>) ??
       (get(receptorNode, "retenciones:Nacional") as Record<string, unknown>) ??
-      (get(receptorNode, "Nacional") as Record<string, unknown>) ?? null;
-    const extranjero = (get(receptorNode, "cfdi:Extranjero") as Record<string, unknown>) ??
+      (get(receptorNode, "Nacional") as Record<string, unknown>) ??
+      null;
+    const extranjero =
+      (get(receptorNode, "cfdi:Extranjero") as Record<string, unknown>) ??
       (get(receptorNode, "retenciones:Extranjero") as Record<string, unknown>) ??
-      (get(receptorNode, "Extranjero") as Record<string, unknown>) ?? null;
+      (get(receptorNode, "Extranjero") as Record<string, unknown>) ??
+      null;
     const nacionalidad = strAttr(receptorNode, "Nacionalidad");
     receptor = {
       nacionalidad,
-      rfcReceptor: nacional && typeof nacional === "object" ? str(get(nacional, "@_RfcR")) ?? null : null,
-      curp: nacional && typeof nacional === "object" ? str(get(nacional, "@_CURPR")) ?? null : null,
-      nombre: (nacional && typeof nacional === "object" ? str(get(nacional, "@_NomDenRazSocR")) : null) ??
-        (extranjero && typeof extranjero === "object" ? str(get(extranjero, "@_NomDenRazSocR")) : null) ?? null,
-      numRegIdTrib: extranjero && typeof extranjero === "object" ? str(get(extranjero, "@_NumRegIdTrib")) ?? null : null,
+      rfcReceptor:
+        nacional && typeof nacional === "object" ? (str(get(nacional, "@_RfcR")) ?? null) : null,
+      curp:
+        nacional && typeof nacional === "object" ? (str(get(nacional, "@_CURPR")) ?? null) : null,
+      nombre:
+        (nacional && typeof nacional === "object" ? str(get(nacional, "@_NomDenRazSocR")) : null) ??
+        (extranjero && typeof extranjero === "object"
+          ? str(get(extranjero, "@_NomDenRazSocR"))
+          : null) ??
+        null,
+      numRegIdTrib:
+        extranjero && typeof extranjero === "object"
+          ? (str(get(extranjero, "@_NumRegIdTrib")) ?? null)
+          : null,
     };
   }
 
   // Periodo
-  const periodoNode = (get(root, "cfdi:Periodo") as Record<string, unknown>) ??
+  const periodoNode =
+    (get(root, "cfdi:Periodo") as Record<string, unknown>) ??
     (get(root, "retenciones:Periodo") as Record<string, unknown>) ??
-    (get(root, "Periodo") as Record<string, unknown>) ?? null;
+    (get(root, "Periodo") as Record<string, unknown>) ??
+    null;
   let periodo: RetencionesPeriodoInfo | undefined;
   if (periodoNode && typeof periodoNode === "object") {
     periodo = {
@@ -8667,22 +9006,29 @@ function buildRetencionesResult(
   }
 
   // Totales
-  const totalesNode = (get(root, "cfdi:Totales") as Record<string, unknown>) ??
+  const totalesNode =
+    (get(root, "cfdi:Totales") as Record<string, unknown>) ??
     (get(root, "retenciones:Totales") as Record<string, unknown>) ??
-    (get(root, "Totales") as Record<string, unknown>) ?? null;
+    (get(root, "Totales") as Record<string, unknown>) ??
+    null;
   let totales: RetencionesTotalesInfo | undefined;
   if (totalesNode && typeof totalesNode === "object") {
-    const impRetenidosRaw = (get(totalesNode, "cfdi:ImpRetenidos") as Record<string, unknown>) ??
+    const impRetenidosRaw =
+      (get(totalesNode, "cfdi:ImpRetenidos") as Record<string, unknown>) ??
       (get(totalesNode, "retenciones:ImpRetenidos") as Record<string, unknown>) ??
-      (get(totalesNode, "ImpRetenidos") as Record<string, unknown>) ?? null;
+      (get(totalesNode, "ImpRetenidos") as Record<string, unknown>) ??
+      null;
     let impuestosRaw: unknown[] = [];
     if (impRetenidosRaw && typeof impRetenidosRaw === "object") {
-      const raw = (get(impRetenidosRaw, "cfdi:ImpRetenido") as unknown) ??
+      const raw =
+        (get(impRetenidosRaw, "cfdi:ImpRetenido") as unknown) ??
         (get(impRetenidosRaw, "retenciones:ImpRetenido") as unknown) ??
         (get(impRetenidosRaw, "ImpRetenido") as unknown);
       impuestosRaw = Array.isArray(raw) ? raw : raw ? [raw] : [];
     }
-    const impuestosRetenidos: RetencionImpuestoInfo[] = (impuestosRaw as Record<string, unknown>[]).map((ir) => ({
+    const impuestosRetenidos: RetencionImpuestoInfo[] = (
+      impuestosRaw as Record<string, unknown>[]
+    ).map((ir) => ({
       baseRet: str(get(ir, "@_BaseRet")) ?? null,
       impuesto: str(get(ir, "@_Impuesto")) ?? null,
       montoRet: str(get(ir, "@_MontoRet")) ?? null,
@@ -8699,10 +9045,13 @@ function buildRetencionesResult(
   }
 
   // Complemento / Timbre
-  const complemento = (get(root, "cfdi:Complemento") as Record<string, unknown>) ??
+  const complemento =
+    (get(root, "cfdi:Complemento") as Record<string, unknown>) ??
     (get(root, "retenciones:Complemento") as Record<string, unknown>) ??
-    (get(root, "Complemento") as Record<string, unknown>) ?? {};
-  const hasComplemento = complemento !== null && typeof complemento === "object" && Object.keys(complemento).length > 0;
+    (get(root, "Complemento") as Record<string, unknown>) ??
+    {};
+  const hasComplemento =
+    complemento !== null && typeof complemento === "object" && Object.keys(complemento).length > 0;
   const complementoNames: string[] = [];
   if (hasComplemento) {
     for (const key of Object.keys(complemento)) {
@@ -8711,12 +9060,15 @@ function buildRetencionesResult(
     }
   }
 
-  const timbreNode = (get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown>) ??
-    (get(complemento, "TimbreFiscalDigital") as Record<string, unknown>) ?? null;
-  const hasTimbre = timbreNode !== null && typeof timbreNode === "object" && Object.keys(timbreNode).length > 0;
-  const uuid = hasTimbre ? str(get(timbreNode!, "@_UUID")) ?? null : null;
-  const fechaTimbrado = hasTimbre ? str(get(timbreNode!, "@_FechaTimbrado")) ?? null : null;
-  const rfcProvCertif = hasTimbre ? str(get(timbreNode!, "@_RfcProvCertif")) ?? null : null;
+  const timbreNode =
+    (get(complemento, "tfd:TimbreFiscalDigital") as Record<string, unknown>) ??
+    (get(complemento, "TimbreFiscalDigital") as Record<string, unknown>) ??
+    null;
+  const hasTimbre =
+    timbreNode !== null && typeof timbreNode === "object" && Object.keys(timbreNode).length > 0;
+  const uuid = hasTimbre ? (str(get(timbreNode!, "@_UUID")) ?? null) : null;
+  const fechaTimbrado = hasTimbre ? (str(get(timbreNode!, "@_FechaTimbrado")) ?? null) : null;
+  const rfcProvCertif = hasTimbre ? (str(get(timbreNode!, "@_RfcProvCertif")) ?? null) : null;
 
   diag.hasTimbreFiscalDigital = hasTimbre;
   diag.isStamped = hasTimbre;
@@ -8862,7 +9214,10 @@ function buildRetencionesResult(
   }
 
   // I) RETENCIONES_MISSING_RECEPTOR
-  if (!receptor || (!isNonEmptyString(receptor.rfcReceptor) && !isNonEmptyString(receptor.numRegIdTrib))) {
+  if (
+    !receptor ||
+    (!isNonEmptyString(receptor.rfcReceptor) && !isNonEmptyString(receptor.numRegIdTrib))
+  ) {
     addFindingOnce({
       severity: "WARNING",
       category: "FISCAL",
@@ -8879,7 +9234,8 @@ function buildRetencionesResult(
   }
 
   // J) RETENCIONES_RECEPTOR_NACIONAL_MISSING_RFC
-  const isNacional = !receptor?.nacionalidad || normalizeText(receptor.nacionalidad).toUpperCase() !== "EXTRANJERO";
+  const isNacional =
+    !receptor?.nacionalidad || normalizeText(receptor.nacionalidad).toUpperCase() !== "EXTRANJERO";
   if (receptor && isNacional && !isNonEmptyString(receptor.rfcReceptor)) {
     addFindingOnce({
       severity: "WARNING",
@@ -8897,7 +9253,8 @@ function buildRetencionesResult(
   }
 
   // K) RETENCIONES_RECEPTOR_EXTRANJERO_MISSING_NUM_REG_ID_TRIB
-  const isExtranjero = receptor?.nacionalidad && normalizeText(receptor.nacionalidad).toUpperCase() === "EXTRANJERO";
+  const isExtranjero =
+    receptor?.nacionalidad && normalizeText(receptor.nacionalidad).toUpperCase() === "EXTRANJERO";
   if (receptor && isExtranjero && !isNonEmptyString(receptor.numRegIdTrib)) {
     addFindingOnce({
       severity: "WARNING",
@@ -9008,8 +9365,7 @@ function buildRetencionesResult(
           category: "TOTALS",
           code: "RETENCIONES_TOTAL_RET_MISMATCH",
           title: "Monto total retenido no coincide",
-          message:
-            "MontoTotRet no coincide con la suma de MontoRet de los impuestos retenidos.",
+          message: "MontoTotRet no coincide con la suma de MontoRet de los impuestos retenidos.",
           recommendedAction:
             "Revisa MontoTotRet y los impuestos retenidos antes de utilizar este XML.",
           evidence: [
@@ -9017,7 +9373,10 @@ function buildRetencionesResult(
             { label: "Suma MontoRet", value: sumMontoRet.toFixed(2) },
             { label: "Diferencia", value: Math.abs(montoTotRetVal - sumMontoRet).toFixed(2) },
             { label: "Tolerancia", value: "0.01" },
-            { label: "Total impuestos retenidos", value: String(totales.impuestosRetenidos.length) },
+            {
+              label: "Total impuestos retenidos",
+              value: String(totales.impuestosRetenidos.length),
+            },
           ],
         });
       }
@@ -9032,7 +9391,7 @@ function buildRetencionesResult(
       const montoOp = toMoneyNumber(totales.montoTotOperacion);
       const montoGrav = toMoneyNumber(totales.montoTotGrav);
       const montoExent = toMoneyNumber(totales.montoTotExent);
-      if (Math.abs((montoGrav + montoExent) - montoOp) > 0.01) {
+      if (Math.abs(montoGrav + montoExent - montoOp) > 0.01) {
         addFindingOnce({
           severity: "WARNING",
           category: "TOTALS",
@@ -9045,7 +9404,7 @@ function buildRetencionesResult(
             { label: "MontoTotGrav", value: totales.montoTotGrav },
             { label: "MontoTotExent", value: totales.montoTotExent },
             { label: "Suma calculada", value: (montoGrav + montoExent).toFixed(2) },
-            { label: "Diferencia", value: Math.abs((montoGrav + montoExent) - montoOp).toFixed(2) },
+            { label: "Diferencia", value: Math.abs(montoGrav + montoExent - montoOp).toFixed(2) },
           ],
         });
       }
@@ -9196,8 +9555,7 @@ function buildRetencionesResult(
     summaryTitle = "XML de Retenciones sin incidencias críticas detectadas";
     summaryMessage =
       "El XML de Retenciones pudo leerse correctamente y no se detectaron hallazgos críticos ni advertencias.";
-    summaryAction =
-      "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
+    summaryAction = "Puedes continuar con la revisión operativa o conservar el XML como soporte.";
   }
 
   if (hasInfoOnly) {
@@ -9279,9 +9637,20 @@ function buildRetencionesResult(
 
   const cDetected2: string[] = [];
   if (diag.hasTimbreFiscalDigital) cDetected2.push("TimbreFiscalDigital");
-  if (hasComplemento) cDetected2.push(...complementoNames.filter((n) => n !== "TimbreFiscalDigital"));
+  if (hasComplemento)
+    cDetected2.push(...complementoNames.filter((n) => n !== "TimbreFiscalDigital"));
   const cKnown2 = cDetected2.filter((c) =>
-    ["TimbreFiscalDigital", "Pagos", "CartaPorte", "Nomina", "ComercioExterior", "ImpuestosLocales", "LeyendasFiscales", "Donatarias", "Addenda"].includes(c)
+    [
+      "TimbreFiscalDigital",
+      "Pagos",
+      "CartaPorte",
+      "Nomina",
+      "ComercioExterior",
+      "ImpuestosLocales",
+      "LeyendasFiscales",
+      "Donatarias",
+      "Addenda",
+    ].includes(c),
   );
   const cUnknown2 = cDetected2.filter((c) => !new Set(cKnown2).has(c));
 
@@ -9303,20 +9672,125 @@ function buildRetencionesResult(
     coverage: {
       documentKind: "RETENCIONES",
       modules: [
-        { key: "cfdi-base", label: "CFDI Base", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
-        { key: "retenciones", label: "Retenciones", detected: true, analyzed: true, skippedReason: null, findingsCount: countBP2("RETENCIONES_") },
-        { key: "timbre-fiscal-digital", label: "Timbre Fiscal Digital", detected: diag.hasTimbreFiscalDigital, analyzed: diag.hasTimbreFiscalDigital, skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado", findingsCount: countBP2("MISSING_TFD_") + countBP2("TFD_") + countBP2("TIMBRADO_") + countBP2("MISSING_COMPROBANTE_") + countBP2("NO_CERTIFICADO_") + countBP2("MISSING_RFC_PROV_CERTIF") + countBP2("MISSING_NO_CERTIFICADO") },
-        { key: "concept-taxes", label: "Impuestos por concepto", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
-        { key: "global-taxes", label: "Impuestos globales", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
-        { key: "payment-complement", label: "Complemento Pago", detected: false, analyzed: false, skippedReason: "No aplica para XML de Retenciones", findingsCount: 0 },
-        { key: "cfdi-relations", label: "CFDI Relacionados", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "carta-porte", label: "Carta Porte", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "nomina", label: "Nómina", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "comercio-exterior", label: "Comercio Exterior", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "impuestos-locales", label: "Impuestos Locales", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "leyendas-fiscales", label: "Leyendas Fiscales", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "donatarias", label: "Donatarias", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
-        { key: "addenda", label: "Addenda", detected: false, analyzed: false, skippedReason: "Complemento no detectado", findingsCount: 0 },
+        {
+          key: "cfdi-base",
+          label: "CFDI Base",
+          detected: false,
+          analyzed: false,
+          skippedReason: "No aplica para XML de Retenciones",
+          findingsCount: 0,
+        },
+        {
+          key: "retenciones",
+          label: "Retenciones",
+          detected: true,
+          analyzed: true,
+          skippedReason: null,
+          findingsCount: countBP2("RETENCIONES_"),
+        },
+        {
+          key: "timbre-fiscal-digital",
+          label: "Timbre Fiscal Digital",
+          detected: diag.hasTimbreFiscalDigital,
+          analyzed: diag.hasTimbreFiscalDigital,
+          skippedReason: diag.hasTimbreFiscalDigital ? null : "Complemento no detectado",
+          findingsCount:
+            countBP2("MISSING_TFD_") +
+            countBP2("TFD_") +
+            countBP2("TIMBRADO_") +
+            countBP2("MISSING_COMPROBANTE_") +
+            countBP2("NO_CERTIFICADO_") +
+            countBP2("MISSING_RFC_PROV_CERTIF") +
+            countBP2("MISSING_NO_CERTIFICADO"),
+        },
+        {
+          key: "concept-taxes",
+          label: "Impuestos por concepto",
+          detected: false,
+          analyzed: false,
+          skippedReason: "No aplica para XML de Retenciones",
+          findingsCount: 0,
+        },
+        {
+          key: "global-taxes",
+          label: "Impuestos globales",
+          detected: false,
+          analyzed: false,
+          skippedReason: "No aplica para XML de Retenciones",
+          findingsCount: 0,
+        },
+        {
+          key: "payment-complement",
+          label: "Complemento Pago",
+          detected: false,
+          analyzed: false,
+          skippedReason: "No aplica para XML de Retenciones",
+          findingsCount: 0,
+        },
+        {
+          key: "cfdi-relations",
+          label: "CFDI Relacionados",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "carta-porte",
+          label: "Carta Porte",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "nomina",
+          label: "Nómina",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "comercio-exterior",
+          label: "Comercio Exterior",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "impuestos-locales",
+          label: "Impuestos Locales",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "leyendas-fiscales",
+          label: "Leyendas Fiscales",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "donatarias",
+          label: "Donatarias",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
+        {
+          key: "addenda",
+          label: "Addenda",
+          detected: false,
+          analyzed: false,
+          skippedReason: "Complemento no detectado",
+          findingsCount: 0,
+        },
       ],
       complementsDetected: cDetected2,
       complementsKnown: cKnown2,
@@ -9417,7 +9891,9 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
   })();
 
   const findingsReturnedCount = processedFindings.length;
-  const hasTruncatedFinding = processedFindings.some((f) => f.code === "FINDINGS_TRUNCATED_FOR_RESPONSE");
+  const hasTruncatedFinding = processedFindings.some(
+    (f) => f.code === "FINDINGS_TRUNCATED_FOR_RESPONSE",
+  );
   const findingsTruncated = hasTruncatedFinding || result.findings.length > findingsReturnedCount;
 
   const analysisMeta: AnalysisMetaInfo | undefined = result.analysisMeta

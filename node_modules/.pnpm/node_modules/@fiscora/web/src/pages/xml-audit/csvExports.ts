@@ -77,7 +77,8 @@ export function handleExportJsonIndividual(result: AnalysisResult) {
 export function handleExportCsvIndividual(result: AnalysisResult) {
   const r = result;
   if (!r.findings || r.findings.length === 0) return;
-  const header = "ID,Severidad,Prioridad,Categoria,Grupo accionable,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
+  const header =
+    "ID,Severidad,Prioridad,Categoria,Grupo accionable,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
   const rows = r.findings.map((f) => {
     const cols = [
       escCsv(f.id),
@@ -243,9 +244,31 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
       });
       if (p.documentosRelacionados.length > 0) {
         lines.push(escCsv("Documentos relacionados"));
-        row("UUID", "Serie", "Folio", "Moneda DR", "Equivalencia", "Parcialidad", "Saldo ant.", "Pagado", "Saldo insoluto", "Objeto imp.");
+        row(
+          "UUID",
+          "Serie",
+          "Folio",
+          "Moneda DR",
+          "Equivalencia",
+          "Parcialidad",
+          "Saldo ant.",
+          "Pagado",
+          "Saldo insoluto",
+          "Objeto imp.",
+        );
         for (const d of p.documentosRelacionados) {
-          row(d.idDocumento, d.serie, d.folio, d.monedaDR, d.equivalenciaDR, d.numParcialidad, d.impSaldoAnt, d.impPagado, d.impSaldoInsoluto, d.objetoImpDR);
+          row(
+            d.idDocumento,
+            d.serie,
+            d.folio,
+            d.monedaDR,
+            d.equivalenciaDR,
+            d.numParcialidad,
+            d.impSaldoAnt,
+            d.impPagado,
+            d.impSaldoInsoluto,
+            d.objetoImpDR,
+          );
         }
       }
     }
@@ -268,19 +291,53 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
     });
     if (r.cartaPorte.ubicaciones.length > 0) {
       section("CARTA PORTE - UBICACIONES");
-      row("#", "TipoUbicacion", "IDUbicacion", "RFCRemitenteDestinatario", "NombreRemitenteDestinatario", "FechaHoraSalidaLlegada", "DistanciaRecorrida");
+      row(
+        "#",
+        "TipoUbicacion",
+        "IDUbicacion",
+        "RFCRemitenteDestinatario",
+        "NombreRemitenteDestinatario",
+        "FechaHoraSalidaLlegada",
+        "DistanciaRecorrida",
+      );
       for (let i = 0; i < r.cartaPorte.ubicaciones.length; i++) {
         const u = r.cartaPorte.ubicaciones[i];
-        row(String(i + 1), u.tipoUbicacion, u.idUbicacion, u.rfcRemitenteDestinatario, u.nombreRemitenteDestinatario, u.fechaHoraSalidaLlegada, u.distanciaRecorrida);
+        row(
+          String(i + 1),
+          u.tipoUbicacion,
+          u.idUbicacion,
+          u.rfcRemitenteDestinatario,
+          u.nombreRemitenteDestinatario,
+          u.fechaHoraSalidaLlegada,
+          u.distanciaRecorrida,
+        );
       }
       lines.push("");
     }
     if (r.cartaPorte.mercancias.length > 0) {
       section("CARTA PORTE - MERCANCÍAS");
-      row("#", "BienesTransp", "Descripcion", "Cantidad", "ClaveUnidad", "PesoEnKg", "ValorMercancia", "Moneda");
+      row(
+        "#",
+        "BienesTransp",
+        "Descripcion",
+        "Cantidad",
+        "ClaveUnidad",
+        "PesoEnKg",
+        "ValorMercancia",
+        "Moneda",
+      );
       for (let i = 0; i < r.cartaPorte.mercancias.length; i++) {
         const m = r.cartaPorte.mercancias[i];
-        row(String(i + 1), m.bienesTransp, m.descripcion, m.cantidad, m.claveUnidad, m.pesoEnKg, m.valorMercancia, m.moneda);
+        row(
+          String(i + 1),
+          m.bienesTransp,
+          m.descripcion,
+          m.cantidad,
+          m.claveUnidad,
+          m.pesoEnKg,
+          m.valorMercancia,
+          m.moneda,
+        );
       }
       lines.push("");
     }
@@ -392,7 +449,8 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
       section("RETENCIONES - RECEPTOR");
       sub("", {
         Nacionalidad: r.retenciones.receptor.nacionalidad ?? "—",
-        "RFC / NumRegIdTrib": r.retenciones.receptor.rfcReceptor ?? r.retenciones.receptor.numRegIdTrib ?? "—",
+        "RFC / NumRegIdTrib":
+          r.retenciones.receptor.rfcReceptor ?? r.retenciones.receptor.numRegIdTrib ?? "—",
         Nombre: r.retenciones.receptor.nombre ?? "—",
         CURP: r.retenciones.receptor.curp ?? "—",
       });
@@ -418,7 +476,13 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
         row("#", "BaseRet", "Impuesto", "MontoRet", "TipoPagoRet");
         for (let i = 0; i < r.retenciones.totales.impuestosRetenidos.length; i++) {
           const ir = r.retenciones.totales.impuestosRetenidos[i];
-          row(String(i + 1), ir.baseRet ?? "—", ir.impuesto ?? "—", ir.montoRet ?? "—", ir.tipoPagoRet ?? "—");
+          row(
+            String(i + 1),
+            ir.baseRet ?? "—",
+            ir.impuesto ?? "—",
+            ir.montoRet ?? "—",
+            ir.tipoPagoRet ?? "—",
+          );
         }
         lines.push("");
       }
@@ -457,9 +521,31 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
 
   if (r.concepts && r.concepts.length > 0) {
     section("CONCEPTOS");
-    row("ClaveProdServ", "No. identificación", "Cantidad", "Clave unidad", "Unidad", "Descripción", "Valor unitario", "Importe", "Descuento", "Objeto imp.");
+    row(
+      "ClaveProdServ",
+      "No. identificación",
+      "Cantidad",
+      "Clave unidad",
+      "Unidad",
+      "Descripción",
+      "Valor unitario",
+      "Importe",
+      "Descuento",
+      "Objeto imp.",
+    );
     for (const c of r.concepts) {
-      row(c.claveProdServ, c.noIdentificacion, c.cantidad, c.claveUnidad, c.unidad, c.descripcion, c.valorUnitario, c.importe, c.descuento, c.objetoImp);
+      row(
+        c.claveProdServ,
+        c.noIdentificacion,
+        c.cantidad,
+        c.claveUnidad,
+        c.unidad,
+        c.descripcion,
+        c.valorUnitario,
+        c.importe,
+        c.descuento,
+        c.objetoImp,
+      );
     }
     lines.push("");
     section("IMPUESTOS POR CONCEPTO");
@@ -550,14 +636,28 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
     section("COBERTURA DEL ANALISIS");
     row("Módulo", "Detectado", "Analizado", "Hallazgos", "Motivo omisión");
     for (const m of r.analysisMeta.coverage.modules) {
-      row(m.label, m.detected ? "Sí" : "No", m.analyzed ? "Sí" : "No", String(m.findingsCount), m.skippedReason ?? "");
+      row(
+        m.label,
+        m.detected ? "Sí" : "No",
+        m.analyzed ? "Sí" : "No",
+        String(m.findingsCount),
+        m.skippedReason ?? "",
+      );
     }
     lines.push("");
   }
 
   if (r.findings && r.findings.length > 0) {
     section("PRIORIDADES DE HALLAZGOS");
-    row("Prioridad", "Grupo accionable", "Código", "Severidad", "Categoría", "Título", "Acción recomendada");
+    row(
+      "Prioridad",
+      "Grupo accionable",
+      "Código",
+      "Severidad",
+      "Categoría",
+      "Título",
+      "Acción recomendada",
+    );
     const sorted = sortFindingsByPriority(r.findings);
     for (const f of sorted) {
       row(
@@ -614,15 +714,44 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
 
   section("RESULTADOS POR XML");
   const resultHeader = [
-    "#", "Archivo", "Tamaño bytes", "Estado", "Código error", "Mensaje error",
-    "UUID", "Tipo comprobante", "RFC emisor", "Nombre emisor", "RFC receptor", "Nombre receptor",
-    "Fecha CFDI", "Subtotal", "Total", "Moneda", "Versión", "Serie", "Folio",
-    "Riesgo", "Título resumen ejecutivo", "Mensaje resumen ejecutivo", "Acción recomendada",
-    "Total hallazgos", "Críticos", "Advertencias", "Informativos",
-    "BOM", "Timbre Fiscal Digital", "XML timbrado",
-    "Normalización segura aplicada", "XML normalizado disponible", "Archivo normalizado",
-    "Tipo normalización", "Contenido fiscal modificado", "Riesgo timbre/sello",
-    "Hash original SHA-256", "Hash normalizado SHA-256",
+    "#",
+    "Archivo",
+    "Tamaño bytes",
+    "Estado",
+    "Código error",
+    "Mensaje error",
+    "UUID",
+    "Tipo comprobante",
+    "RFC emisor",
+    "Nombre emisor",
+    "RFC receptor",
+    "Nombre receptor",
+    "Fecha CFDI",
+    "Subtotal",
+    "Total",
+    "Moneda",
+    "Versión",
+    "Serie",
+    "Folio",
+    "Riesgo",
+    "Título resumen ejecutivo",
+    "Mensaje resumen ejecutivo",
+    "Acción recomendada",
+    "Total hallazgos",
+    "Críticos",
+    "Advertencias",
+    "Informativos",
+    "BOM",
+    "Timbre Fiscal Digital",
+    "XML timbrado",
+    "Normalización segura aplicada",
+    "XML normalizado disponible",
+    "Archivo normalizado",
+    "Tipo normalización",
+    "Contenido fiscal modificado",
+    "Riesgo timbre/sello",
+    "Hash original SHA-256",
+    "Hash normalizado SHA-256",
   ];
   row(...resultHeader);
 
@@ -635,16 +764,29 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
     const nx = a?.normalizedXml;
     const findings = a?.findings ?? [];
     row(
-      i + 1, f.name, f.sizeBytes, f.status,
-      f.errorCode ?? "", f.errorMessage ?? "",
-      isA ? (a?.uuid ?? "") : "", isA ? (a?.tipoComprobante ?? "") : "",
-      isA ? (a?.rfcEmisor ?? "") : "", isA ? (a?.nombreEmisor ?? "") : "",
-      isA ? (a?.rfcReceptor ?? "") : "", isA ? (a?.nombreReceptor ?? "") : "",
-      isA ? (a?.fecha ?? "") : "", isA ? (a?.subtotal ?? "") : "",
-      isA ? (a?.total ?? "") : "", isA ? (a?.moneda ?? "") : "",
-      isA ? (a?.version ?? "") : "", isA ? (a?.serie ?? "") : "", isA ? (a?.folio ?? "") : "",
-      isA ? (es?.riskLevel ?? "") : "", isA ? (es?.title ?? "") : "",
-      isA ? (es?.message ?? "") : "", isA ? (es?.recommendedAction ?? "") : "",
+      i + 1,
+      f.name,
+      f.sizeBytes,
+      f.status,
+      f.errorCode ?? "",
+      f.errorMessage ?? "",
+      isA ? (a?.uuid ?? "") : "",
+      isA ? (a?.tipoComprobante ?? "") : "",
+      isA ? (a?.rfcEmisor ?? "") : "",
+      isA ? (a?.nombreEmisor ?? "") : "",
+      isA ? (a?.rfcReceptor ?? "") : "",
+      isA ? (a?.nombreReceptor ?? "") : "",
+      isA ? (a?.fecha ?? "") : "",
+      isA ? (a?.subtotal ?? "") : "",
+      isA ? (a?.total ?? "") : "",
+      isA ? (a?.moneda ?? "") : "",
+      isA ? (a?.version ?? "") : "",
+      isA ? (a?.serie ?? "") : "",
+      isA ? (a?.folio ?? "") : "",
+      isA ? (es?.riskLevel ?? "") : "",
+      isA ? (es?.title ?? "") : "",
+      isA ? (es?.message ?? "") : "",
+      isA ? (es?.recommendedAction ?? "") : "",
       isA ? findings.length : 0,
       isA ? findings.filter((f) => f.severity === "CRITICAL").length : 0,
       isA ? findings.filter((f) => f.severity === "WARNING").length : 0,
@@ -654,22 +796,44 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
       isA ? (td?.isStamped ? "Sí" : "No") : "",
       isA ? (td?.safeNormalizationApplied ? "Sí" : "No") : "",
       isA ? (nx?.available ? "Sí" : "No") : "",
-      isA ? (nx?.filename ?? "") : "", isA ? (nx?.normalizationType ?? "") : "",
+      isA ? (nx?.filename ?? "") : "",
+      isA ? (nx?.normalizationType ?? "") : "",
       isA ? (nx?.fiscalContentModified ? "Sí" : "No") : "",
       isA ? (nx?.stampRisk ?? "") : "",
-      isA ? (nx?.originalSha256 ?? "") : "", isA ? (nx?.normalizedSha256 ?? "") : "",
+      isA ? (nx?.originalSha256 ?? "") : "",
+      isA ? (nx?.normalizedSha256 ?? "") : "",
     );
   }
 
   section("HALLAZGOS POR XML");
-  row("Archivo", "Finding ID", "Severidad", "Categoría", "Código", "Título", "Mensaje", "Acción recomendada", "Evidencia");
+  row(
+    "Archivo",
+    "Finding ID",
+    "Severidad",
+    "Categoría",
+    "Código",
+    "Título",
+    "Mensaje",
+    "Acción recomendada",
+    "Evidencia",
+  );
   for (const f of r.results) {
     if (f.status !== "ANALYZED" || !f.analysis?.findings) continue;
     for (const finding of f.analysis.findings) {
       const evidenceStr = finding.evidence
         ? finding.evidence.map((e) => `${e.label}: ${e.value ?? "—"}`).join(" | ")
         : "";
-      row(f.name, finding.id, finding.severity, finding.category, finding.code, finding.title, finding.message, finding.recommendedAction ?? "", evidenceStr);
+      row(
+        f.name,
+        finding.id,
+        finding.severity,
+        finding.category,
+        finding.code,
+        finding.title,
+        finding.message,
+        finding.recommendedAction ?? "",
+        evidenceStr,
+      );
     }
   }
 
@@ -715,22 +879,59 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
   section("GRUPOS ACCIONABLES ZIP");
   row("Grupo", "Hallazgos", "Archivos afectados", "Críticos", "Advertencias", "Info");
   for (const g of actionGroups) {
-    row(g.group, g.totalFindings, g.affectedFiles.length, g.criticalCount, g.warningCount, g.infoCount);
+    row(
+      g.group,
+      g.totalFindings,
+      g.affectedFiles.length,
+      g.criticalCount,
+      g.warningCount,
+      g.infoCount,
+    );
   }
 
   if (topFindings.length > 0) {
     section("TOP HALLAZGOS ZIP");
-    row("Código", "Título", "Severidad máxima", "Prioridad máxima", "Apariciones", "Archivos afectados", "Acción recomendada");
+    row(
+      "Código",
+      "Título",
+      "Severidad máxima",
+      "Prioridad máxima",
+      "Apariciones",
+      "Archivos afectados",
+      "Acción recomendada",
+    );
     for (const f of topFindings) {
-      row(f.code, f.title, f.maxSeverity, f.maxPriority, f.totalAppearances, f.affectedFiles.length, f.recommendedAction);
+      row(
+        f.code,
+        f.title,
+        f.maxSeverity,
+        f.maxPriority,
+        f.totalAppearances,
+        f.affectedFiles.length,
+        f.recommendedAction,
+      );
     }
   }
 
   if (modulesCov.length > 0) {
     section("COBERTURA MODULOS ZIP");
-    row("Módulo", "Detectado en", "Analizado en", "Hallazgos totales", "Archivos con hallazgos", "Motivo omisión principal");
+    row(
+      "Módulo",
+      "Detectado en",
+      "Analizado en",
+      "Hallazgos totales",
+      "Archivos con hallazgos",
+      "Motivo omisión principal",
+    );
     for (const m of modulesCov) {
-      row(m.moduleLabel, m.detectedIn, m.analyzedIn, m.totalFindings, m.filesWithFindings, m.skippedReasons[0] ?? "");
+      row(
+        m.moduleLabel,
+        m.detectedIn,
+        m.analyzedIn,
+        m.totalFindings,
+        m.filesWithFindings,
+        m.skippedReasons[0] ?? "",
+      );
     }
   }
 
@@ -752,7 +953,14 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
     section("ARCHIVOS MAS AFECTADOS");
     row("Archivo", "Hallazgos", "Críticos", "Advertencias", "Prioridad máxima", "Acción principal");
     for (const af of affectedFiles) {
-      row(af.file.name, af.totalFindings, af.criticals, af.warnings, af.maxPriority, af.topActionGroup);
+      row(
+        af.file.name,
+        af.totalFindings,
+        af.criticals,
+        af.warnings,
+        af.maxPriority,
+        af.topActionGroup,
+      );
     }
   }
 
