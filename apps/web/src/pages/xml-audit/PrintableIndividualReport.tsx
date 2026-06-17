@@ -1,5 +1,6 @@
 import type { AnalysisResult } from "../../api/xml-audit";
-import { sortFindingsByPriority, groupFindingsByActionGroup } from "./findingPriority";
+import { sortFindingsByPriority, groupFindingsByActionGroup, getPriorityLabel } from "./findingPriority";
+import { buildFindingGlossary, getSeverityLabel } from "./findingGlossary.helpers";
 
 interface Props {
   result: AnalysisResult;
@@ -1632,6 +1633,47 @@ export default function PrintableIndividualReport({ result }: Props) {
                   <td style={{ fontWeight: 600 }}>Tolerancia</td>
                   <td>{result.totalsValidation.tolerance}</td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {result.findings && result.findings.length > 0 && (
+          <div className="avoid-break">
+            <h2>Glosario de hallazgos</h2>
+            <p style={{ fontSize: "10px", color: "#666", marginBottom: "8px" }}>
+              Explicación de códigos detectados en este análisis.
+            </p>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#f3f4f6" }}>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Código</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Título</th>
+                  <th style={{ textAlign: "center", padding: "4px 6px" }}>Sev.</th>
+                  <th style={{ textAlign: "center", padding: "4px 6px" }}>Prio.</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>Ocurr.</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Acción recomendada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {buildFindingGlossary(result.findings).map((entry) => (
+                  <tr key={entry.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "4px 6px", fontWeight: 700, fontFamily: "monospace" }}>
+                      {entry.code}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>{entry.title}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                      {getSeverityLabel(entry.severity).slice(0, 4)}
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                      {getPriorityLabel(entry.priority).slice(0, 4)}
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{entry.occurrences}</td>
+                    <td style={{ padding: "4px 6px", fontSize: "9px" }}>
+                      {entry.recommendedAction || "Revisar contexto."}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

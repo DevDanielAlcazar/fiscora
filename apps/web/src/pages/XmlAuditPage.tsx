@@ -25,6 +25,7 @@ import MassiveResultsTable from "./xml-audit/MassiveResultsTable";
 import MassiveDetailModal from "./xml-audit/MassiveDetailModal";
 import PrintableIndividualReport from "./xml-audit/PrintableIndividualReport";
 import PrintableZipReport from "./xml-audit/PrintableZipReport";
+import FindingGlossary from "./xml-audit/FindingGlossary";
 
 /* Todos los textos visibles deben guardarse en UTF-8. No pegar texto mojibake. */
 export default function XmlAuditPage() {
@@ -1028,6 +1029,9 @@ export default function XmlAuditPage() {
                     </div>
                     {result.findings && result.findings.length > 0 && (
                       <ActionableSummary findings={result.findings!} />
+                    )}
+                    {result.findings && result.findings.length > 0 && (
+                      <FindingGlossary findings={result.findings!} />
                     )}
                     <div className="space-y-3">
                       {(() => {

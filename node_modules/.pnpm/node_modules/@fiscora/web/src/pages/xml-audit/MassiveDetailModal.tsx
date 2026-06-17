@@ -1,4 +1,5 @@
 import type { ZipFullAnalysisFileResult } from "../../api/xml-audit";
+import FindingGlossary from "./FindingGlossary";
 
 interface MassiveDetailModalProps {
   selectedMassiveDetail: ZipFullAnalysisFileResult | null;
@@ -196,6 +197,7 @@ export default function MassiveDetailModal({
                     No se detectaron hallazgos estructurados para este XML.
                   </p>
                 )}
+                {findings.length > 0 && <FindingGlossary findings={findings} compact />}
               </div>
 
               <div className="space-y-2">

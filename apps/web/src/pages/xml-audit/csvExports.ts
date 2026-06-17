@@ -1,5 +1,12 @@
 import type { AnalysisResult, ZipFullAnalysisResult } from "../../api/xml-audit";
-import { sortFindingsByPriority } from "./findingPriority";
+import { sortFindingsByPriority, getPriorityLabel } from "./findingPriority";
+import {
+  buildFindingGlossary,
+  getSeverityLabel,
+  getCategoryLabel,
+  getFindingImpactLabel,
+  getFindingRemediationHint,
+} from "./findingGlossary.helpers";
 import {
   aggregateMassivePerformance,
   aggregateMassiveTotals,
@@ -671,6 +678,37 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
       );
     }
     lines.push("");
+
+    section("GLOSARIO DE HALLAZGOS");
+    row(
+      "Código",
+      "Título",
+      "Severidad",
+      "Prioridad",
+      "Categoría",
+      "Grupo accionable",
+      "Ocurrencias",
+      "Mensaje",
+      "Impacto",
+      "Acción recomendada",
+      "Guía general",
+    );
+    const glossary = buildFindingGlossary(r.findings);
+    for (const e of glossary) {
+      row(
+        e.code,
+        e.title,
+        getSeverityLabel(e.severity),
+        getPriorityLabel(e.priority),
+        getCategoryLabel(e.category),
+        e.actionGroup,
+        String(e.occurrences),
+        e.message,
+        getFindingImpactLabel(e.severity),
+        e.recommendedAction,
+        getFindingRemediationHint(e.actionGroup),
+      );
+    }
   }
 
   const csv = bom + "\r\n" + lines.join("\r\n");
