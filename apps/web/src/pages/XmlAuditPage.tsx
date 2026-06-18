@@ -27,6 +27,8 @@ import PrintableIndividualReport from "./xml-audit/PrintableIndividualReport";
 import PrintableZipReport from "./xml-audit/PrintableZipReport";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RemediationPlan from "./xml-audit/RemediationPlan";
+import CopySummaryActions from "./xml-audit/CopySummaryActions";
+import { buildIndividualExecutiveText, buildSupportMessageFromAnalysis } from "./xml-audit/shareSummary.helpers";
 
 /* Todos los textos visibles deben guardarse en UTF-8. No pegar texto mojibake. */
 export default function XmlAuditPage() {
@@ -1092,6 +1094,15 @@ export default function XmlAuditPage() {
                         {result.findings.filter((f) => f.category === "COMPLEMENT").length}
                       </span>
                     </div>
+                    {result.findings && result.findings.length > 0 && (
+                      <div className="flex justify-end mb-4">
+                        <CopySummaryActions
+                          mode="individual"
+                          generateSummaryText={() => buildIndividualExecutiveText(result)}
+                          generateSupportText={() => buildSupportMessageFromAnalysis(result)}
+                        />
+                      </div>
+                    )}
                     {result.findings && result.findings.length > 0 && (
                       <ActionableSummary findings={result.findings!} />
                     )}

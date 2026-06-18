@@ -10,6 +10,7 @@ import {
   getTopAffectedFiles,
 } from "./massiveAggregates";
 import { getPriorityLabel } from "./findingPriority";
+import { buildAggregateRemediationPlan, type AggregateRemediationSource } from "./remediationPlan.helpers";
 
 interface Props {
   fullAnalysisResult: ZipFullAnalysisResult;
@@ -26,6 +27,18 @@ export default function PrintableZipReport({ fullAnalysisResult }: Props) {
   const perf = aggregateMassivePerformance(r.results);
   const affectedFiles = getTopAffectedFiles(r.results, 15);
   const totalAnalyzed = totals.analyzed + totals.failed;
+
+  const remediationSources: AggregateRemediationSource[] = r.results
+      .filter((res) => res.status === "ANALYZED" && res.analysis?.findings && res.analysis.findings.length > 0)
+      .map((res, index) => ({
+        fileId: String(index),
+        filename: res.name,
+        status: res.status,
+        riskLevel: res.analysis?.executiveSummary?.riskLevel,
+        documentKind: res.analysis?.documentKind || res.analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN",
+        findings: res.analysis!.findings!,
+      }));
+  const aggregatePlan = buildAggregateRemediationPlan(remediationSources);
   return (
     <div className="print-report-zip hidden">
       <div
@@ -166,6 +179,34 @@ export default function PrintableZipReport({ fullAnalysisResult }: Props) {
                     </td>
                     <td>{g.infoCount}</td>
                     <td>{g.affectedFiles.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {aggregatePlan.items.length > 0 && (
+          <>
+            <h2>PLAN DE ACCIÓN DEL ZIP</h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#f3f4f6" }}>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Código</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Urgencia</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Responsable</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Acción recomendada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aggregatePlan.items.slice(0, 10).map((item) => (
+                  <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "4px 6px", fontWeight: 700, fontFamily: "monospace" }}>
+                      {item.code}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>{item.urgency}</td>
+                    <td style={{ padding: "4px 6px" }}>{item.ownerSuggestion}</td>
+                    <td style={{ padding: "4px 6px" }}>{item.recommendedAction}</td>
                   </tr>
                 ))}
               </tbody>
