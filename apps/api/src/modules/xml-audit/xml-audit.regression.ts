@@ -273,6 +273,289 @@ async function testNominaConMonedaDistinta(): Promise<void> {
   assertIncludesFinding(result.findings, "NOMINA_SHOULD_HAVE_MONEDA_MXN", "WARNING");
 }
 
+// EC) Pago missing required fields
+async function testPagoMissingRequiredFields(): Promise<void> {
+  const xml = buildRepXml({
+    fechaPago: "",
+    formaDePagoP: "",
+    monedaP: "",
+    monto: "",
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "pago-missing-fields.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_DATE_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_FORMA_PAGO_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_MONEDA_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_AMOUNT_MISSING", "WARNING");
+}
+
+// ED) FechaPago inválida
+async function testPagoFechaInvalida(): Promise<void> {
+  const xml = buildRepXml({
+    fechaPago: "fecha-invalida",
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "pago-fecha-invalida.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_DATE_INVALID_REVIEW", "WARNING");
+}
+
+// EE) TipoCambioP required for foreign currency
+async function testRepTipoCambioExtranjero(): Promise<void> {
+  const xml = buildRepXml({
+    monedaP: "USD",
+    monto: "1000.00",
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "USD",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-tc-extranjero.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_TIPO_CAMBIO_REQUIRED_REVIEW", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_EXCHANGE_RATE_REQUIRED", "WARNING");
+}
+
+// EF) TipoCambioP with MXN
+async function testRepTipoCambioConMxn(): Promise<void> {
+  const xml = buildRepXml({
+    monedaP: "MXN",
+    monto: "1000.00",
+    tipoCambioP: "17.50",
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-tc-con-mxn.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_TIPO_CAMBIO_WITH_MXN_REVIEW", "INFO");
+}
+
+// EG) Required document fields missing
+async function testRepDocFieldsMissing(): Promise<void> {
+  const xml = buildRepXml({
+    docs: [
+      {
+        idDocumento: "",
+        monedaDR: "",
+        numParcialidad: "",
+        impSaldoAnt: "",
+        impPagado: "",
+        impSaldoInsoluto: "",
+        objetoImpDR: "",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-doc-fields-missing.xml");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_MISSING_UUID", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_MISSING_MONEDA", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_NUM_PARCIALIDAD_MISSING_REVIEW", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_PREVIOUS_BALANCE_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_PAID_AMOUNT_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_REMAINING_BALANCE_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_OBJECT_IMP_MISSING_REVIEW", "WARNING");
+}
+
+// EH) NumParcialidad non-positive
+async function testRepNumParcialidadNonPositive(): Promise<void> {
+  const xml = buildRepXml({
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "0",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-parcialidad-no-positivo.xml");
+  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_NUM_PARCIALIDAD_NON_POSITIVE", "WARNING");
+}
+
+// EI) ObjetoImpDR and ImpuestosDR consistency
+async function testRepObjetoImpDRConsistency(): Promise<void> {
+  // 01 with DR taxes
+  const xml01 = buildRepXml({
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+        objetoImpDR: "01",
+        trasladosDR: [{ baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
+      },
+    ],
+  });
+  const result01 = analyzeCfdi(xml01, "rep-objimp-01-con-impuestos.xml");
+  assertIncludesFinding(result01.findings, "RELATED_DOCUMENT_OBJECT_IMP_01_WITH_TAXES_REVIEW", "WARNING");
+
+  // 02 without DR taxes
+  const xml02 = buildRepXml({
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+        objetoImpDR: "02",
+      },
+    ],
+  });
+  const result02 = analyzeCfdi(xml02, "rep-objimp-02-sin-impuestos.xml");
+  assertIncludesFinding(result02.findings, "RELATED_DOCUMENT_OBJECT_IMP_02_WITHOUT_TAXES_REVIEW", "WARNING");
+
+  // 03 with tax importe > 0
+  const xml03 = buildRepXml({
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+        objetoImpDR: "03",
+        trasladosDR: [{ baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
+      },
+    ],
+  });
+  const result03 = analyzeCfdi(xml03, "rep-objimp-03-con-importe.xml");
+  assertIncludesFinding(result03.findings, "RELATED_DOCUMENT_OBJECT_IMP_03_WITH_TAX_AMOUNT_REVIEW", "WARNING");
+}
+
+// EJ) DR Tax base/rate/amount checks
+async function testRepDrTaxChecks(): Promise<void> {
+  const xml = buildRepXml({
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+        objetoImpDR: "02",
+        // D1: base <= 0 with importe > 0
+        // D2: rate mismatch (400*0.16=64 but importe is 60)
+        // D6: exento with importe > 0
+        trasladosDR: [
+          { baseDR: "0.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "10.00" },
+          { baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "60.00" },
+          { baseDR: "100.00", impuestoDR: "002", tipoFactorDR: "Exento", importeDR: "5.00" },
+        ],
+        // D3: missing impuesto, D4: missing factor, D5: tasa without rate
+        retencionesDR: [
+          { baseDR: "400.00", impuestoDR: "", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.100000", importeDR: "40.00" },
+          { baseDR: "400.00", impuestoDR: "001", tipoFactorDR: "", importeDR: "40.00" },
+          { baseDR: "400.00", impuestoDR: "001", tipoFactorDR: "Tasa", tasaOCuotaDR: "", importeDR: "40.00" },
+        ],
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-dr-tax-checks.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_BASE_NON_POSITIVE", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_RATE_MISMATCH", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_EXENTO_WITH_AMOUNT", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_MISSING_TAX_CODE", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_MISSING_FACTOR", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_RELATED_TAX_MISSING_RATE_FOR_TASA", "WARNING");
+}
+
+// EK) Totales present without DR taxes
+async function testRepTotalesSinDrTaxes(): Promise<void> {
+  const xml = buildRepXml({
+    totales: { montoTotalPagos: "400.00" },
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-totales-sin-dr-taxes.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_TOTAL_TAXES_PRESENT_WITHOUT_RELATED_TAXES_REVIEW", "INFO");
+}
+
+// EL) Multiple pago-level validations
+async function testRepMultiplePagoLevel(): Promise<void> {
+  // Pago without documents + multiple currencies among documents
+  const xml = buildRepXml({
+    monto: "1000.00",
+    docs: [
+      {
+        idDocumento: "a1111111-1111-4111-8111-111111111111",
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "200.00",
+        impSaldoInsoluto: "800.00",
+      },
+      {
+        idDocumento: "a2222222-2222-4222-8222-222222222222",
+        monedaDR: "USD",
+        equivalenciaDR: "17.50",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "300.00",
+        impSaldoInsoluto: "700.00",
+      },
+    ],
+  });
+  const result = analyzeCfdi(xml, "rep-multiple-pago-level.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_TOTAL_RELATED_PAID_REVIEW", "INFO");
+  assertIncludesFinding(result.findings, "PAYMENT_WITH_MULTIPLE_RELATED_CURRENCIES_REVIEW", "INFO");
+}
+
 // A) XML Ingreso CFDI 4.0 válido básico
 async function testCfdiIngresoBasico(): Promise<void> {
   const xml = buildCfdi40Ingreso();
@@ -795,9 +1078,46 @@ async function testFechaTimbradoAnterior(): Promise<void> {
   assertEqual(dateFinding.severity, "WARNING", "TIMBRADO_DATE_BEFORE_CFDI_DATE debe ser WARNING");
 }
 
+type DrTaxEntry = {
+  baseDR: string;
+  impuestoDR: string;
+  tipoFactorDR: string;
+  tasaOCuotaDR?: string;
+  importeDR: string;
+};
+
+function buildDrTaxesXml(trasladosDR?: DrTaxEntry[], retencionesDR?: DrTaxEntry[]): string {
+  const hasTraslados = trasladosDR && trasladosDR.length > 0;
+  const hasRetenciones = retencionesDR && retencionesDR.length > 0;
+  if (!hasTraslados && !hasRetenciones) return "";
+  const parts: string[] = [];
+  parts.push(`          <pago20:ImpuestosDR>`);
+  if (hasTraslados) {
+    parts.push(`            <pago20:TrasladosDR>`);
+    for (const t of trasladosDR!) {
+      parts.push(
+        `              <pago20:TrasladoDR BaseDR="${t.baseDR}" ImpuestoDR="${t.impuestoDR}" TipoFactorDR="${t.tipoFactorDR}"${t.tasaOCuotaDR ? ` TasaOCuotaDR="${t.tasaOCuotaDR}"` : ""} ImporteDR="${t.importeDR}"/>`,
+      );
+    }
+    parts.push(`            </pago20:TrasladosDR>`);
+  }
+  if (hasRetenciones) {
+    parts.push(`            <pago20:RetencionesDR>`);
+    for (const t of retencionesDR!) {
+      parts.push(
+        `              <pago20:RetencionDR BaseDR="${t.baseDR}" ImpuestoDR="${t.impuestoDR}" TipoFactorDR="${t.tipoFactorDR}"${t.tasaOCuotaDR ? ` TasaOCuotaDR="${t.tasaOCuotaDR}"` : ""} ImporteDR="${t.importeDR}"/>`,
+      );
+    }
+    parts.push(`            </pago20:RetencionesDR>`);
+  }
+  parts.push(`          </pago20:ImpuestosDR>`);
+  return parts.join("\n");
+}
+
 function buildRepXml(opts?: {
   monedaP?: string;
   monto?: string;
+  tipoCambioP?: string;
   docs?: Array<{
     idDocumento?: string;
     monedaDR?: string;
@@ -806,11 +1126,20 @@ function buildRepXml(opts?: {
     impSaldoAnt?: string;
     impPagado?: string;
     impSaldoInsoluto?: string;
+    objetoImpDR?: string;
+    trasladosDR?: DrTaxEntry[];
+    retencionesDR?: DrTaxEntry[];
   }>;
+  totales?: {
+    montoTotalPagos?: string;
+  };
   includeTimbre?: boolean;
+  fechaPago?: string;
+  formaDePagoP?: string;
 }): string {
   const monedaP = opts?.monedaP ?? "MXN";
   const monto = opts?.monto ?? "1000.00";
+  const tipoCambioP = opts?.tipoCambioP;
   const docs = opts?.docs ?? [
     {
       idDocumento: "a1111111-1111-4111-8111-111111111111",
@@ -823,17 +1152,31 @@ function buildRepXml(opts?: {
     },
   ];
   const includeTimbre = opts?.includeTimbre ?? true;
+  const fechaPago = opts?.fechaPago ?? "2024-02-10T10:30:00";
+  const formaDePagoP = opts?.formaDePagoP ?? "03";
 
   const docsXml = docs
-    .map(
-      (d) =>
-        `        <pago20:DoctoRelacionado${d.idDocumento ? ` IdDocumento="${d.idDocumento}"` : ""} Serie="A" Folio="1"${d.monedaDR ? ` MonedaDR="${d.monedaDR}"` : ""}${d.equivalenciaDR ? ` EquivalenciaDR="${d.equivalenciaDR}"` : ""}${d.numParcialidad ? ` NumParcialidad="${d.numParcialidad}"` : ""}${d.impSaldoAnt ? ` ImpSaldoAnt="${d.impSaldoAnt}"` : ""}${d.impPagado ? ` ImpPagado="${d.impPagado}"` : ""}${d.impSaldoInsoluto ? ` ImpSaldoInsoluto="${d.impSaldoInsoluto}"` : ""} ObjetoImpDR="01"/>`,
-    )
+    .map((d) => {
+      const objImpDR = d.objetoImpDR ?? "01";
+      const docOpen = `        <pago20:DoctoRelacionado${d.idDocumento ? ` IdDocumento="${d.idDocumento}"` : ""} Serie="A" Folio="1"${d.monedaDR ? ` MonedaDR="${d.monedaDR}"` : ""}${d.equivalenciaDR ? ` EquivalenciaDR="${d.equivalenciaDR}"` : ""}${d.numParcialidad ? ` NumParcialidad="${d.numParcialidad}"` : ""}${d.impSaldoAnt ? ` ImpSaldoAnt="${d.impSaldoAnt}"` : ""}${d.impPagado ? ` ImpPagado="${d.impPagado}"` : ""}${d.impSaldoInsoluto ? ` ImpSaldoInsoluto="${d.impSaldoInsoluto}"` : ""} ObjetoImpDR="${objImpDR}"`;
+      const hasDrTaxes = (d.trasladosDR && d.trasladosDR.length > 0) || (d.retencionesDR && d.retencionesDR.length > 0);
+      if (hasDrTaxes) {
+        const taxXml = buildDrTaxesXml(d.trasladosDR, d.retencionesDR);
+        return `${docOpen}>\n${taxXml}\n        </pago20:DoctoRelacionado>`;
+      }
+      return `${docOpen}/>`;
+    })
     .join("\n");
+
+  const totalesXml = opts?.totales
+    ? `      <pago20:Totales${opts.totales.montoTotalPagos ? ` MontoTotalPagos="${opts.totales.montoTotalPagos}"` : ""}/>\n`
+    : "";
 
   const timbre = includeTimbre
     ? `    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ffffffff-gggg-hhhh-iiii-jjjjjjjjjjjj" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>`
     : "";
+
+  const pagoAttrs = `FechaPago="${fechaPago}" FormaDePagoP="${formaDePagoP}" MonedaP="${monedaP}" Monto="${monto}"${tipoCambioP ? ` TipoCambioP="${tipoCambioP}"` : ""} NumOperacion="OP001"`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <cfdi:Comprobante ${CFDI_4_NS} ${PAGO20_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
@@ -844,7 +1187,7 @@ function buildRepXml(opts?: {
   </cfdi:Conceptos>
   <cfdi:Complemento>
     <pago20:Pagos Version="2.0">
-      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="${monedaP}" Monto="${monto}" NumOperacion="OP001">
+${totalesXml}      <pago20:Pago ${pagoAttrs}>
 ${docsXml}
       </pago20:Pago>
     </pago20:Pagos>
@@ -3967,6 +4310,16 @@ async function main() {
   await runCase("DZ) ObjetoImp 01 con impuestos", testObjetoImp01ConImpuestos);
   await runCase("EA) UsoCFDI CP01 sin Tipo P", testUsoCfdiCp01SinTipoP);
   await runCase("EB) Nómina con moneda distinta de MXN", testNominaConMonedaDistinta);
+  await runCase("EC) Pago missing required fields", testPagoMissingRequiredFields);
+  await runCase("ED) FechaPago inválida", testPagoFechaInvalida);
+  await runCase("EE) TipoCambio requerido moneda extranjera", testRepTipoCambioExtranjero);
+  await runCase("EF) TipoCambio con MXN", testRepTipoCambioConMxn);
+  await runCase("EG) Documento relacionado campos faltantes", testRepDocFieldsMissing);
+  await runCase("EH) NumParcialidad no positivo", testRepNumParcialidadNonPositive);
+  await runCase("EI) ObjetoImpDR consistencia", testRepObjetoImpDRConsistency);
+  await runCase("EJ) DR Tax base/rate checks", testRepDrTaxChecks);
+  await runCase("EK) Totales sin DR taxes", testRepTotalesSinDrTaxes);
+  await runCase("EL) Pago múltiples validaciones", testRepMultiplePagoLevel);
 
   printSummary();
 

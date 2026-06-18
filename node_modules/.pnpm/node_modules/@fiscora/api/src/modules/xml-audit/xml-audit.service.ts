@@ -28,6 +28,7 @@ import {
   CFDI_TIPO_RELACION_BASIC,
   CFDI_MONEDAS_BASICAS,
 } from "./xml-audit.catalogs.js";
+import { validatePaymentComplementAdvanced } from "./payment-complement-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -45,6 +46,14 @@ export interface ExecutiveSummary {
   recommendedAction: string;
 }
 
+export interface PaymentDrTaxEntry {
+  baseDR?: string;
+  impuestoDR?: string;
+  tipoFactorDR?: string;
+  tasaOCuotaDR?: string;
+  importeDR?: string;
+}
+
 export interface PaymentDocument {
   idDocumento?: string;
   serie?: string;
@@ -56,6 +65,7 @@ export interface PaymentDocument {
   impPagado?: string;
   impSaldoInsoluto?: string;
   objetoImpDR?: string;
+  impuestosDR?: { trasladosDR: PaymentDrTaxEntry[]; retencionesDR: PaymentDrTaxEntry[] };
 }
 
 export interface PaymentInfo {
@@ -68,9 +78,24 @@ export interface PaymentInfo {
   documentosRelacionados: PaymentDocument[];
 }
 
+export interface PaymentTotalesInfo {
+  montoTotalPagos?: string;
+  totalTrasladosBaseIVA16?: string;
+  totalTrasladosImpuestoIVA16?: string;
+  totalTrasladosBaseIVA8?: string;
+  totalTrasladosImpuestoIVA8?: string;
+  totalTrasladosBaseIVA0?: string;
+  totalTrasladosImpuestoIVA0?: string;
+  totalTrasladosBaseIVAExento?: string;
+  totalRetencionesIVA?: string;
+  totalRetencionesISR?: string;
+  totalRetencionesIEPS?: string;
+}
+
 export interface PaymentComplement {
   version?: string;
   pagos: PaymentInfo[];
+  totales?: PaymentTotalesInfo;
 }
 
 export interface StructureDiagnostics {
@@ -2121,19 +2146,55 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           (get(p, "DoctoRelacionado") as unknown);
         const docsArray = Array.isArray(docsRaw) ? docsRaw : docsRaw ? [docsRaw] : [];
 
+        const extractDrTaxEntries = (
+          raw: unknown,
+          prefix: string,
+          nodeName: string,
+          singular: string,
+        ): PaymentDrTaxEntry[] => {
+          const node =
+            (get(raw, `${prefix}${nodeName}`) as Record<string, unknown>) ??
+            (get(raw, nodeName) as Record<string, unknown>) ??
+            {};
+          const rawEntry = get(node, `${prefix}${singular}`) ?? get(node, singular);
+          if (rawEntry === null || rawEntry === undefined) return [];
+          const arr = Array.isArray(rawEntry) ? rawEntry : [rawEntry];
+          return arr.map((e: Record<string, unknown>) => ({
+            baseDR: str(get(e, "@_BaseDR")) ?? undefined,
+            impuestoDR: str(get(e, "@_ImpuestoDR")) ?? undefined,
+            tipoFactorDR: str(get(e, "@_TipoFactorDR")) ?? undefined,
+            tasaOCuotaDR: str(get(e, "@_TasaOCuotaDR")) ?? undefined,
+            importeDR: str(get(e, "@_ImporteDR")) ?? undefined,
+          }));
+        };
+
         const documentosRelacionados: PaymentDocument[] = docsArray.map(
-          (d: Record<string, unknown>) => ({
-            idDocumento: str(get(d, "@_IdDocumento")) ?? undefined,
-            serie: str(get(d, "@_Serie")) ?? undefined,
-            folio: str(get(d, "@_Folio")) ?? undefined,
-            monedaDR: str(get(d, "@_MonedaDR")) ?? undefined,
-            equivalenciaDR: str(get(d, "@_EquivalenciaDR")) ?? undefined,
-            numParcialidad: str(get(d, "@_NumParcialidad")) ?? undefined,
-            impSaldoAnt: str(get(d, "@_ImpSaldoAnt")) ?? undefined,
-            impPagado: str(get(d, "@_ImpPagado")) ?? undefined,
-            impSaldoInsoluto: str(get(d, "@_ImpSaldoInsoluto")) ?? undefined,
-            objetoImpDR: str(get(d, "@_ObjetoImpDR")) ?? undefined,
-          }),
+          (d: Record<string, unknown>) => {
+            const rawImpuestosDR =
+              (get(d, "pago20:ImpuestosDR") as Record<string, unknown>) ??
+              (get(d, "ImpuestosDR") as Record<string, unknown>) ??
+              {};
+            const trasladosDR = extractDrTaxEntries(rawImpuestosDR, "pago20:", "TrasladosDR", "TrasladoDR");
+            const retencionesDR = extractDrTaxEntries(rawImpuestosDR, "pago20:", "RetencionesDR", "RetencionDR");
+            const impuestosDR =
+              trasladosDR.length > 0 || retencionesDR.length > 0
+                ? { trasladosDR, retencionesDR }
+                : undefined;
+
+            return {
+              idDocumento: str(get(d, "@_IdDocumento")) ?? undefined,
+              serie: str(get(d, "@_Serie")) ?? undefined,
+              folio: str(get(d, "@_Folio")) ?? undefined,
+              monedaDR: str(get(d, "@_MonedaDR")) ?? undefined,
+              equivalenciaDR: str(get(d, "@_EquivalenciaDR")) ?? undefined,
+              numParcialidad: str(get(d, "@_NumParcialidad")) ?? undefined,
+              impSaldoAnt: str(get(d, "@_ImpSaldoAnt")) ?? undefined,
+              impPagado: str(get(d, "@_ImpPagado")) ?? undefined,
+              impSaldoInsoluto: str(get(d, "@_ImpSaldoInsoluto")) ?? undefined,
+              objetoImpDR: str(get(d, "@_ObjetoImpDR")) ?? undefined,
+              impuestosDR,
+            };
+          },
         );
 
         return {
@@ -2147,9 +2208,31 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         };
       });
 
+      const rawTotales =
+        (get(pagosNode, "pago20:Totales") as Record<string, unknown>) ??
+        (get(pagosNode, "Totales") as Record<string, unknown>) ??
+        null;
+      let totales: PaymentTotalesInfo | undefined;
+      if (rawTotales && typeof rawTotales === "object" && Object.keys(rawTotales).length > 0) {
+        totales = {
+          montoTotalPagos: str(get(rawTotales, "@_MontoTotalPagos")) ?? undefined,
+          totalTrasladosBaseIVA16: str(get(rawTotales, "@_TotalTrasladosBaseIVA16")) ?? undefined,
+          totalTrasladosImpuestoIVA16: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA16")) ?? undefined,
+          totalTrasladosBaseIVA8: str(get(rawTotales, "@_TotalTrasladosBaseIVA8")) ?? undefined,
+          totalTrasladosImpuestoIVA8: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA8")) ?? undefined,
+          totalTrasladosBaseIVA0: str(get(rawTotales, "@_TotalTrasladosBaseIVA0")) ?? undefined,
+          totalTrasladosImpuestoIVA0: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA0")) ?? undefined,
+          totalTrasladosBaseIVAExento: str(get(rawTotales, "@_TotalTrasladosBaseIVAExento")) ?? undefined,
+          totalRetencionesIVA: str(get(rawTotales, "@_TotalRetencionesIVA")) ?? undefined,
+          totalRetencionesISR: str(get(rawTotales, "@_TotalRetencionesISR")) ?? undefined,
+          totalRetencionesIEPS: str(get(rawTotales, "@_TotalRetencionesIEPS")) ?? undefined,
+        };
+      }
+
       paymentComplement = {
         version: complementVersion ?? undefined,
         pagos,
+        totales,
       };
 
       const hasRelatedDocs = pagos.some((p) => p.documentosRelacionados.length > 0);
@@ -4566,6 +4649,24 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         }
       });
     }
+  }
+
+  // ── Advanced Payment Complement Validations (A1–D7)
+  if (paymentComplement && paymentComplement.pagos.length > 0) {
+    validatePaymentComplementAdvanced({
+      paymentComplement,
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        addFindingOnce({
+          severity,
+          category: "COMPLEMENT",
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
+    });
   }
 
   // ── CFDI Relations Findings ──
