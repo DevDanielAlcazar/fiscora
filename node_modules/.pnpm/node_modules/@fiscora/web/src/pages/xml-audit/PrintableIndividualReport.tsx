@@ -1,6 +1,7 @@
 import type { AnalysisResult } from "../../api/xml-audit";
 import { sortFindingsByPriority, groupFindingsByActionGroup, getPriorityLabel } from "./findingPriority";
 import { buildFindingGlossary, getSeverityLabel } from "./findingGlossary.helpers";
+import { buildRemediationPlan } from "./remediationPlan.helpers";
 
 interface Props {
   result: AnalysisResult;
@@ -1633,6 +1634,37 @@ export default function PrintableIndividualReport({ result }: Props) {
                   <td style={{ fontWeight: 600 }}>Tolerancia</td>
                   <td>{result.totalsValidation.tolerance}</td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {result.findings && result.findings.length > 0 && (
+          <div className="avoid-break">
+            <h2>Plan de acción</h2>
+            <p style={{ fontSize: "10px", color: "#666", marginBottom: "8px" }}>
+              Checklist sugerido para remediación (Top 10 acciones).
+            </p>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#f3f4f6" }}>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Código</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Urgencia</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Responsable</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Acción recomendada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {buildRemediationPlan(result.findings).items.slice(0, 10).map((item) => (
+                  <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "4px 6px", fontWeight: 700, fontFamily: "monospace" }}>
+                      {item.code}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>{item.urgency}</td>
+                    <td style={{ padding: "4px 6px" }}>{item.ownerSuggestion}</td>
+                    <td style={{ padding: "4px 6px" }}>{item.recommendedAction}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

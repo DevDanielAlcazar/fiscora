@@ -5,6 +5,7 @@ import {
   getSeverityLabel,
   getCategoryLabel,
 } from "../xml-audit/findingGlossary.helpers";
+import { buildRemediationPlan } from "../xml-audit/remediationPlan.helpers";
 
 interface Props {
   detail: XmlAuditHistoryDetail;
@@ -248,6 +249,35 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
                   </td>
                 </tr>
               )}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {/* F2) Plan de acción */}
+      {analysis.findings && analysis.findings.length > 0 && (
+        <section className="mb-8 page-break-inside-avoid">
+          <h3 className="text-lg font-bold mb-4 uppercase border-l-4 border-blue-900 pl-2">
+            Plan de acción sugerido (Top 10)
+          </h3>
+          <table className="w-full border-collapse text-[9px]">
+            <thead>
+              <tr>
+                <th className={tableHeaderClass}>Código</th>
+                <th className={tableHeaderClass}>Urgencia</th>
+                <th className={tableHeaderClass}>Responsable</th>
+                <th className={tableHeaderClass}>Acción recomendada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buildRemediationPlan(analysis.findings).items.slice(0, 10).map((item) => (
+                <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                  <td className={`${tableCellClass} font-mono font-bold`}>{item.code}</td>
+                  <td className={tableCellClass}>{item.urgency}</td>
+                  <td className={tableCellClass}>{item.ownerSuggestion}</td>
+                  <td className={tableCellClass}>{item.recommendedAction}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </section>

@@ -1,5 +1,6 @@
 import type { ZipFullAnalysisFileResult } from "../../api/xml-audit";
 import FindingGlossary from "./FindingGlossary";
+import RemediationPlan from "./RemediationPlan";
 
 interface MassiveDetailModalProps {
   selectedMassiveDetail: ZipFullAnalysisFileResult | null;
@@ -197,6 +198,7 @@ export default function MassiveDetailModal({
                     No se detectaron hallazgos estructurados para este XML.
                   </p>
                 )}
+                {findings.length > 0 && <RemediationPlan findings={findings} compact />}
                 {findings.length > 0 && <FindingGlossary findings={findings} compact />}
               </div>
 

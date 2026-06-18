@@ -9,6 +9,7 @@ import {
 } from "../api/xml-audit";
 import ActionableSummary from "./xml-audit/ActionableSummary";
 import FindingGlossary from "./xml-audit/FindingGlossary";
+import RemediationPlan from "./xml-audit/RemediationPlan";
 import { exportXmlAuditHistoryCsv } from "./xml-audit-history/historyCsvExport";
 import PrintableHistoryDetailReport from "./xml-audit-history/PrintableHistoryDetailReport";
 
@@ -484,6 +485,7 @@ export default function XmlAuditHistoryPage() {
                   {detail.analysisJson?.findings && detail.analysisJson.findings.length > 0 && (
                     <>
                       <ActionableSummary findings={detail.analysisJson.findings} />
+                      <RemediationPlan findings={detail.analysisJson.findings} compact />
                       <FindingGlossary findings={detail.analysisJson.findings} compact />
                     </>
                   )}

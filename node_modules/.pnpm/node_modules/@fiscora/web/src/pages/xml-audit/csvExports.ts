@@ -7,6 +7,7 @@ import {
   getFindingImpactLabel,
   getFindingRemediationHint,
 } from "./findingGlossary.helpers";
+import { buildRemediationPlan } from "./remediationPlan.helpers";
 import {
   aggregateMassivePerformance,
   aggregateMassiveTotals,
@@ -186,6 +187,37 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
       row(f.id, f.severity, f.category, f.code, f.title, f.message, f.recommendedAction ?? "");
     }
     lines.push("");
+
+    section("PLAN DE ACCION");
+    row(
+      "Código",
+      "Título",
+      "Severidad",
+      "Prioridad",
+      "Urgencia",
+      "Esfuerzo",
+      "Responsable sugerido",
+      "Ocurrencias",
+      "Acción recomendada",
+      "Checklist",
+    );
+    const plan = buildRemediationPlan(r.findings);
+    for (const item of plan.items) {
+      row(
+        item.code,
+        item.title,
+        item.severity,
+        item.priority,
+        item.urgency,
+        item.effort,
+        item.ownerSuggestion,
+        String(item.occurrences),
+        item.recommendedAction,
+        item.checklist.join(" | "),
+      );
+    }
+    lines.push("");
+
     section("EVIDENCIA DE HALLAZGOS");
     row("ID hallazgo", "Label", "Valor");
     for (const f of r.findings) {
