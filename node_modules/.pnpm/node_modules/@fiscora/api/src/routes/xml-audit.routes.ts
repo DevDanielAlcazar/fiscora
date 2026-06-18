@@ -594,6 +594,41 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
     },
   });
 
+  fastify.get("/api/modules/xml-audit/history/batches", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const query = request.query as any;
+      const history = await XmlAnalysisRecordService.getUserZipBatches({
+        prisma: fastify.prisma,
+        userId: request.user.userId,
+        organizationId: request.user.organizationId,
+        query,
+      });
+      return reply.send(history);
+    },
+  });
+
+  fastify.get("/api/modules/xml-audit/history/batches/:batchId", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const { batchId } = request.params as { batchId: string };
+      const detail = await XmlAnalysisRecordService.getUserZipBatchDetail({
+        prisma: fastify.prisma,
+        userId: request.user.userId,
+        organizationId: request.user.organizationId,
+        batchId,
+      });
+
+      if (!detail) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "Lote ZIP no encontrado." },
+        });
+      }
+
+      return reply.send(detail);
+    },
+  });
+
   fastify.get("/api/modules/xml-audit/history", {
     preHandler: [fastify.authenticate],
     handler: async (request, reply) => {

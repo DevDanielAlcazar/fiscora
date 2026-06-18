@@ -14,6 +14,7 @@ import BillingCancelPage from "./pages/BillingCancelPage";
 import PlansPage from "./pages/PlansPage";
 import XmlAuditPage from "./pages/XmlAuditPage";
 import XmlAuditHistoryPage from "./pages/XmlAuditHistoryPage";
+import XmlAuditZipBatchesPage from "./pages/XmlAuditZipBatchesPage";
 import LaborPage from "./pages/LaborPage";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/plans" element={<PlansPage />} />
       <Route path="/modules/xml-audit" element={<XmlAuditPage />} />
       <Route path="/modules/xml-audit/history" element={<XmlAuditHistoryPage />} />
+      <Route path="/modules/xml-audit/history/batches" element={<XmlAuditZipBatchesPage />} />
       <Route path="/modules/labor" element={<LaborPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

@@ -852,3 +852,122 @@ export async function getXmlAuditHistoryDetail(
 
   return res.json();
 }
+
+export interface XmlAuditZipBatchItem {
+  batchId: string;
+  zipFilename: string;
+  createdAtFirst: string;
+  createdAtLast: string;
+  expiresAt: string;
+  totalRecords: number;
+  analyzedCount: number;
+  failedCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  okCount: number;
+  recordsWithBom: number;
+  recordsWithTechnicalNormalization: number;
+  recordsWithNormalizedXml: number;
+  documentKinds: Array<{ documentKind: string; count: number }>;
+  priorityMax: string | null;
+  topActionGroup: string | null;
+  topFindingCode: string | null;
+  hasFailed: boolean;
+  hasCritical: boolean;
+}
+
+export interface XmlAuditZipBatchesResponse {
+  items: XmlAuditZipBatchItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface XmlAuditZipBatchesQuery {
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  zipFilename?: string;
+  batchId?: string;
+  hasFailed?: string;
+  hasCritical?: string;
+  documentKind?: string;
+  search?: string;
+}
+
+export type XmlAuditZipBatchRecord = XmlAuditHistoryItem;
+
+export interface XmlAuditZipBatchDetail {
+  batch: {
+    batchId: string;
+    zipFilename: string;
+    createdAtFirst: string;
+    createdAtLast: string;
+    expiresAt: string;
+    summary: {
+      totalRecords: number;
+      analyzedCount: number;
+      failedCount: number;
+      criticalCount: number;
+      warningCount: number;
+      infoCount: number;
+      okCount: number;
+      recordsWithBom: number;
+      recordsWithTechnicalNormalization: number;
+      recordsWithNormalizedXml: number;
+      documentKinds: Array<{ documentKind: string; count: number }>;
+    };
+  };
+  records: XmlAuditZipBatchRecord[];
+}
+
+export async function getXmlAuditZipBatches(
+  token: string,
+  query: XmlAuditZipBatchesQuery,
+): Promise<XmlAuditZipBatchesResponse> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.zipFilename) params.set("zipFilename", query.zipFilename);
+  if (query.batchId) params.set("batchId", query.batchId);
+  if (query.hasFailed) params.set("hasFailed", query.hasFailed);
+  if (query.hasCritical) params.set("hasCritical", query.hasCritical);
+  if (query.documentKind) params.set("documentKind", query.documentKind);
+  if (query.search) params.set("search", query.search);
+
+  const res = await fetch(`/api/modules/xml-audit/history/batches?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error("No fue posible consultar los lotes ZIP.");
+  }
+
+  return res.json();
+}
+
+export async function getXmlAuditZipBatchDetail(
+  token: string,
+  batchId: string,
+): Promise<XmlAuditZipBatchDetail> {
+  const res = await fetch(`/api/modules/xml-audit/history/batches/${batchId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 404) {
+    throw new Error("Lote ZIP no encontrado.");
+  }
+
+  if (!res.ok) {
+    throw new Error("No fue posible consultar el detalle del lote ZIP.");
+  }
+
+  return res.json();
+}

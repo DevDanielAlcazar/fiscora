@@ -383,19 +383,19 @@ export default function DashboardPage() {
               onClick={() => navigate("/admin/xml-analyses")}
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >
-              Análisis XML recientes
+              Análisis XML recientes (Admin)
             </button>
             <button
               onClick={() => navigate("/admin/xml-analysis-batches")}
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >
-              Lotes XML ZIP
+              Lotes XML ZIP (Admin)
             </button>
             <button
               onClick={() => navigate("/admin/analytics")}
               className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
             >
-              Analítica XML
+              Analítica XML (Admin)
             </button>
             <button
               onClick={() => navigate("/admin/stripe-webhook")}
@@ -423,6 +423,21 @@ export default function DashboardPage() {
             </button>
           </>
         )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => navigate("/modules/xml-audit/history")}
+            className="py-2.5 px-4 rounded-lg bg-secondary text-secondary-foreground font-semibold text-sm hover:bg-secondary/80 transition-all"
+          >
+            Auditorías recientes
+          </button>
+          <button
+            onClick={() => navigate("/modules/xml-audit/history/batches")}
+            className="py-2.5 px-4 rounded-lg bg-secondary text-secondary-foreground font-semibold text-sm hover:bg-secondary/80 transition-all"
+          >
+            Lotes ZIP recientes
+          </button>
+        </div>
 
         <button
           onClick={() => navigate("/plans")}
