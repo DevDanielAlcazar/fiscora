@@ -707,6 +707,137 @@ export async function downloadNormalizedZip(token: string, file: File): Promise<
   return res.blob();
 }
 
+export interface XmlAuditHistorySummaryTotals {
+  records: number;
+  analyzed: number;
+  failed: number;
+  individual: number;
+  zip: number;
+  batches: number;
+  ok: number;
+  warning: number;
+  critical: number;
+  infoFindings: number;
+  warningFindings: number;
+  criticalFindings: number;
+  recordsWithBom: number;
+  recordsWithTechnicalNormalization: number;
+  recordsWithNormalizedXml: number;
+}
+
+export interface XmlAuditHistorySummaryPriority {
+  priority: string;
+  findings: number;
+  recordsAffected: number;
+}
+
+export interface XmlAuditHistorySummaryDocumentKind {
+  documentKind: string;
+  count: number;
+}
+
+export interface XmlAuditHistorySummaryActionGroup {
+  actionGroup: string;
+  findings: number;
+  recordsAffected: number;
+}
+
+export interface XmlAuditHistorySummaryTopFinding {
+  code: string;
+  title: string;
+  severityMax: string;
+  priorityMax: string;
+  count: number;
+  recordsAffected: number;
+}
+
+export interface XmlAuditHistorySummaryRecord {
+  id: string;
+  createdAt: string;
+  sourceType: string | null;
+  sourceFilename: string | null;
+  zipFilename: string | null;
+  zipEntryName: string | null;
+  analysisStatus: string;
+  documentKind: string;
+  uuid: string | null;
+  rfcEmisor: string | null;
+  rfcReceptor: string | null;
+  total: string | null;
+  moneda: string | null;
+  riskLevel: string | null;
+  findingsCount: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  priorityMax: string | null;
+  actionGroupTop: string | null;
+}
+
+export interface XmlAuditHistorySummaryBatch {
+  batchId: string;
+  zipFilename: string;
+  createdAtFirst: string;
+  createdAtLast: string;
+  totalRecords: number;
+  analyzedCount: number;
+  failedCount: number;
+  criticalCount: number;
+  warningCount: number;
+  okCount: number;
+  priorityMax: string | null;
+  topActionGroup: string | null;
+  topFindingCode: string | null;
+}
+
+export interface XmlAuditHistorySummary {
+  generatedAt: string;
+  retentionHours: number;
+  truncated?: boolean;
+  maxRecords?: number;
+  filters: {
+    from?: string;
+    to?: string;
+    sourceType?: string;
+    analysisStatus?: string;
+  };
+  totals: XmlAuditHistorySummaryTotals;
+  priorities: XmlAuditHistorySummaryPriority[];
+  documentKinds: XmlAuditHistorySummaryDocumentKind[];
+  actionGroups: XmlAuditHistorySummaryActionGroup[];
+  topFindingCodes: XmlAuditHistorySummaryTopFinding[];
+  recentRecords: XmlAuditHistorySummaryRecord[];
+  recentBatches: XmlAuditHistorySummaryBatch[];
+}
+
+export interface XmlAuditHistorySummaryQuery {
+  from?: string;
+  to?: string;
+  sourceType?: string;
+  analysisStatus?: string;
+}
+
+export async function getXmlAuditHistorySummary(
+  token: string,
+  query: XmlAuditHistorySummaryQuery,
+): Promise<XmlAuditHistorySummary> {
+  const params = new URLSearchParams();
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.sourceType) params.set("sourceType", query.sourceType);
+  if (query.analysisStatus) params.set("analysisStatus", query.analysisStatus);
+
+  const res = await fetch(`/api/modules/xml-audit/history/summary?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error("No fue posible consultar el resumen de la auditoría.");
+  }
+
+  return res.json();
+}
+
 export async function analyzeXml(token: string, file: File): Promise<AnalysisResult> {
   const formData = new FormData();
   formData.append("file", file);

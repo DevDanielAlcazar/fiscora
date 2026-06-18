@@ -73,7 +73,310 @@ export interface XmlZipBatchesQuery {
   search?: string;
 }
 
+export interface XmlSummaryQuery {
+  from?: string;
+  to?: string;
+  sourceType?: string;
+  analysisStatus?: string;
+}
+
 export class XmlAnalysisRecordService {
+  static async getUserHistorySummary(params: {
+    prisma: PrismaClient;
+    userId: string;
+    organizationId?: string | null;
+    query: XmlSummaryQuery;
+  }) {
+    const { prisma, userId, organizationId, query } = params;
+
+    const where: Prisma.XmlAnalysisRecordWhereInput = {
+      expiresAt: { gte: new Date() },
+    };
+
+    // Security scoping
+    if (organizationId) {
+      where.organizationId = organizationId;
+    } else {
+      where.userId = userId;
+      where.organizationId = null;
+    }
+
+    if (query.sourceType) where.sourceType = query.sourceType;
+    if (query.analysisStatus) where.analysisStatus = query.analysisStatus;
+
+    if (query.from || query.to) {
+      where.createdAt = {};
+      if (query.from) where.createdAt.gte = new Date(query.from);
+      if (query.to) where.createdAt.lte = new Date(query.to);
+    }
+
+    const maxAggregation = 20000;
+    const records = await prisma.xmlAnalysisRecord.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: maxAggregation,
+    });
+
+    const truncated = records.length === maxAggregation;
+
+    // Totals
+    const t = {
+      records: records.length,
+      analyzed: 0,
+      failed: 0,
+      individual: 0,
+      zip: 0,
+      ok: 0,
+      warning: 0,
+      critical: 0,
+      infoFindings: 0,
+      warningFindings: 0,
+      criticalFindings: 0,
+      recordsWithBom: 0,
+      recordsWithTechnicalNormalization: 0,
+      recordsWithNormalizedXml: 0,
+    };
+
+    const batchesSet = new Set<string>();
+    const docKindsMap = new Map<string, number>();
+    const prioritiesMap = new Map<string, { findings: number; records: Set<string> }>();
+    const actionGroupsMap = new Map<string, { findings: number; records: Set<string> }>();
+    const findingCodesMap = new Map<
+      string,
+      { title: string; severityMax: string; priorityMax: string; count: number; records: Set<string> }
+    >();
+
+    const priorityRanking: Record<string, number> = { BLOCKER: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+    for (const r of records) {
+      if (r.analysisStatus === "ANALYZED") t.analyzed++;
+      else if (r.analysisStatus === "FAILED") t.failed++;
+
+      if (r.sourceType === "INDIVIDUAL") t.individual++;
+      else if (r.sourceType === "ZIP") {
+        t.zip++;
+        if (r.batchId) batchesSet.add(r.batchId);
+      }
+
+      if (r.riskLevel === "OK") t.ok++;
+      else if (r.riskLevel === "WARNING") t.warning++;
+      else if (r.riskLevel === "CRITICAL") t.critical++;
+
+      t.infoFindings += r.infoCount;
+      t.warningFindings += r.warningCount;
+      t.criticalFindings += r.criticalCount;
+
+      if (r.hasBom) t.recordsWithBom++;
+      if (r.hasTechnicalNormalization) t.recordsWithTechnicalNormalization++;
+      if (r.hasNormalizedXml) t.recordsWithNormalizedXml++;
+
+      const analysis = r.analysisJson as any;
+      const dk = analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
+      docKindsMap.set(dk, (docKindsMap.get(dk) || 0) + 1);
+
+      const findings = analysis?.findings || [];
+      for (const f of findings) {
+        // Priorities
+        const p = f.priority || "LOW";
+        const pEntry = prioritiesMap.get(p) || { findings: 0, records: new Set() };
+        pEntry.findings++;
+        pEntry.records.add(r.id);
+        prioritiesMap.set(p, pEntry);
+
+        // Action Groups
+        const ag = f.actionGroup || "Informativo";
+        const agEntry = actionGroupsMap.get(ag) || { findings: 0, records: new Set() };
+        agEntry.findings++;
+        agEntry.records.add(r.id);
+        actionGroupsMap.set(ag, agEntry);
+
+        // Finding Codes
+        const fc = findingCodesMap.get(f.code) || {
+          title: f.title || "",
+          severityMax: "INFO",
+          priorityMax: "LOW",
+          count: 0,
+          records: new Set(),
+        };
+        fc.count++;
+        fc.records.add(r.id);
+        if (priorityRanking[f.priority] > (priorityRanking[fc.priorityMax] || 0)) {
+          fc.priorityMax = f.priority;
+        }
+        // severity simple logic
+        const sevRanking: Record<string, number> = { CRITICAL: 3, WARNING: 2, INFO: 1 };
+        if (sevRanking[f.severity] > (sevRanking[fc.severityMax] || 0)) {
+          fc.severityMax = f.severity;
+        }
+        findingCodesMap.set(f.code, fc);
+      }
+    }
+
+    const priorities = Array.from(prioritiesMap.entries()).map(([priority, val]) => ({
+      priority,
+      findings: val.findings,
+      recordsAffected: val.records.size,
+    }));
+
+    const documentKinds = Array.from(docKindsMap.entries()).map(([documentKind, count]) => ({
+      documentKind,
+      count,
+    }));
+
+    const actionGroups = Array.from(actionGroupsMap.entries()).map(([actionGroup, val]) => ({
+      actionGroup,
+      findings: val.findings,
+      recordsAffected: val.records.size,
+    }));
+
+    const topFindingCodes = Array.from(findingCodesMap.entries())
+      .map(([code, val]) => ({
+        code,
+        title: val.title,
+        severityMax: val.severityMax,
+        priorityMax: val.priorityMax,
+        count: val.count,
+        recordsAffected: val.records.size,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    // Recent Records
+    const recentRecords = records.slice(0, 10).map((item) => {
+      const analysis = item.analysisJson as any;
+      let priorityMax = null;
+      const findings = analysis?.findings || [];
+      if (findings.length > 0) {
+        const priorities = ["BLOCKER", "HIGH", "MEDIUM", "LOW"];
+        for (const p of priorities) {
+          if (findings.some((f: any) => f.priority === p)) {
+            priorityMax = p;
+            break;
+          }
+        }
+      }
+      let actionGroupTop = null;
+      if (findings.length > 0) {
+        const groups: Record<string, number> = {};
+        findings.forEach((f: any) => {
+          const g = f.actionGroup || "Informativo";
+          groups[g] = (groups[g] || 0) + 1;
+        });
+        const sorted = Object.entries(groups).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) actionGroupTop = sorted[0][0];
+      }
+      const documentKind =
+        analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
+
+      return {
+        id: item.id,
+        createdAt: item.createdAt,
+        sourceType: item.sourceType,
+        sourceFilename: item.sourceFilename,
+        zipFilename: item.zipFilename,
+        zipEntryName: item.zipEntryName,
+        analysisStatus: item.analysisStatus,
+        documentKind,
+        uuid: item.uuid,
+        rfcEmisor: item.rfcEmisor,
+        rfcReceptor: item.rfcReceptor,
+        total: item.total,
+        moneda: item.moneda,
+        riskLevel: item.riskLevel,
+        findingsCount: item.findingsCount,
+        criticalCount: item.criticalCount,
+        warningCount: item.warningCount,
+        infoCount: item.infoCount,
+        priorityMax,
+        actionGroupTop,
+      };
+    });
+
+    // Recent Batches (Derived from full records list)
+    const recentBatches = [];
+    const bidSeen = new Set<string>();
+    for (const r of records) {
+      if (r.sourceType === "ZIP" && r.batchId && !bidSeen.has(r.batchId)) {
+        const bid = r.batchId;
+        bidSeen.add(bid);
+        const recs = records.filter((rec) => rec.batchId === bid);
+        const first = recs.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
+        const last = recs.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+        
+        const analyzedCount = recs.filter((re) => re.analysisStatus === "ANALYZED").length;
+        const failedCount = recs.filter((re) => re.analysisStatus === "FAILED").length;
+        const criticalCount = recs.reduce((s, re) => s + re.criticalCount, 0);
+        const warningCount = recs.reduce((s, re) => s + re.warningCount, 0);
+        const okCount = recs.filter((re) => re.analysisStatus === "ANALYZED" && re.riskLevel === "OK").length;
+
+        // priorityMax derivation
+        let priorityMax = null;
+        for (const p of ["BLOCKER", "HIGH", "MEDIUM", "LOW"]) {
+          if (recs.some((re) => {
+            const fs = (re.analysisJson as any)?.findings || [];
+            return fs.some((f: any) => f.priority === p);
+          })) {
+            priorityMax = p;
+            break;
+          }
+        }
+
+        const actionGroupsM = new Map<string, number>();
+        const findingCodesM = new Map<string, number>();
+        for (const re of recs) {
+          const fs = (re.analysisJson as any)?.findings || [];
+          for (const f of fs) {
+            const g = f.actionGroup || "Informativo";
+            actionGroupsM.set(g, (actionGroupsM.get(g) || 0) + 1);
+            findingCodesM.set(f.code, (findingCodesM.get(f.code) || 0) + 1);
+          }
+        }
+        const topActionGroup = Array.from(actionGroupsM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        const topFindingCode = Array.from(findingCodesM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+        recentBatches.push({
+          batchId: bid,
+          zipFilename: first.zipFilename ?? "—",
+          createdAtFirst: first.createdAt,
+          createdAtLast: last.createdAt,
+          totalRecords: recs.length,
+          analyzedCount,
+          failedCount,
+          criticalCount,
+          warningCount,
+          okCount,
+          priorityMax,
+          topActionGroup,
+          topFindingCode,
+        });
+        if (recentBatches.length >= 5) break;
+      }
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      retentionHours: 24,
+      truncated,
+      maxRecords: maxAggregation,
+      filters: {
+        from: query.from,
+        to: query.to,
+        sourceType: query.sourceType,
+        analysisStatus: query.analysisStatus,
+      },
+      totals: {
+        ...t,
+        batches: batchesSet.size,
+      },
+      priorities,
+      documentKinds,
+      actionGroups,
+      topFindingCodes,
+      recentRecords,
+      recentBatches,
+    };
+  }
+
   static async getUserZipBatches(params: {
     prisma: PrismaClient;
     userId: string;

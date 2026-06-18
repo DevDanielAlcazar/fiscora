@@ -147,6 +147,12 @@ export default function XmlAuditHistoryPage() {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => navigate("/modules/xml-audit/dashboard")}
+              className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all flex items-center gap-2"
+            >
+              Ver dashboard
+            </button>
+            <button
               onClick={() => navigate("/modules/xml-audit/history/batches")}
               className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all flex items-center gap-2"
             >

@@ -594,6 +594,20 @@ export async function xmlAuditRoutes(fastify: FastifyInstance) {
     },
   });
 
+  fastify.get("/api/modules/xml-audit/history/summary", {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const query = request.query as any;
+      const summary = await XmlAnalysisRecordService.getUserHistorySummary({
+        prisma: fastify.prisma,
+        userId: request.user.userId,
+        organizationId: request.user.organizationId,
+        query,
+      });
+      return reply.send(summary);
+    },
+  });
+
   fastify.get("/api/modules/xml-audit/history/batches", {
     preHandler: [fastify.authenticate],
     handler: async (request, reply) => {
