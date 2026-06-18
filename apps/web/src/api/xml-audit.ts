@@ -57,6 +57,15 @@ export interface CfdiRelations {
   groups: CfdiRelationGroup[];
 }
 
+export interface CartaPorteDomicilio {
+  codigoPostal?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  municipio?: string | null;
+  localidad?: string | null;
+  colonia?: string | null;
+}
+
 export interface CartaPorteUbicacion {
   tipoUbicacion?: string | null;
   idUbicacion?: string | null;
@@ -64,6 +73,7 @@ export interface CartaPorteUbicacion {
   nombreRemitenteDestinatario?: string | null;
   fechaHoraSalidaLlegada?: string | null;
   distanciaRecorrida?: string | null;
+  domicilio?: CartaPorteDomicilio | null;
 }
 
 export interface CartaPorteMercancia {
@@ -74,6 +84,9 @@ export interface CartaPorteMercancia {
   pesoEnKg?: string | null;
   valorMercancia?: string | null;
   moneda?: string | null;
+  materialPeligroso?: string | null;
+  cveMaterialPeligroso?: string | null;
+  embalaje?: string | null;
 }
 
 export interface CartaPorteTransportFigure {
@@ -83,17 +96,42 @@ export interface CartaPorteTransportFigure {
   numLicencia?: string | null;
 }
 
+export interface CartaPorteIdentificacionVehicular {
+  configVehicular?: string | null;
+  placaVM?: string | null;
+  anioModeloVM?: string | null;
+}
+
+export interface CartaPorteSeguros {
+  aseguraRespCivil?: string | null;
+  polizaRespCivil?: string | null;
+}
+
+export interface CartaPorteAutotransporteInfo {
+  permSCT?: string | null;
+  numPermisoSCT?: string | null;
+  identificacionVehicular?: CartaPorteIdentificacionVehicular | null;
+  seguros?: CartaPorteSeguros | null;
+}
+
 export interface CartaPorteInfo {
   version?: string | null;
   idCCP?: string | null;
   transpInternac?: string | null;
   totalDistRec?: string | null;
+  entradaSalidaMerc?: string | null;
+  paisOrigenDestino?: string | null;
+  viaEntradaSalida?: string | null;
+  numTotalMercancias?: string | null;
+  pesoBrutoTotal?: string | null;
+  unidadPeso?: string | null;
   hasUbicaciones: boolean;
   hasMercancias: boolean;
   ubicaciones: CartaPorteUbicacion[];
   mercancias: CartaPorteMercancia[];
   figurasTransporte: CartaPorteTransportFigure[];
   hasAutotransporte: boolean;
+  autotransporte?: CartaPorteAutotransporteInfo | null;
   hasTransporteMaritimo: boolean;
   hasTransporteAereo: boolean;
   hasTransporteFerroviario: boolean;

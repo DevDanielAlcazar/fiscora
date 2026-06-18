@@ -1649,6 +1649,12 @@ function buildCartaPorteXml(opts?: {
   idCCP?: string;
   transpInternac?: string;
   totalDistRec?: string;
+  entradaSalidaMerc?: string;
+  paisOrigenDestino?: string;
+  viaEntradaSalida?: string;
+  numTotalMercancias?: string;
+  pesoBrutoTotal?: string;
+  unidadPeso?: string;
   ubicaciones?: Array<{
     tipo: string;
     id?: string;
@@ -1656,6 +1662,7 @@ function buildCartaPorteXml(opts?: {
     nombre?: string;
     fecha?: string;
     distancia?: string;
+    domicilio?: { cp?: string; estado?: string; pais?: string; municipio?: string };
   }>;
   mercancias?: Array<{
     bienesTransp?: string;
@@ -1665,8 +1672,18 @@ function buildCartaPorteXml(opts?: {
     pesoEnKg?: string;
     valor?: string;
     moneda?: string;
+    materialPeligroso?: string;
+    cveMaterialPeligroso?: string;
+    embalaje?: string;
   }>;
   hasAutotransporte?: boolean;
+  autotransporteCompleto?: boolean;
+  figurasTransporte?: Array<{
+    tipoFigura?: string;
+    rfcFigura?: string;
+    nombreFigura?: string;
+    numLicencia?: string;
+  }>;
 }): string {
   const tipo = opts?.tipoComprobante ?? "T";
   const total = opts?.total ?? "0.00";
@@ -1675,6 +1692,11 @@ function buildCartaPorteXml(opts?: {
   const idCCP = opts?.idCCP ?? "CCP123456";
   const transpInternac = opts?.transpInternac ?? "No";
   const totalDistRec = opts?.totalDistRec ?? "500.00";
+  const entradaSalidaMerc = opts?.entradaSalidaMerc;
+  const paisOrigenDestino = opts?.paisOrigenDestino;
+  const viaEntradaSalida = opts?.viaEntradaSalida;
+  const pesoBrutoTotal = opts?.pesoBrutoTotal;
+  const unidadPeso = opts?.unidadPeso;
   const ubicaciones = opts?.ubicaciones ?? [
     {
       tipo: "Origen",
@@ -1703,7 +1725,10 @@ function buildCartaPorteXml(opts?: {
       moneda: "MXN",
     },
   ];
+  const numTotalMercancias = opts?.numTotalMercancias ?? String(mercancias.length);
   const hasAutotransporte = opts?.hasAutotransporte ?? true;
+  const autotransporteCompleto = opts?.autotransporteCompleto !== false;
+  const figurasTransporte = opts?.figurasTransporte;
 
   const typeLabel =
     tipo === "T"
@@ -1731,7 +1756,10 @@ function buildCartaPorteXml(opts?: {
       const nomAttr = u.nombre ? ` NombreRemitenteDestinatario="${u.nombre}"` : "";
       const fechaAttr = u.fecha ? ` FechaHoraSalidaLlegada="${u.fecha}"` : "";
       const distAttr = u.distancia ? ` DistanciaRecorrida="${u.distancia}"` : "";
-      return `          <${cpNs}:Ubicacion TipoUbicacion="${u.tipo}"${idAttr}${rfcAttr}${nomAttr}${fechaAttr}${distAttr}/>`;
+      const domXml = u.domicilio
+        ? `<${cpNs}:Domicilio${u.domicilio.cp ? ` CodigoPostal="${u.domicilio.cp}"` : ""}${u.domicilio.estado ? ` Estado="${u.domicilio.estado}"` : ""}${u.domicilio.pais ? ` Pais="${u.domicilio.pais}"` : ""}${u.domicilio.municipio ? ` Municipio="${u.domicilio.municipio}"` : ""}/>`
+        : "";
+      return `          <${cpNs}:Ubicacion TipoUbicacion="${u.tipo}"${idAttr}${rfcAttr}${nomAttr}${fechaAttr}${distAttr}>${domXml ? `\n            ${domXml}\n          ` : ""}</${cpNs}:Ubicacion>`;
     })
     .join("\n");
 
@@ -1744,12 +1772,34 @@ function buildCartaPorteXml(opts?: {
       const peso = m.pesoEnKg ? ` PesoEnKg="${m.pesoEnKg}"` : "";
       const val = m.valor ? ` ValorMercancia="${m.valor}"` : "";
       const mon = m.moneda ? ` Moneda="${m.moneda}"` : "";
-      return `          <${cpNs}:Mercancia${bt}${desc}${cant}${cu}${peso}${val}${mon}/>`;
+      const mp = m.materialPeligroso ? ` MaterialPeligroso="${m.materialPeligroso}"` : "";
+      const cmp = m.cveMaterialPeligroso ? ` CveMaterialPeligroso="${m.cveMaterialPeligroso}"` : "";
+      const emb = m.embalaje ? ` Embalaje="${m.embalaje}"` : "";
+      return `          <${cpNs}:Mercancia${bt}${desc}${cant}${cu}${peso}${val}${mon}${mp}${cmp}${emb}/>`;
     })
     .join("\n");
 
+  const mercanciasAttrs = `${numTotalMercancias ? ` NumTotalMercancias="${numTotalMercancias}"` : ""}${pesoBrutoTotal ? ` PesoBrutoTotal="${pesoBrutoTotal}"` : ""}${unidadPeso ? ` UnidadPeso="${unidadPeso}"` : ""}`;
+
+  const cpExtraAttrs = `${entradaSalidaMerc ? ` EntradaSalidaMerc="${entradaSalidaMerc}"` : ""}${paisOrigenDestino ? ` PaisOrigenDestino="${paisOrigenDestino}"` : ""}${viaEntradaSalida ? ` ViaEntradaSalida="${viaEntradaSalida}"` : ""}`;
+
   const cpNsAttr = `xmlns:${cpNs}="${cpNsUrl}"`;
-  const autoXml = hasAutotransporte ? `        <${cpNs}:Autotransporte/>` : "";
+  const autoXml = hasAutotransporte
+    ? autotransporteCompleto
+      ? `        <${cpNs}:Autotransporte PermSCT="TPAF01" NumPermisoSCT="PERMISO001">
+          <${cpNs}:IdentificacionVehicular ConfigVehicular="C2" PlacaVM="ABC1234" AnioModeloVM="2023"/>
+          <${cpNs}:Seguros AseguraRespCivil="SEGURO SA" PolizaRespCivil="POL123456"/>
+        </${cpNs}:Autotransporte>`
+      : `        <${cpNs}:Autotransporte/>`
+    : "";
+
+  const figurasXml = figurasTransporte
+    ? `        <${cpNs}:FiguraTransporte>
+${figurasTransporte.map((fig) => `          <${cpNs}:TiposFigura TipoFigura="${fig.tipoFigura ?? "01"}">
+            <${cpNs}:PartesTransporte${fig.rfcFigura ? ` RFCFigura="${fig.rfcFigura}"` : ""}${fig.nombreFigura ? ` NombreFigura="${fig.nombreFigura}"` : ""}${fig.numLicencia ? ` NumLicencia="${fig.numLicencia}"` : ""}/>
+          </${cpNs}:TiposFigura>`).join("\n")}
+        </${cpNs}:FiguraTransporte>`
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${cpNsAttr} ${SCHEMA_LOCATION} Version="4.0" Serie="CP" Folio="1" Fecha="2024-06-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="${subtotal}" Moneda="MXN" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
@@ -1759,10 +1809,11 @@ function buildCartaPorteXml(opts?: {
     <cfdi:Concepto ClaveProdServ="78101802" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio de transporte" ValorUnitario="${subtotal}" Importe="${subtotal}" ObjetoImp="01"/>
   </cfdi:Conceptos>
   <cfdi:Complemento>
-    <${cpNs}:CartaPorte Version="${cpVersion}"${idCCP ? ` IdCCP="${idCCP}"` : ""} TranspInternac="${transpInternac}"${totalDistRec ? ` TotalDistRec="${totalDistRec}"` : ""}>
+    <${cpNs}:CartaPorte Version="${cpVersion}"${idCCP ? ` IdCCP="${idCCP}"` : ""} TranspInternac="${transpInternac}"${totalDistRec ? ` TotalDistRec="${totalDistRec}"` : ""}${cpExtraAttrs}>
 ${ubicaciones.length > 0 ? `        <${cpNs}:Ubicaciones>\n${ubiXml}\n        </${cpNs}:Ubicaciones>` : ""}
-${mercancias.length > 0 ? `        <${cpNs}:Mercancias>\n${merXml}\n        </${cpNs}:Mercancias>` : ""}
+${mercancias.length > 0 ? `        <${cpNs}:Mercancias${mercanciasAttrs}>\n${merXml}\n        </${cpNs}:Mercancias>` : ""}
 ${autoXml}
+${figurasXml}
     </${cpNs}:CartaPorte>
   </cfdi:Complemento>
 </cfdi:Comprobante>`;
@@ -1849,6 +1900,156 @@ async function testCartaPorteMercanciaInvalida(): Promise<void> {
   assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_MISSING_BIENES_TRANSP");
   assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_INVALID_QUANTITY");
   assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_INVALID_WEIGHT");
+}
+
+// EW) Carta Porte single location (missing destino/origen)
+async function testCartaPorteSingleLocation(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    ubicaciones: [{ tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00" }],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-single-location.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_SINGLE_LOCATION_REVIEW");
+  const slFinding = result.findings.find((f) => f.code === "CARTA_PORTE_SINGLE_LOCATION_REVIEW")!;
+  assertEqual(slFinding.severity, "INFO", "CARTA_PORTE_SINGLE_LOCATION_REVIEW debe ser INFO");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_ORIGIN_DESTINATION_REVIEW");
+}
+
+// EX) Carta Porte destino sin distancia recorrida
+async function testCartaPorteDestinoSinDistancia(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    ubicaciones: [
+      { tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00", distancia: "0" },
+      { tipo: "Destino", id: "DE001", rfc: "EKU9003173C9", nombre: "DESTINO SA", fecha: "2024-06-01T18:00:00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-destino-sin-distancia.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA debe ser WARNING");
+}
+
+// EY) Carta Porte TotalDistRec mismatch
+async function testCartaPorteTotalDistRecMismatch(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    totalDistRec: "500.00",
+    ubicaciones: [
+      { tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00" },
+      { tipo: "Destino", id: "DE001", rfc: "EKU9003173C9", nombre: "DESTINO SA", fecha: "2024-06-01T18:00:00", distancia: "300.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-total-dist-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_TOTAL_DIST_REC_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_TOTAL_DIST_REC_MISMATCH")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_TOTAL_DIST_REC_MISMATCH debe ser WARNING");
+}
+
+// EZ) Carta Porte NumTotalMercancias mismatch
+async function testCartaPorteNumTotalMercanciasMismatch(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    numTotalMercancias: "3",
+    mercancias: [
+      { bienesTransp: "12101500", descripcion: "Material", cantidad: "10", claveUnidad: "KGM", pesoEnKg: "100.00" },
+      { bienesTransp: "12101600", descripcion: "Otro", cantidad: "5", claveUnidad: "KGM", pesoEnKg: "50.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-num-total-merc-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH debe ser WARNING");
+}
+
+// FA) Carta Porte PesoBrutoTotal mismatch
+async function testCartaPortePesoBrutoTotalMismatch(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    pesoBrutoTotal: "100.00",
+    mercancias: [
+      { bienesTransp: "12101500", descripcion: "Material", cantidad: "1", claveUnidad: "KGM", pesoEnKg: "30.00" },
+      { bienesTransp: "12101600", descripcion: "Otro", cantidad: "1", claveUnidad: "KGM", pesoEnKg: "20.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-peso-bruto-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH debe ser WARNING");
+}
+
+// FB) Carta Porte mercancía sin ClaveUnidad
+async function testCartaPorteMercanciaSinClaveUnidad(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    mercancias: [
+      { bienesTransp: "12101500", descripcion: "Material", cantidad: "10", pesoEnKg: "100.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-merc-sin-clave-unidad.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD debe ser WARNING");
+}
+
+// FC) Carta Porte material peligroso sin clave/embalaje
+async function testCartaPorteMaterialPeligrosoSinClaveEmbalaje(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    mercancias: [
+      { bienesTransp: "12101500", descripcion: "Material", cantidad: "10", claveUnidad: "KGM", pesoEnKg: "100.00", materialPeligroso: "Sí" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-mat-peligroso-sin-clave-embalaje.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE");
+  const cFinding = result.findings.find((f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE")!;
+  assertEqual(cFinding.severity, "WARNING", "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE debe ser WARNING");
+  const eFinding = result.findings.find((f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE")!;
+  assertEqual(eFinding.severity, "WARNING", "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE debe ser WARNING");
+}
+
+// FD) Carta Porte autotransporte sin permiso/vehículo/seguro
+async function testCartaPorteAutotransporteSinPermisoVehiculoSeguro(): Promise<void> {
+  const xml = buildCartaPorteXml({ hasAutotransporte: true, autotransporteCompleto: false });
+  const result = analyzeCfdi(xml, "carta-porte-auto-sin-permiso-vehiculo-seguro.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO");
+  assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC");
+  const pFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO")!;
+  assertEqual(pFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO debe ser WARNING");
+  const vFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO")!;
+  assertEqual(vFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO debe ser WARNING");
+  const sFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC")!;
+  assertEqual(sFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC debe ser WARNING");
+}
+
+// FE) Carta Porte operador sin licencia
+async function testCartaPorteOperadorSinLicencia(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    figurasTransporte: [
+      { tipoFigura: "03", rfcFigura: "EKU9003173C9", nombreFigura: "OPERADOR SA" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "carta-porte-operador-sin-licencia.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA debe ser WARNING");
+}
+
+// FF) Carta Porte internacional sin país/vía
+async function testCartaPorteInternacionalSinPaisVia(): Promise<void> {
+  const xml = buildCartaPorteXml({
+    transpInternac: "Sí",
+    totalDistRec: "500.00",
+  });
+  const result = analyzeCfdi(xml, "carta-porte-internacional-sin-pais-via.xml");
+
+  assertIncludesFinding(result.findings, "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA");
+  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA")!;
+  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA debe ser WARNING");
 }
 
 // ─── Nomina fixtures ───────────────────────────────────────────────────────────
@@ -4367,6 +4568,16 @@ async function main() {
     testCartaPorteTrasladoTotalNoCero,
   );
   await runCase("AE) Carta Porte mercancía inválida", testCartaPorteMercanciaInvalida);
+  await runCase("EW) Carta Porte single location", testCartaPorteSingleLocation);
+  await runCase("EX) Carta Porte destino sin distancia", testCartaPorteDestinoSinDistancia);
+  await runCase("EY) Carta Porte TotalDistRec mismatch", testCartaPorteTotalDistRecMismatch);
+  await runCase("EZ) Carta Porte NumTotalMercancias mismatch", testCartaPorteNumTotalMercanciasMismatch);
+  await runCase("FA) Carta Porte PesoBrutoTotal mismatch", testCartaPortePesoBrutoTotalMismatch);
+  await runCase("FB) Carta Porte mercancía sin ClaveUnidad", testCartaPorteMercanciaSinClaveUnidad);
+  await runCase("FC) Carta Porte material peligroso sin clave/embalaje", testCartaPorteMaterialPeligrosoSinClaveEmbalaje);
+  await runCase("FD) Carta Porte autotransporte sin permiso/vehículo/seguro", testCartaPorteAutotransporteSinPermisoVehiculoSeguro);
+  await runCase("FE) Carta Porte operador sin licencia", testCartaPorteOperadorSinLicencia);
+  await runCase("FF) Carta Porte internacional sin país/vía", testCartaPorteInternacionalSinPaisVia);
   await runCase("AF) Nómina válida base", testNominaValidaBase);
   await runCase("AG) Nómina sin percepciones", testNominaSinPercepciones);
   await runCase("AH) Nómina receptor incompleto", testNominaReceptorIncompleto);

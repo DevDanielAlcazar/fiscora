@@ -30,6 +30,7 @@ import {
 } from "./xml-audit.catalogs.js";
 import { validatePaymentComplementAdvanced } from "./payment-complement-validations.helper.js";
 import { validateNominaAdvanced } from "./nomina-validations.helper.js";
+import { validateCartaPorteAdvanced } from "./carta-porte-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -692,6 +693,15 @@ export interface CfdiRelations {
   groups: CfdiRelationGroup[];
 }
 
+export interface CartaPorteDomicilio {
+  codigoPostal?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  municipio?: string | null;
+  localidad?: string | null;
+  colonia?: string | null;
+}
+
 export interface CartaPorteUbicacion {
   tipoUbicacion?: string | null;
   idUbicacion?: string | null;
@@ -699,6 +709,7 @@ export interface CartaPorteUbicacion {
   nombreRemitenteDestinatario?: string | null;
   fechaHoraSalidaLlegada?: string | null;
   distanciaRecorrida?: string | null;
+  domicilio?: CartaPorteDomicilio | null;
 }
 
 export interface CartaPorteMercancia {
@@ -709,6 +720,9 @@ export interface CartaPorteMercancia {
   pesoEnKg?: string | null;
   valorMercancia?: string | null;
   moneda?: string | null;
+  materialPeligroso?: string | null;
+  cveMaterialPeligroso?: string | null;
+  embalaje?: string | null;
 }
 
 export interface CartaPorteTransportFigure {
@@ -718,17 +732,42 @@ export interface CartaPorteTransportFigure {
   numLicencia?: string | null;
 }
 
+export interface CartaPorteIdentificacionVehicular {
+  configVehicular?: string | null;
+  placaVM?: string | null;
+  anioModeloVM?: string | null;
+}
+
+export interface CartaPorteSeguros {
+  aseguraRespCivil?: string | null;
+  polizaRespCivil?: string | null;
+}
+
+export interface CartaPorteAutotransporteInfo {
+  permSCT?: string | null;
+  numPermisoSCT?: string | null;
+  identificacionVehicular?: CartaPorteIdentificacionVehicular | null;
+  seguros?: CartaPorteSeguros | null;
+}
+
 export interface CartaPorteInfo {
   version?: string | null;
   idCCP?: string | null;
   transpInternac?: string | null;
   totalDistRec?: string | null;
+  entradaSalidaMerc?: string | null;
+  paisOrigenDestino?: string | null;
+  viaEntradaSalida?: string | null;
+  numTotalMercancias?: string | null;
+  pesoBrutoTotal?: string | null;
+  unidadPeso?: string | null;
   hasUbicaciones: boolean;
   hasMercancias: boolean;
   ubicaciones: CartaPorteUbicacion[];
   mercancias: CartaPorteMercancia[];
   figurasTransporte: CartaPorteTransportFigure[];
   hasAutotransporte: boolean;
+  autotransporte?: CartaPorteAutotransporteInfo | null;
   hasTransporteMaritimo: boolean;
   hasTransporteAereo: boolean;
   hasTransporteFerroviario: boolean;
@@ -2325,6 +2364,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     const idCCP = str(get(cartaPorteNode, "@_IdCCP")) ?? null;
     const transpInternac = str(get(cartaPorteNode, "@_TranspInternac")) ?? null;
     const totalDistRec = str(get(cartaPorteNode, "@_TotalDistRec")) ?? null;
+    const entradaSalidaMerc = str(get(cartaPorteNode, "@_EntradaSalidaMerc")) ?? null;
+    const paisOrigenDestino = str(get(cartaPorteNode, "@_PaisOrigenDestino")) ?? null;
+    const viaEntradaSalida = str(get(cartaPorteNode, "@_ViaEntradaSalida")) ?? null;
 
     // Ubicaciones
     const rawUbics =
@@ -2345,14 +2387,34 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     }
 
     const ubicaciones: CartaPorteUbicacion[] = (ubicacionesNodes as Record<string, unknown>[]).map(
-      (u) => ({
-        tipoUbicacion: str(get(u, "@_TipoUbicacion")) ?? null,
-        idUbicacion: str(get(u, "@_IDUbicacion")) ?? null,
-        rfcRemitenteDestinatario: str(get(u, "@_RFCRemitenteDestinatario")) ?? null,
-        nombreRemitenteDestinatario: str(get(u, "@_NombreRemitenteDestinatario")) ?? null,
-        fechaHoraSalidaLlegada: str(get(u, "@_FechaHoraSalidaLlegada")) ?? null,
-        distanciaRecorrida: str(get(u, "@_DistanciaRecorrida")) ?? null,
-      }),
+      (u) => {
+        const rawDomicilio =
+          (get(u, "cartaporte31:Domicilio") as Record<string, unknown>) ??
+          (get(u, "cartaporte30:Domicilio") as Record<string, unknown>) ??
+          (get(u, "cartaporte20:Domicilio") as Record<string, unknown>) ??
+          (get(u, "Domicilio") as Record<string, unknown>) ??
+          null;
+        const domicilio: CartaPorteDomicilio | null =
+          rawDomicilio && typeof rawDomicilio === "object" && Object.keys(rawDomicilio).length > 0
+            ? {
+                codigoPostal: str(get(rawDomicilio, "@_CodigoPostal")) ?? null,
+                estado: str(get(rawDomicilio, "@_Estado")) ?? null,
+                pais: str(get(rawDomicilio, "@_Pais")) ?? null,
+                municipio: str(get(rawDomicilio, "@_Municipio")) ?? null,
+                localidad: str(get(rawDomicilio, "@_Localidad")) ?? null,
+                colonia: str(get(rawDomicilio, "@_Colonia")) ?? null,
+              }
+            : null;
+        return {
+          tipoUbicacion: str(get(u, "@_TipoUbicacion")) ?? null,
+          idUbicacion: str(get(u, "@_IDUbicacion")) ?? null,
+          rfcRemitenteDestinatario: str(get(u, "@_RFCRemitenteDestinatario")) ?? null,
+          nombreRemitenteDestinatario: str(get(u, "@_NombreRemitenteDestinatario")) ?? null,
+          fechaHoraSalidaLlegada: str(get(u, "@_FechaHoraSalidaLlegada")) ?? null,
+          distanciaRecorrida: str(get(u, "@_DistanciaRecorrida")) ?? null,
+          domicilio,
+        };
+      },
     );
 
     // Mercancias
@@ -2364,7 +2426,13 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       null;
 
     let mercanciasNodes: unknown[] = [];
+    let numTotalMercancias: string | null = null;
+    let pesoBrutoTotal: string | null = null;
+    let unidadPeso: string | null = null;
     if (rawMercs && typeof rawMercs === "object") {
+      numTotalMercancias = str(get(rawMercs, "@_NumTotalMercancias")) ?? null;
+      pesoBrutoTotal = str(get(rawMercs, "@_PesoBrutoTotal")) ?? null;
+      unidadPeso = str(get(rawMercs, "@_UnidadPeso")) ?? null;
       const rawMer =
         (get(rawMercs, "cartaporte31:Mercancia") as unknown) ??
         (get(rawMercs, "cartaporte30:Mercancia") as unknown) ??
@@ -2382,6 +2450,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         pesoEnKg: str(get(m, "@_PesoEnKg")) ?? null,
         valorMercancia: str(get(m, "@_ValorMercancia")) ?? null,
         moneda: str(get(m, "@_Moneda")) ?? null,
+        materialPeligroso: str(get(m, "@_MaterialPeligroso")) ?? null,
+        cveMaterialPeligroso: str(get(m, "@_CveMaterialPeligroso")) ?? null,
+        embalaje: str(get(m, "@_Embalaje")) ?? null,
       }),
     );
 
@@ -2432,7 +2503,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       numLicencia: str(get(f, "numLicencia")) ?? null,
     }));
 
-    // Detect medio transporte
+    // Detect and extract medio transporte
     const hasAutotransporte = hasChildNode(
       cartaPorteNode,
       "cartaporte31:Autotransporte",
@@ -2440,6 +2511,48 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       "cartaporte20:Autotransporte",
       "Autotransporte",
     );
+    let autotransporte: CartaPorteAutotransporteInfo | null = null;
+    if (hasAutotransporte) {
+      const autoNode =
+        (get(cartaPorteNode, "cartaporte31:Autotransporte") as Record<string, unknown>) ??
+        (get(cartaPorteNode, "cartaporte30:Autotransporte") as Record<string, unknown>) ??
+        (get(cartaPorteNode, "cartaporte20:Autotransporte") as Record<string, unknown>) ??
+        (get(cartaPorteNode, "Autotransporte") as Record<string, unknown>) ??
+        null;
+      if (autoNode && typeof autoNode === "object") {
+        const idVehicular =
+          (get(autoNode, "cartaporte31:IdentificacionVehicular") as Record<string, unknown>) ??
+          (get(autoNode, "cartaporte30:IdentificacionVehicular") as Record<string, unknown>) ??
+          (get(autoNode, "cartaporte20:IdentificacionVehicular") as Record<string, unknown>) ??
+          (get(autoNode, "IdentificacionVehicular") as Record<string, unknown>) ??
+          null;
+        const seguros =
+          (get(autoNode, "cartaporte31:Seguros") as Record<string, unknown>) ??
+          (get(autoNode, "cartaporte30:Seguros") as Record<string, unknown>) ??
+          (get(autoNode, "cartaporte20:Seguros") as Record<string, unknown>) ??
+          (get(autoNode, "Seguros") as Record<string, unknown>) ??
+          null;
+        autotransporte = {
+          permSCT: str(get(autoNode, "@_PermSCT")) ?? null,
+          numPermisoSCT: str(get(autoNode, "@_NumPermisoSCT")) ?? null,
+          identificacionVehicular:
+            idVehicular && typeof idVehicular === "object" && Object.keys(idVehicular).length > 0
+              ? {
+                  configVehicular: str(get(idVehicular, "@_ConfigVehicular")) ?? null,
+                  placaVM: str(get(idVehicular, "@_PlacaVM")) ?? null,
+                  anioModeloVM: str(get(idVehicular, "@_AnioModeloVM")) ?? null,
+                }
+              : null,
+          seguros:
+            seguros && typeof seguros === "object" && Object.keys(seguros).length > 0
+              ? {
+                  aseguraRespCivil: str(get(seguros, "@_AseguraRespCivil")) ?? null,
+                  polizaRespCivil: str(get(seguros, "@_PolizaRespCivil")) ?? null,
+                }
+              : null,
+        };
+      }
+    }
     const hasTransporteMaritimo = hasChildNode(
       cartaPorteNode,
       "cartaporte31:TransporteMaritimo",
@@ -2467,12 +2580,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       idCCP,
       transpInternac,
       totalDistRec,
+      entradaSalidaMerc,
+      paisOrigenDestino,
+      viaEntradaSalida,
+      numTotalMercancias,
+      pesoBrutoTotal,
+      unidadPeso,
       hasUbicaciones: ubicaciones.length > 0,
       hasMercancias: mercancias.length > 0,
       ubicaciones,
       mercancias,
       figurasTransporte,
       hasAutotransporte,
+      autotransporte,
       hasTransporteMaritimo,
       hasTransporteAereo,
       hasTransporteFerroviario,
@@ -5347,6 +5467,24 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
           ],
         });
       }
+    });
+  }
+
+  // ── Advanced Carta Porte Validations (A2–F3, excluding existing duplicates) ──
+  if (cartaPorte) {
+    validateCartaPorteAdvanced({
+      cartaPorte,
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        addFindingOnce({
+          severity,
+          category: "COMPLEMENT",
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
     });
   }
 
