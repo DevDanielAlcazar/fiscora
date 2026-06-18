@@ -1040,6 +1040,8 @@ export interface XmlAuditZipBatchDetail {
     createdAtFirst: string;
     createdAtLast: string;
     expiresAt: string;
+    hasCritical: boolean;
+    hasFailed: boolean;
     summary: {
       totalRecords: number;
       analyzedCount: number;

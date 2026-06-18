@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ZipFullAnalysisResult, ZipFullAnalysisFileResult } from "../../api/xml-audit";
 import {
   aggregateMassivePerformance,
@@ -9,6 +10,7 @@ import {
   getTopAffectedFiles,
   type PriorityCounts,
 } from "./massiveAggregates";
+import AggregateRemediationPlan from "./AggregateRemediationPlan";
 
 interface MassiveExecutiveSummaryProps {
   fullAnalysisResult: ZipFullAnalysisResult;
@@ -26,6 +28,19 @@ export default function MassiveExecutiveSummary({
   const topFindings = getTopFindingCodes(fullAnalysisResult.results, 10);
   const modulesCov = aggregateMassiveModulesCoverage(fullAnalysisResult.results);
   const affectedFiles = getTopAffectedFiles(fullAnalysisResult.results, 10);
+
+  const remediationSources = useMemo(() => {
+    return fullAnalysisResult.results
+      .filter((r) => r.status === "ANALYZED" && r.analysis?.findings && r.analysis.findings.length > 0)
+      .map((r, index) => ({
+        fileId: String(index),
+        filename: r.name,
+        status: r.status,
+        riskLevel: r.analysis?.executiveSummary?.riskLevel,
+        documentKind: r.analysis?.documentKind || r.analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN",
+        findings: r.analysis!.findings!,
+      }));
+  }, [fullAnalysisResult.results]);
 
   return (
     <div className="space-y-4 mt-4">
@@ -143,6 +158,18 @@ export default function MassiveExecutiveSummary({
             </table>
           </div>
         </div>
+      )}
+
+      {/* NEW SECTION: Remediation Plan */}
+      {remediationSources.length > 0 && (
+        <AggregateRemediationPlan
+          sources={remediationSources}
+          title="Plan de acción del ZIP"
+          onOpenSource={(fileId) => {
+            const file = fullAnalysisResult.results[parseInt(fileId, 10)];
+            if (file) onOpenDetail(file);
+          }}
+        />
       )}
 
       {topFindings.length > 0 && (

@@ -71,6 +71,17 @@ export default function PrintableZipBatchReport({ detail }: Props) {
           </div>
         </div>
 
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-800">
+          <span className="block text-[10px] uppercase text-gray-500 mb-1">Recomendación operativa:</span>
+          {batch.hasCritical 
+            ? "Atender primero XMLs críticos o bloqueantes." 
+            : batch.hasFailed 
+            ? "Revisar archivos fallidos del lote." 
+            : batch.summary.warningCount > 0 
+            ? "Revisar advertencias antes de aceptar el lote." 
+            : "No se detectan riesgos altos en el lote."}
+        </div>
+
         <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
           <div className="flex justify-between border-b border-gray-100 py-1">
             <span className="font-bold text-gray-500 uppercase">Fecha inicio</span>
