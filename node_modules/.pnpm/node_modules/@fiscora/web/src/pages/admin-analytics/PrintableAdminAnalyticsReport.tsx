@@ -20,7 +20,8 @@ export default function PrintableAdminAnalyticsReport({ summary, filters }: Prop
     });
   }
 
-  const tableHeaderClass = "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
+  const tableHeaderClass =
+    "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
   const tableCellClass = "p-2 border border-gray-300 text-gray-800";
 
   return (
@@ -242,7 +243,9 @@ export default function PrintableAdminAnalyticsReport({ summary, filters }: Prop
                   </tr>
                   <tr>
                     <td className={tableHeaderClass}>Registros truncados</td>
-                    <td className={tableCellClass}>{v2.performance.recordsWithTruncatedFindings}</td>
+                    <td className={tableCellClass}>
+                      {v2.performance.recordsWithTruncatedFindings}
+                    </td>
                   </tr>
                 </tbody>
               </table>

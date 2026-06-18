@@ -1624,6 +1624,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const RFC_MORAL = /^[A-ZÑ&]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 const RFC_FISICA = /^[A-ZÑ&]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/i;
 
+import { validateComprobanteConsistency } from "./cfdi-consistency.helper.js";
+
 export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnalysisResult {
   const startedAt = Date.now();
   const inputBytes = Buffer.byteLength(rawXml, "utf8");
@@ -2952,6 +2954,38 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       findings.push({ ...f, id });
     }
   }
+
+  // ── Consistency Validation ──
+  validateComprobanteConsistency({
+    tipoComprobante,
+    metodoPago,
+    formaPago,
+    moneda,
+    exportacion,
+    usoCfdi,
+    receptorRegimenFiscal: regimenFiscalReceptor,
+    receptorRfc: rfcReceptor,
+    concepts: concepts || [],
+    paymentComplement: null,
+    cfdiRelations: null,
+    globalTaxes: null,
+    subtotal,
+    total,
+    hasComercioExterior: !!comercioExterior,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({
+        code,
+        severity,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+        category: "FISCAL",
+        priority: "LOW",
+        actionGroup: "Validar datos fiscales",
+      });
+    },
+  });
 
   if (diag.bomDetected) {
     addFindingOnce({

@@ -25,7 +25,8 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
     });
   }
 
-  const tableHeaderClass = "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
+  const tableHeaderClass =
+    "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
   const tableCellClass = "p-2 border border-gray-300 text-gray-800";
 
   return (
@@ -126,8 +127,12 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
         {analysis.executiveSummary ? (
           <div className="bg-gray-50 p-4 border border-gray-200 rounded-xl">
             <h4 className="font-bold text-blue-900 mb-1">{analysis.executiveSummary.title}</h4>
-            <p className="text-sm text-gray-700 leading-relaxed">{analysis.executiveSummary.message}</p>
-            <p className="mt-2 text-xs font-bold text-gray-500 uppercase tracking-tighter">Acción recomendada:</p>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {analysis.executiveSummary.message}
+            </p>
+            <p className="mt-2 text-xs font-bold text-gray-500 uppercase tracking-tighter">
+              Acción recomendada:
+            </p>
             <p className="text-sm text-gray-700">{analysis.executiveSummary.recommendedAction}</p>
           </div>
         ) : (
@@ -237,7 +242,9 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
                   </td>
                   <td className={tableCellClass}>{getSeverityLabel(f.severity).slice(0, 4)}</td>
                   <td className={tableCellClass}>{getCategoryLabel(f.category).slice(0, 4)}</td>
-                  <td className={`${tableCellClass} font-mono font-bold text-blue-900`}>{f.code}</td>
+                  <td className={`${tableCellClass} font-mono font-bold text-blue-900`}>
+                    {f.code}
+                  </td>
                   <td className={tableCellClass}>{f.title}</td>
                   <td className={tableCellClass}>{f.recommendedAction || "Revisar contexto."}</td>
                 </tr>
@@ -245,7 +252,8 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
               {analysis.findings.length > 50 && (
                 <tr>
                   <td colSpan={6} className={`${tableCellClass} text-center italic text-gray-500`}>
-                    ... mostrando primeros 50 de {analysis.findings.length} hallazgos. Ver glosario para resumen completo.
+                    ... mostrando primeros 50 de {analysis.findings.length} hallazgos. Ver glosario
+                    para resumen completo.
                   </td>
                 </tr>
               )}
@@ -270,14 +278,16 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
               </tr>
             </thead>
             <tbody>
-              {buildRemediationPlan(analysis.findings).items.slice(0, 10).map((item) => (
-                <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td className={`${tableCellClass} font-mono font-bold`}>{item.code}</td>
-                  <td className={tableCellClass}>{item.urgency}</td>
-                  <td className={tableCellClass}>{item.ownerSuggestion}</td>
-                  <td className={tableCellClass}>{item.recommendedAction}</td>
-                </tr>
-              ))}
+              {buildRemediationPlan(analysis.findings)
+                .items.slice(0, 10)
+                .map((item) => (
+                  <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td className={`${tableCellClass} font-mono font-bold`}>{item.code}</td>
+                    <td className={tableCellClass}>{item.urgency}</td>
+                    <td className={tableCellClass}>{item.ownerSuggestion}</td>
+                    <td className={tableCellClass}>{item.recommendedAction}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </section>

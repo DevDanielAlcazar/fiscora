@@ -163,8 +163,19 @@ export default function XmlAuditHistoryPage() {
               onClick={() => navigate("/modules/xml-audit")}
               className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-all flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
               </svg>
               Nueva auditoría
             </button>
@@ -183,8 +194,19 @@ export default function XmlAuditHistoryPage() {
               onClick={handleExportCsv}
               className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               Exportar historial CSV
             </button>
@@ -192,7 +214,10 @@ export default function XmlAuditHistoryPage() {
         </div>
 
         {/* Filters */}
-        <form onSubmit={handleSearch} className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <form
+          onSubmit={handleSearch}
+          className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4"
+        >
           <div className="space-y-1">
             <label className="text-xs font-bold text-gray-500 uppercase">Desde / Hasta</label>
             <div className="flex gap-2">
@@ -310,7 +335,9 @@ export default function XmlAuditHistoryPage() {
                         {formatDate(item.createdAt)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.sourceType === 'ZIP' ? 'bg-purple-900/40 text-purple-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.sourceType === "ZIP" ? "bg-purple-900/40 text-purple-300" : "bg-blue-900/40 text-blue-300"}`}
+                        >
                           {item.sourceType}
                         </span>
                       </td>
@@ -318,33 +345,47 @@ export default function XmlAuditHistoryPage() {
                         {item.documentKind}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {item.analysisStatus === 'FAILED' ? (
+                        {item.analysisStatus === "FAILED" ? (
                           <span className="text-red-400 font-bold">ERROR</span>
                         ) : (
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            item.riskLevel === 'CRITICAL' ? 'bg-red-900/40 text-red-300' :
-                            item.riskLevel === 'WARNING' ? 'bg-yellow-900/40 text-yellow-300' :
-                            'bg-green-900/40 text-green-300'
-                          }`}>
-                            {item.riskLevel || 'OK'}
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              item.riskLevel === "CRITICAL"
+                                ? "bg-red-900/40 text-red-300"
+                                : item.riskLevel === "WARNING"
+                                  ? "bg-yellow-900/40 text-yellow-300"
+                                  : "bg-green-900/40 text-green-300"
+                            }`}
+                          >
+                            {item.riskLevel || "OK"}
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-400">
-                        {item.rfcEmisor || '—'}
+                        {item.rfcEmisor || "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-400">
-                        {item.rfcReceptor || '—'}
+                        {item.rfcReceptor || "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-300">
-                        {item.total ? `$${item.total} ${item.moneda || ''}` : '—'}
+                        {item.total ? `$${item.total} ${item.moneda || ""}` : "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-bold text-gray-200">{item.findingsCount}</span>
                           <div className="flex gap-1">
-                            {item.criticalCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Críticos" />}
-                            {item.warningCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" title="Advertencias" />}
+                            {item.criticalCount > 0 && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-red-500"
+                                title="Críticos"
+                              />
+                            )}
+                            {item.warningCount > 0 && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-yellow-500"
+                                title="Advertencias"
+                              />
+                            )}
                           </div>
                         </div>
                       </td>
@@ -401,8 +442,19 @@ export default function XmlAuditHistoryPage() {
                 onClick={() => setSelectedId(null)}
                 className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l18 18"
+                  />
                 </svg>
               </button>
             </div>
@@ -419,21 +471,33 @@ export default function XmlAuditHistoryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">UUID / Archivo</p>
-                        <p className="text-sm font-mono text-gray-300 break-all">{detail.uuid || detail.sourceFilename || '—'}</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          UUID / Archivo
+                        </p>
+                        <p className="text-sm font-mono text-gray-300 break-all">
+                          {detail.uuid || detail.sourceFilename || "—"}
+                        </p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Estado / Riesgo</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          Estado / Riesgo
+                        </p>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${detail.analysisStatus === 'ANALYZED' ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${detail.analysisStatus === "ANALYZED" ? "bg-green-900/40 text-green-300" : "bg-red-900/40 text-red-300"}`}
+                          >
                             {detail.analysisStatus}
                           </span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            detail.riskLevel === 'CRITICAL' ? 'bg-red-900/40 text-red-300' :
-                            detail.riskLevel === 'WARNING' ? 'bg-yellow-900/40 text-yellow-300' :
-                            'bg-green-900/40 text-green-300'
-                          }`}>
-                            {detail.riskLevel || 'OK'}
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              detail.riskLevel === "CRITICAL"
+                                ? "bg-red-900/40 text-red-300"
+                                : detail.riskLevel === "WARNING"
+                                  ? "bg-yellow-900/40 text-yellow-300"
+                                  : "bg-green-900/40 text-green-300"
+                            }`}
+                          >
+                            {detail.riskLevel || "OK"}
                           </span>
                         </div>
                       </div>
@@ -441,44 +505,68 @@ export default function XmlAuditHistoryPage() {
                     <div className="space-y-4">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Emisor</p>
-                        <p className="text-sm font-semibold text-gray-200">{detail.nombreEmisor || '—'}</p>
-                        <p className="text-xs font-mono text-gray-400">{detail.rfcEmisor || '—'}</p>
+                        <p className="text-sm font-semibold text-gray-200">
+                          {detail.nombreEmisor || "—"}
+                        </p>
+                        <p className="text-xs font-mono text-gray-400">{detail.rfcEmisor || "—"}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Receptor</p>
-                        <p className="text-sm font-semibold text-gray-200">{detail.nombreReceptor || '—'}</p>
-                        <p className="text-xs font-mono text-gray-400">{detail.rfcReceptor || '—'}</p>
+                        <p className="text-sm font-semibold text-gray-200">
+                          {detail.nombreReceptor || "—"}
+                        </p>
+                        <p className="text-xs font-mono text-gray-400">
+                          {detail.rfcReceptor || "—"}
+                        </p>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Fecha / Total</p>
-                        <p className="text-sm text-gray-200">{detail.fecha || '—'}</p>
-                        <p className="text-lg font-bold text-primary">{detail.total ? `$${detail.total} ${detail.moneda || ''}` : '—'}</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          Fecha / Total
+                        </p>
+                        <p className="text-sm text-gray-200">{detail.fecha || "—"}</p>
+                        <p className="text-lg font-bold text-primary">
+                          {detail.total ? `$${detail.total} ${detail.moneda || ""}` : "—"}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Expiración</p>
-                        <p className="text-xs text-orange-400 italic">Expira el {formatDate(detail.expiresAt)}</p>
+                        <p className="text-xs text-orange-400 italic">
+                          Expira el {formatDate(detail.expiresAt)}
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Summary & Findings */}
                   {detail.analysisJson?.executiveSummary && (
-                    <div className={`p-4 rounded-xl border ${
-                      detail.riskLevel === 'CRITICAL' ? 'bg-red-900/10 border-red-900/50' :
-                      detail.riskLevel === 'WARNING' ? 'bg-yellow-900/10 border-yellow-900/50' :
-                      'bg-green-900/10 border-green-900/50'
-                    }`}>
-                      <h3 className="font-bold text-sm uppercase tracking-wide mb-1">{detail.analysisJson.executiveSummary.title}</h3>
-                      <p className="text-sm text-gray-300">{detail.analysisJson.executiveSummary.message}</p>
+                    <div
+                      className={`p-4 rounded-xl border ${
+                        detail.riskLevel === "CRITICAL"
+                          ? "bg-red-900/10 border-red-900/50"
+                          : detail.riskLevel === "WARNING"
+                            ? "bg-yellow-900/10 border-yellow-900/50"
+                            : "bg-green-900/10 border-green-900/50"
+                      }`}
+                    >
+                      <h3 className="font-bold text-sm uppercase tracking-wide mb-1">
+                        {detail.analysisJson.executiveSummary.title}
+                      </h3>
+                      <p className="text-sm text-gray-300">
+                        {detail.analysisJson.executiveSummary.message}
+                      </p>
                     </div>
                   )}
 
-                  {detail.analysisStatus === 'FAILED' && (
+                  {detail.analysisStatus === "FAILED" && (
                     <div className="p-4 rounded-xl bg-red-900/10 border border-red-900/50">
-                      <h3 className="font-bold text-sm uppercase text-red-400 mb-1">Error de análisis</h3>
-                      <p className="text-sm text-gray-300 font-mono">{detail.errorCode}: {detail.errorMessage}</p>
+                      <h3 className="font-bold text-sm uppercase text-red-400 mb-1">
+                        Error de análisis
+                      </h3>
+                      <p className="text-sm text-gray-300 font-mono">
+                        {detail.errorCode}: {detail.errorMessage}
+                      </p>
                     </div>
                   )}
 
@@ -490,15 +578,20 @@ export default function XmlAuditHistoryPage() {
                     </>
                   )}
 
-                  {!detail.analysisJson?.findings?.length && detail.analysisStatus === 'ANALYZED' && (
-                    <p className="text-center text-sm text-gray-500 italic py-10">
-                      No se detectaron hallazgos estructurados para este análisis.
-                    </p>
-                  )}
+                  {!detail.analysisJson?.findings?.length &&
+                    detail.analysisStatus === "ANALYZED" && (
+                      <p className="text-center text-sm text-gray-500 italic py-10">
+                        No se detectaron hallazgos estructurados para este análisis.
+                      </p>
+                    )}
 
                   <div className="p-4 bg-blue-900/10 border border-blue-900/30 rounded-xl text-xs text-blue-300/80">
                     <p className="font-bold mb-1">Nota de seguridad y retención:</p>
-                    <p>Este registro es una copia sanitizada del análisis realizado. El contenido XML original y el contenido normalizado no se almacenan por políticas de seguridad y privacidad.</p>
+                    <p>
+                      Este registro es una copia sanitizada del análisis realizado. El contenido XML
+                      original y el contenido normalizado no se almacenan por políticas de seguridad
+                      y privacidad.
+                    </p>
                   </div>
                 </>
               ) : null}

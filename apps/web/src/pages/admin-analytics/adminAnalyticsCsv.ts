@@ -84,7 +84,14 @@ export function exportAdminAnalyticsCsv(summary: XmlAnalyticsSummary, filters: X
       "Registros con hallazgos",
     );
     for (const m of v2.modulesCoverage) {
-      row(m.key, m.label, m.detectedInRecords, m.analyzedInRecords, m.findings, m.recordsWithFindings);
+      row(
+        m.key,
+        m.label,
+        m.detectedInRecords,
+        m.analyzedInRecords,
+        m.findings,
+        m.recordsWithFindings,
+      );
     }
 
     // F) PERFORMANCE DEL MOTOR

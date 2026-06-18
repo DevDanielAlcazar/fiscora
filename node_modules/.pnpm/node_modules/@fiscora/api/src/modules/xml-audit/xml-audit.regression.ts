@@ -203,7 +203,75 @@ function buildCorruptXml(): string {
   return "esto no es xml valido %%{}<>";
 }
 
-// ─── Test Cases ──────────────────────────────────────────────────────────────
+// DU) Pago con moneda distinta de XXX
+async function testPagoConMonedaDistinta(): Promise<void> {
+  const xml = buildPago20Xml().replace('Moneda="XXX"', 'Moneda="MXN"');
+  const result = analyzeCfdi(xml, "pago-moneda-distinta.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_CFDI_MONEDA_NOT_XXX", "WARNING");
+}
+
+// DV) Pago con subtotal/total distinto de cero
+async function testPagoConTotalesDistintoCero(): Promise<void> {
+  const xml = buildPago20Xml()
+    .replace('SubTotal="0.00"', 'SubTotal="100.00"')
+    .replace('Total="0.00"', 'Total="100.00"');
+  const result = analyzeCfdi(xml, "pago-totales-no-cero.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_CFDI_SUBTOTAL_NOT_ZERO", "WARNING");
+  assertIncludesFinding(result.findings, "PAYMENT_CFDI_TOTAL_NOT_ZERO", "WARNING");
+}
+
+// DW) Ingreso PPD con FormaPago distinta de 99
+async function testIngresoPpdSinFormaPago99(): Promise<void> {
+  const xml = buildCfdi40Ingreso()
+    .replace('MetodoPago="PPD"', 'MetodoPago="PPD"')
+    .replace('FormaPago="01"', 'FormaPago="03"');
+  const result = analyzeCfdi(xml, "ingreso-ppd-sin-99.xml");
+  assertIncludesFinding(result.findings, "METODO_PAGO_PPD_WITH_FORMA_PAGO_NOT_99", "WARNING");
+}
+
+// DX) Ingreso PUE con FormaPago 99
+async function testIngresoPueConFormaPago99(): Promise<void> {
+  const xml = buildCfdi40Ingreso()
+    .replace('MetodoPago="PPD"', 'MetodoPago="PUE"')
+    .replace('FormaPago="01"', 'FormaPago="99"');
+  const result = analyzeCfdi(xml, "ingreso-pue-con-99.xml");
+  assertIncludesFinding(result.findings, "INGRESO_PUE_WITH_FORMA_PAGO_99_REVIEW", "WARNING");
+}
+
+// DY) Exportacion 02 sin Comercio Exterior
+async function testExportacion02SinComercioExterior(): Promise<void> {
+  const xml = buildCfdi40Ingreso().replace('Exportacion="01"', 'Exportacion="02"');
+  const result = analyzeCfdi(xml, "exportacion-02-sin-ce.xml");
+  assertIncludesFinding(
+    result.findings,
+    "EXPORTACION_02_WITHOUT_COMERCIO_EXTERIOR_REVIEW",
+    "WARNING",
+  );
+}
+
+// DZ) ObjetoImp 01 con impuestos
+async function testObjetoImp01ConImpuestos(): Promise<void> {
+  const xml = buildConceptTaxXml({ objetoImp: "01", hasTraslados: true });
+  const result = analyzeCfdi(xml, "objetoimp-01-con-impuestos.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_OBJETO_IMP_01_WITH_TAXES", "WARNING");
+}
+
+// EA) UsoCFDI CP01 sin Tipo P
+async function testUsoCfdiCp01SinTipoP(): Promise<void> {
+  const xml = buildCfdi40Ingreso().replace('UsoCFDI="G03"', 'UsoCFDI="CP01"');
+  const result = analyzeCfdi(xml, "uso-cfdi-cp01-sin-p.xml");
+  assertIncludesFinding(result.findings, "USOCFDI_CP01_WITHOUT_PAYMENT_REVIEW", "WARNING");
+}
+
+// EB) Nómina con moneda distinta de MXN
+async function testNominaConMonedaDistinta(): Promise<void> {
+  const xml = buildNominaXml({ tipoComprobante: "N", total: "15000.00" }).replace(
+    'Moneda="MXN"',
+    'Moneda="USD"',
+  );
+  const result = analyzeCfdi(xml, "nomina-moneda-distinta.xml");
+  assertIncludesFinding(result.findings, "NOMINA_SHOULD_HAVE_MONEDA_MXN", "WARNING");
+}
 
 // A) XML Ingreso CFDI 4.0 válido básico
 async function testCfdiIngresoBasico(): Promise<void> {
@@ -3890,6 +3958,15 @@ async function main() {
     "DT) analysisMeta no contiene contenido sensible",
     testAnalysisMetaNoContenidoSensible,
   );
+
+  await runCase("DU) Pago con moneda distinta de XXX", testPagoConMonedaDistinta);
+  await runCase("DV) Pago con subtotal/total distinto de cero", testPagoConTotalesDistintoCero);
+  await runCase("DW) Ingreso PPD con FormaPago distinta de 99", testIngresoPpdSinFormaPago99);
+  await runCase("DX) Ingreso PUE con FormaPago 99", testIngresoPueConFormaPago99);
+  await runCase("DY) Exportacion 02 sin Comercio Exterior", testExportacion02SinComercioExterior);
+  await runCase("DZ) ObjetoImp 01 con impuestos", testObjetoImp01ConImpuestos);
+  await runCase("EA) UsoCFDI CP01 sin Tipo P", testUsoCfdiCp01SinTipoP);
+  await runCase("EB) Nómina con moneda distinta de MXN", testNominaConMonedaDistinta);
 
   printSummary();
 

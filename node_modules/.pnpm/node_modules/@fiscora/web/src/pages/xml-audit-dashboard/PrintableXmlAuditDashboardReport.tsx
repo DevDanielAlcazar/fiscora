@@ -17,26 +17,27 @@ export default function PrintableXmlAuditDashboardReport({ summary, currentFilte
     });
   }
 
-  const tableHeaderClass = "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
+  const tableHeaderClass =
+    "bg-gray-100 text-gray-700 font-bold p-2 text-left border border-gray-300";
   const tableCellClass = "p-2 border border-gray-300 text-gray-800";
 
   const healthState =
     summary.totals.records === 0
       ? "Sin actividad"
       : summary.totals.critical > 0 || summary.totals.failed > 0
-      ? "Atención crítica"
-      : summary.totals.warning > 0
-      ? "Revisión recomendada"
-      : "Operación estable";
+        ? "Atención crítica"
+        : summary.totals.warning > 0
+          ? "Revisión recomendada"
+          : "Operación estable";
 
   const healthMessage =
     summary.totals.records === 0
       ? "No se han realizado análisis en la ventana seleccionada."
       : summary.totals.critical > 0 || summary.totals.failed > 0
-      ? "Se han detectado riesgos de alta prioridad o fallas técnicas. Revisa los análisis críticos primero."
-      : summary.totals.warning > 0
-      ? "Existen advertencias que requieren tu validación antes de procesar fiscalmente los comprobantes."
-      : "No se detectan riesgos altos en la ventana de retención seleccionada.";
+        ? "Se han detectado riesgos de alta prioridad o fallas técnicas. Revisa los análisis críticos primero."
+        : summary.totals.warning > 0
+          ? "Existen advertencias que requieren tu validación antes de procesar fiscalmente los comprobantes."
+          : "No se detectan riesgos altos en la ventana de retención seleccionada.";
 
   return (
     <div className="printable-xml-audit-dashboard-report hidden print:block bg-white text-black p-8 font-sans">
@@ -72,8 +73,8 @@ export default function PrintableXmlAuditDashboardReport({ summary, currentFilte
             healthState === "Atención crítica"
               ? "bg-red-50 border-red-200"
               : healthState === "Revisión recomendada"
-              ? "bg-yellow-50 border-yellow-200"
-              : "bg-green-50 border-green-200"
+                ? "bg-yellow-50 border-yellow-200"
+                : "bg-green-50 border-green-200"
           }`}
         >
           <h4 className="font-bold uppercase text-sm mb-1">{healthState}</h4>
@@ -88,7 +89,9 @@ export default function PrintableXmlAuditDashboardReport({ summary, currentFilte
         </h3>
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="border border-gray-300 p-3 rounded text-center">
-            <span className="block text-[10px] uppercase text-gray-500 font-bold">Total Análisis</span>
+            <span className="block text-[10px] uppercase text-gray-500 font-bold">
+              Total Análisis
+            </span>
             <span className="text-xl font-bold">{summary.totals.records}</span>
           </div>
           <div className="border border-gray-300 p-3 rounded text-center text-green-700">
@@ -100,7 +103,9 @@ export default function PrintableXmlAuditDashboardReport({ summary, currentFilte
             <span className="text-xl font-bold">{summary.totals.warning}</span>
           </div>
           <div className="border border-gray-300 p-3 rounded text-center text-red-700">
-            <span className="block text-[10px] uppercase text-gray-500 font-bold">Críticos/Err</span>
+            <span className="block text-[10px] uppercase text-gray-500 font-bold">
+              Críticos/Err
+            </span>
             <span className="text-xl font-bold">
               {summary.totals.critical + summary.totals.failed}
             </span>
@@ -118,7 +123,9 @@ export default function PrintableXmlAuditDashboardReport({ summary, currentFilte
             <span className="text-xl font-bold">{summary.totals.recordsWithBom}</span>
           </div>
           <div className="border border-gray-300 p-3 rounded text-center text-purple-700">
-            <span className="block text-[10px] uppercase text-gray-500 font-bold">Normalizados</span>
+            <span className="block text-[10px] uppercase text-gray-500 font-bold">
+              Normalizados
+            </span>
             <span className="text-xl font-bold">{summary.totals.recordsWithNormalizedXml}</span>
           </div>
         </div>

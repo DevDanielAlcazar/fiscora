@@ -29,7 +29,8 @@ export default function CopySummaryActions({
   }
 
   const labelSummary = mode === "zip" ? "Copiar resumen ZIP" : "Copiar resumen ejecutivo";
-  const labelSupport = mode === "zip" ? "Copiar mensaje soporte ZIP" : "Copiar mensaje para soporte";
+  const labelSupport =
+    mode === "zip" ? "Copiar mensaje soporte ZIP" : "Copiar mensaje para soporte";
 
   return (
     <div className={`flex gap-2 ${compact ? "flex-col" : "items-center"}`}>

@@ -179,7 +179,8 @@ export default function XmlAuditZipBatchesPage() {
           <div>
             <h1 className="text-2xl font-bold">Lotes ZIP recientes</h1>
             <p className="text-sm text-gray-400 mt-1">
-              Consulta ZIPs analizados temporalmente durante las últimas 24 horas. No se almacena XML fuente.
+              Consulta ZIPs analizados temporalmente durante las últimas 24 horas. No se almacena
+              XML fuente.
             </p>
           </div>
           <div className="flex gap-2">
@@ -216,8 +217,19 @@ export default function XmlAuditZipBatchesPage() {
               onClick={handleExportBatchesCsv}
               className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               Exportar lotes CSV
             </button>
@@ -225,7 +237,10 @@ export default function XmlAuditZipBatchesPage() {
         </div>
 
         {/* Filters */}
-        <form onSubmit={handleSearch} className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-4">
+        <form
+          onSubmit={handleSearch}
+          className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-4"
+        >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-500 uppercase">Desde / Hasta</label>
@@ -345,7 +360,9 @@ export default function XmlAuditZipBatchesPage() {
                       </td>
                       <td className="px-4 py-3 max-w-[200px] truncate" title={item.zipFilename}>
                         <span className="font-semibold">{item.zipFilename}</span>
-                        <span className="block text-[10px] text-gray-500 font-mono">{item.batchId.slice(0, 8)}...</span>
+                        <span className="block text-[10px] text-gray-500 font-mono">
+                          {item.batchId.slice(0, 8)}...
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-gray-300">
                         {item.totalRecords}
@@ -360,17 +377,23 @@ export default function XmlAuditZipBatchesPage() {
                         {item.failedCount + item.criticalCount}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          item.priorityMax === 'BLOCKER' ? 'bg-red-900/40 text-red-300' :
-                          item.priorityMax === 'HIGH' ? 'bg-orange-900/40 text-orange-300' :
-                          item.priorityMax === 'MEDIUM' ? 'bg-yellow-900/40 text-yellow-300' :
-                          'bg-blue-900/40 text-blue-300'
-                        }`}>
-                          {item.priorityMax || 'LOW'}
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            item.priorityMax === "BLOCKER"
+                              ? "bg-red-900/40 text-red-300"
+                              : item.priorityMax === "HIGH"
+                                ? "bg-orange-900/40 text-orange-300"
+                                : item.priorityMax === "MEDIUM"
+                                  ? "bg-yellow-900/40 text-yellow-300"
+                                  : "bg-blue-900/40 text-blue-300"
+                          }`}
+                        >
+                          {item.priorityMax || "LOW"}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-400 text-xs">
-                        {item.documentKinds.sort((a, b) => b.count - a.count)[0]?.documentKind || '—'}
+                        {item.documentKinds.sort((a, b) => b.count - a.count)[0]?.documentKind ||
+                          "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center">
                         <button
@@ -428,8 +451,19 @@ export default function XmlAuditZipBatchesPage() {
                 onClick={() => setSelectedBatchId(null)}
                 className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l18 18"
+                  />
                 </svg>
               </button>
             </div>
@@ -445,24 +479,46 @@ export default function XmlAuditZipBatchesPage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700">
-                      <span className="block text-[10px] text-gray-500 font-bold uppercase">Total XML</span>
-                      <span className="text-xl font-bold">{batchDetail.batch.summary.totalRecords}</span>
+                      <span className="block text-[10px] text-gray-500 font-bold uppercase">
+                        Total XML
+                      </span>
+                      <span className="text-xl font-bold">
+                        {batchDetail.batch.summary.totalRecords}
+                      </span>
                     </div>
                     <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700">
-                      <span className="block text-[10px] text-green-500/70 font-bold uppercase">OK / Analizados</span>
-                      <span className="text-xl font-bold text-green-400">{batchDetail.batch.summary.okCount} / {batchDetail.batch.summary.analyzedCount}</span>
+                      <span className="block text-[10px] text-green-500/70 font-bold uppercase">
+                        OK / Analizados
+                      </span>
+                      <span className="text-xl font-bold text-green-400">
+                        {batchDetail.batch.summary.okCount} /{" "}
+                        {batchDetail.batch.summary.analyzedCount}
+                      </span>
                     </div>
                     <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700">
-                      <span className="block text-[10px] text-yellow-500/70 font-bold uppercase">Advertencias</span>
-                      <span className="text-xl font-bold text-yellow-400">{batchDetail.batch.summary.warningCount}</span>
+                      <span className="block text-[10px] text-yellow-500/70 font-bold uppercase">
+                        Advertencias
+                      </span>
+                      <span className="text-xl font-bold text-yellow-400">
+                        {batchDetail.batch.summary.warningCount}
+                      </span>
                     </div>
                     <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700">
-                      <span className="block text-[10px] text-red-500/70 font-bold uppercase">Críticos / Fallas</span>
-                      <span className="text-xl font-bold text-red-400">{batchDetail.batch.summary.criticalCount} / {batchDetail.batch.summary.failedCount}</span>
+                      <span className="block text-[10px] text-red-500/70 font-bold uppercase">
+                        Críticos / Fallas
+                      </span>
+                      <span className="text-xl font-bold text-red-400">
+                        {batchDetail.batch.summary.criticalCount} /{" "}
+                        {batchDetail.batch.summary.failedCount}
+                      </span>
                     </div>
                     <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700">
-                      <span className="block text-[10px] text-blue-500/70 font-bold uppercase">Normalizados</span>
-                      <span className="text-xl font-bold text-blue-400">{batchDetail.batch.summary.recordsWithNormalizedXml}</span>
+                      <span className="block text-[10px] text-blue-500/70 font-bold uppercase">
+                        Normalizados
+                      </span>
+                      <span className="text-xl font-bold text-blue-400">
+                        {batchDetail.batch.summary.recordsWithNormalizedXml}
+                      </span>
                     </div>
                   </div>
 
@@ -485,33 +541,44 @@ export default function XmlAuditZipBatchesPage() {
                         {batchDetail.records.map((rec) => (
                           <tr key={rec.id} className="hover:bg-gray-800/30 transition-colors">
                             <td className="px-4 py-2 text-gray-500">{rec.zipEntryIndex}</td>
-                            <td className="px-4 py-2 truncate max-w-[150px]" title={rec.zipEntryName || ''}>
+                            <td
+                              className="px-4 py-2 truncate max-w-[150px]"
+                              title={rec.zipEntryName || ""}
+                            >
                               {rec.zipEntryName}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap">
-                              {rec.analysisStatus === 'FAILED' ? (
+                              {rec.analysisStatus === "FAILED" ? (
                                 <span className="text-red-400 font-bold">ERROR</span>
                               ) : (
-                                <span className="text-green-400 font-bold uppercase text-[10px]">OK</span>
+                                <span className="text-green-400 font-bold uppercase text-[10px]">
+                                  OK
+                                </span>
                               )}
                             </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-gray-400">{rec.documentKind}</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-400">
+                              {rec.documentKind}
+                            </td>
                             <td className="px-4 py-2 whitespace-nowrap">
-                              {rec.analysisStatus === 'ANALYZED' && (
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  rec.riskLevel === 'CRITICAL' ? 'bg-red-900/40 text-red-300' :
-                                  rec.riskLevel === 'WARNING' ? 'bg-yellow-900/40 text-yellow-300' :
-                                  'bg-green-900/40 text-green-300'
-                                }`}>
-                                  {rec.riskLevel || 'OK'}
+                              {rec.analysisStatus === "ANALYZED" && (
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    rec.riskLevel === "CRITICAL"
+                                      ? "bg-red-900/40 text-red-300"
+                                      : rec.riskLevel === "WARNING"
+                                        ? "bg-yellow-900/40 text-yellow-300"
+                                        : "bg-green-900/40 text-green-300"
+                                  }`}
+                                >
+                                  {rec.riskLevel || "OK"}
                                 </span>
                               )}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap font-mono text-[10px] text-gray-500">
-                              {rec.rfcEmisor || '—'} <br /> {rec.rfcReceptor || '—'}
+                              {rec.rfcEmisor || "—"} <br /> {rec.rfcReceptor || "—"}
                             </td>
                             <td className="px-4 py-2 text-right text-gray-300">
-                              {rec.total ? `$${rec.total}` : '—'}
+                              {rec.total ? `$${rec.total}` : "—"}
                             </td>
                             <td className="px-4 py-2 text-right font-bold">{rec.findingsCount}</td>
                             <td className="px-4 py-2 text-center">
@@ -599,8 +666,19 @@ export default function XmlAuditZipBatchesPage() {
                 onClick={() => setSelectedRecordId(null)}
                 className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l18 18"
+                  />
                 </svg>
               </button>
             </div>
@@ -617,21 +695,33 @@ export default function XmlAuditZipBatchesPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">UUID / Entrada</p>
-                        <p className="text-sm font-mono text-gray-300 break-all">{recordDetail.uuid || recordDetail.zipEntryName || '—'}</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          UUID / Entrada
+                        </p>
+                        <p className="text-sm font-mono text-gray-300 break-all">
+                          {recordDetail.uuid || recordDetail.zipEntryName || "—"}
+                        </p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Estado / Riesgo</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          Estado / Riesgo
+                        </p>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${recordDetail.analysisStatus === 'ANALYZED' ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${recordDetail.analysisStatus === "ANALYZED" ? "bg-green-900/40 text-green-300" : "bg-red-900/40 text-red-300"}`}
+                          >
                             {recordDetail.analysisStatus}
                           </span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            recordDetail.riskLevel === 'CRITICAL' ? 'bg-red-900/40 text-red-300' :
-                            recordDetail.riskLevel === 'WARNING' ? 'bg-yellow-900/40 text-yellow-300' :
-                            'bg-green-900/40 text-green-300'
-                          }`}>
-                            {recordDetail.riskLevel || 'OK'}
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              recordDetail.riskLevel === "CRITICAL"
+                                ? "bg-red-900/40 text-red-300"
+                                : recordDetail.riskLevel === "WARNING"
+                                  ? "bg-yellow-900/40 text-yellow-300"
+                                  : "bg-green-900/40 text-green-300"
+                            }`}
+                          >
+                            {recordDetail.riskLevel || "OK"}
                           </span>
                         </div>
                       </div>
@@ -639,57 +729,90 @@ export default function XmlAuditZipBatchesPage() {
                     <div className="space-y-4">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Emisor</p>
-                        <p className="text-sm font-semibold text-gray-200">{recordDetail.nombreEmisor || '—'}</p>
-                        <p className="text-xs font-mono text-gray-400">{recordDetail.rfcEmisor || '—'}</p>
+                        <p className="text-sm font-semibold text-gray-200">
+                          {recordDetail.nombreEmisor || "—"}
+                        </p>
+                        <p className="text-xs font-mono text-gray-400">
+                          {recordDetail.rfcEmisor || "—"}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Receptor</p>
-                        <p className="text-sm font-semibold text-gray-200">{recordDetail.nombreReceptor || '—'}</p>
-                        <p className="text-xs font-mono text-gray-400">{recordDetail.rfcReceptor || '—'}</p>
+                        <p className="text-sm font-semibold text-gray-200">
+                          {recordDetail.nombreReceptor || "—"}
+                        </p>
+                        <p className="text-xs font-mono text-gray-400">
+                          {recordDetail.rfcReceptor || "—"}
+                        </p>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Fecha / Total</p>
-                        <p className="text-sm text-gray-200">{recordDetail.fecha || '—'}</p>
-                        <p className="text-lg font-bold text-primary">{recordDetail.total ? `$${recordDetail.total} ${recordDetail.moneda || ''}` : '—'}</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">
+                          Fecha / Total
+                        </p>
+                        <p className="text-sm text-gray-200">{recordDetail.fecha || "—"}</p>
+                        <p className="text-lg font-bold text-primary">
+                          {recordDetail.total
+                            ? `$${recordDetail.total} ${recordDetail.moneda || ""}`
+                            : "—"}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase">Expiración</p>
-                        <p className="text-xs text-orange-400 italic">Expira el {formatDate(recordDetail.expiresAt)}</p>
+                        <p className="text-xs text-orange-400 italic">
+                          Expira el {formatDate(recordDetail.expiresAt)}
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Summary & Findings */}
                   {recordDetail.analysisJson?.executiveSummary && (
-                    <div className={`p-4 rounded-xl border ${
-                      recordDetail.riskLevel === 'CRITICAL' ? 'bg-red-900/10 border-red-900/50' :
-                      recordDetail.riskLevel === 'WARNING' ? 'bg-yellow-900/10 border-yellow-900/50' :
-                      'bg-green-900/10 border-green-900/50'
-                    }`}>
-                      <h3 className="font-bold text-sm uppercase tracking-wide mb-1">{recordDetail.analysisJson.executiveSummary.title}</h3>
-                      <p className="text-sm text-gray-300">{recordDetail.analysisJson.executiveSummary.message}</p>
+                    <div
+                      className={`p-4 rounded-xl border ${
+                        recordDetail.riskLevel === "CRITICAL"
+                          ? "bg-red-900/10 border-red-900/50"
+                          : recordDetail.riskLevel === "WARNING"
+                            ? "bg-yellow-900/10 border-yellow-900/50"
+                            : "bg-green-900/10 border-green-900/50"
+                      }`}
+                    >
+                      <h3 className="font-bold text-sm uppercase tracking-wide mb-1">
+                        {recordDetail.analysisJson.executiveSummary.title}
+                      </h3>
+                      <p className="text-sm text-gray-300">
+                        {recordDetail.analysisJson.executiveSummary.message}
+                      </p>
                     </div>
                   )}
 
-                  {recordDetail.analysisStatus === 'FAILED' && (
+                  {recordDetail.analysisStatus === "FAILED" && (
                     <div className="p-4 rounded-xl bg-red-900/10 border border-red-900/50">
-                      <h3 className="font-bold text-sm uppercase text-red-400 mb-1">Error de análisis</h3>
-                      <p className="text-sm text-gray-300 font-mono">{recordDetail.errorCode}: {recordDetail.errorMessage}</p>
+                      <h3 className="font-bold text-sm uppercase text-red-400 mb-1">
+                        Error de análisis
+                      </h3>
+                      <p className="text-sm text-gray-300 font-mono">
+                        {recordDetail.errorCode}: {recordDetail.errorMessage}
+                      </p>
                     </div>
                   )}
 
-                  {recordDetail.analysisJson?.findings && recordDetail.analysisJson.findings.length > 0 && (
-                    <>
-                      <ActionableSummary findings={recordDetail.analysisJson.findings} />
-                      <FindingGlossary findings={recordDetail.analysisJson.findings} compact />
-                    </>
-                  )}
+                  {recordDetail.analysisJson?.findings &&
+                    recordDetail.analysisJson.findings.length > 0 && (
+                      <>
+                        <ActionableSummary findings={recordDetail.analysisJson.findings} />
+                        <FindingGlossary findings={recordDetail.analysisJson.findings} compact />
+                      </>
+                    )}
 
                   <div className="p-4 bg-blue-900/10 border border-blue-900/30 rounded-xl text-xs text-blue-300/80">
                     <p className="font-bold mb-1">Nota de seguridad y retención:</p>
-                    <p>Este registro es una copia sanitizada del análisis realizado. El contenido XML original y el contenido normalizado no se almacenan por políticas de seguridad y privacidad.</p>
+                    <p>
+                      Este registro es una copia sanitizada del análisis realizado. El contenido XML
+                      original y el contenido normalizado no se almacenan por políticas de seguridad
+                      y privacidad.
+                    </p>
                   </div>
                 </>
               ) : null}

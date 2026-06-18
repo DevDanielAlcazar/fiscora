@@ -87,7 +87,14 @@ export function exportXmlAuditDashboardCsv(
 
   // F) TOP HALLAZGOS
   section("TOP HALLAZGOS");
-  row("Código", "Título", "Severidad máxima", "Prioridad máxima", "Apariciones", "Registros afectados");
+  row(
+    "Código",
+    "Título",
+    "Severidad máxima",
+    "Prioridad máxima",
+    "Apariciones",
+    "Registros afectados",
+  );
   for (const fc of summary.topFindingCodes) {
     row(fc.code, fc.title, fc.severityMax, fc.priorityMax, fc.count, fc.recordsAffected);
   }

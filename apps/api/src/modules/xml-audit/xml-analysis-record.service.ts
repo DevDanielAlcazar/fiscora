@@ -143,7 +143,13 @@ export class XmlAnalysisRecordService {
     const actionGroupsMap = new Map<string, { findings: number; records: Set<string> }>();
     const findingCodesMap = new Map<
       string,
-      { title: string; severityMax: string; priorityMax: string; count: number; records: Set<string> }
+      {
+        title: string;
+        severityMax: string;
+        priorityMax: string;
+        count: number;
+        records: Set<string>;
+      }
     >();
 
     const priorityRanking: Record<string, number> = { BLOCKER: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -171,7 +177,8 @@ export class XmlAnalysisRecordService {
       if (r.hasNormalizedXml) t.recordsWithNormalizedXml++;
 
       const analysis = r.analysisJson as any;
-      const dk = analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
+      const dk =
+        analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
       docKindsMap.set(dk, (docKindsMap.get(dk) || 0) + 1);
 
       const findings = analysis?.findings || [];
@@ -302,20 +309,24 @@ export class XmlAnalysisRecordService {
         const recs = records.filter((rec) => rec.batchId === bid);
         const first = recs.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
         const last = recs.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
-        
+
         const analyzedCount = recs.filter((re) => re.analysisStatus === "ANALYZED").length;
         const failedCount = recs.filter((re) => re.analysisStatus === "FAILED").length;
         const criticalCount = recs.reduce((s, re) => s + re.criticalCount, 0);
         const warningCount = recs.reduce((s, re) => s + re.warningCount, 0);
-        const okCount = recs.filter((re) => re.analysisStatus === "ANALYZED" && re.riskLevel === "OK").length;
+        const okCount = recs.filter(
+          (re) => re.analysisStatus === "ANALYZED" && re.riskLevel === "OK",
+        ).length;
 
         // priorityMax derivation
         let priorityMax = null;
         for (const p of ["BLOCKER", "HIGH", "MEDIUM", "LOW"]) {
-          if (recs.some((re) => {
-            const fs = (re.analysisJson as any)?.findings || [];
-            return fs.some((f: any) => f.priority === p);
-          })) {
+          if (
+            recs.some((re) => {
+              const fs = (re.analysisJson as any)?.findings || [];
+              return fs.some((f: any) => f.priority === p);
+            })
+          ) {
             priorityMax = p;
             break;
           }
@@ -331,8 +342,10 @@ export class XmlAnalysisRecordService {
             findingCodesM.set(f.code, (findingCodesM.get(f.code) || 0) + 1);
           }
         }
-        const topActionGroup = Array.from(actionGroupsM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-        const topFindingCode = Array.from(findingCodesM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        const topActionGroup =
+          Array.from(actionGroupsM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        const topFindingCode =
+          Array.from(findingCodesM.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
         recentBatches.push({
           batchId: bid,
@@ -449,7 +462,8 @@ export class XmlAnalysisRecordService {
       const dksMap = new Map<string, number>();
       for (const r of recs) {
         const analysis = r.analysisJson as any;
-        const dk = analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
+        const dk =
+          analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
         dksMap.set(dk, (dksMap.get(dk) || 0) + 1);
       }
       const documentKinds = Array.from(dksMap.entries()).map(([documentKind, count]) => ({
@@ -461,10 +475,12 @@ export class XmlAnalysisRecordService {
       let priorityMax = null;
       const prioritiesRanking = ["BLOCKER", "HIGH", "MEDIUM", "LOW"];
       for (const p of prioritiesRanking) {
-        if (recs.some((r) => {
-          const findings = (r.analysisJson as any)?.findings || [];
-          return findings.some((f: any) => f.priority === p);
-        })) {
+        if (
+          recs.some((r) => {
+            const findings = (r.analysisJson as any)?.findings || [];
+            return findings.some((f: any) => f.priority === p);
+          })
+        ) {
           priorityMax = p;
           break;
         }
@@ -481,8 +497,10 @@ export class XmlAnalysisRecordService {
           findingCodesMap.set(f.code, (findingCodesMap.get(f.code) || 0) + 1);
         }
       }
-      const topActionGroup = Array.from(actionGroupsMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-      const topFindingCode = Array.from(findingCodesMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const topActionGroup =
+        Array.from(actionGroupsMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const topFindingCode =
+        Array.from(findingCodesMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
       return {
         batchId,
@@ -514,12 +532,14 @@ export class XmlAnalysisRecordService {
     if (query.hasFailed === "true") filtered = filtered.filter((b) => b.hasFailed);
     if (query.hasCritical === "true") filtered = filtered.filter((b) => b.hasCritical);
     if (query.documentKind) {
-      filtered = filtered.filter((b) => b.documentKinds.some((dk) => dk.documentKind === query.documentKind));
+      filtered = filtered.filter((b) =>
+        b.documentKinds.some((dk) => dk.documentKind === query.documentKind),
+      );
     }
     if (query.search) {
       const s = query.search.toLowerCase();
-      filtered = filtered.filter((b) =>
-        b.zipFilename.toLowerCase().includes(s) || b.batchId.toLowerCase().includes(s),
+      filtered = filtered.filter(
+        (b) => b.zipFilename.toLowerCase().includes(s) || b.batchId.toLowerCase().includes(s),
       );
     }
 
@@ -590,7 +610,8 @@ export class XmlAnalysisRecordService {
     const dksMap = new Map<string, number>();
     for (const r of records) {
       const analysis = r.analysisJson as any;
-      const dk = analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
+      const dk =
+        analysis?.documentKind || analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN";
       dksMap.set(dk, (dksMap.get(dk) || 0) + 1);
     }
     const documentKinds = Array.from(dksMap.entries()).map(([documentKind, count]) => ({

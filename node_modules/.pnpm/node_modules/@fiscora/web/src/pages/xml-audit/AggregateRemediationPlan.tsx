@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
-import { buildAggregateRemediationPlan, type AggregateRemediationSource } from "./remediationPlan.helpers";
+import {
+  buildAggregateRemediationPlan,
+  type AggregateRemediationSource,
+} from "./remediationPlan.helpers";
 
 interface Props {
   sources: AggregateRemediationSource[];
@@ -9,7 +12,13 @@ interface Props {
   onOpenSource?: (fileId: string) => void;
 }
 
-export default function AggregateRemediationPlan({ sources, compact, title, maxItems, onOpenSource }: Props) {
+export default function AggregateRemediationPlan({
+  sources,
+  compact,
+  title,
+  maxItems,
+  onOpenSource,
+}: Props) {
   const plan = useMemo(() => buildAggregateRemediationPlan(sources), [sources]);
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set());
 
@@ -62,7 +71,9 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
             <div key={item.code} className="p-3 rounded-lg border border-border bg-muted/20">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-bold font-mono text-primary">{item.code}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${urgencyStyle[item.urgency]}`}>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border ${urgencyStyle[item.urgency]}`}
+                >
                   {item.urgency}
                 </span>
               </div>
@@ -70,9 +81,7 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
               <p className="text-[10px] text-muted-foreground italic mb-2">
                 {item.affectedFiles} archivos | {item.ownerSuggestion}
               </p>
-              <p className="text-[10px] text-foreground leading-tight">
-                {item.recommendedAction}
-              </p>
+              <p className="text-[10px] text-foreground leading-tight">{item.recommendedAction}</p>
             </div>
           ))}
         </div>
@@ -94,11 +103,15 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
-          <span className="block text-[10px] uppercase font-bold text-muted-foreground">Acciones</span>
+          <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+            Acciones
+          </span>
           <span className="text-xl font-bold">{plan.summary.totalItems}</span>
         </div>
         <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
-          <span className="block text-[10px] uppercase font-bold text-muted-foreground">Archivos</span>
+          <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+            Archivos
+          </span>
           <span className="text-xl font-bold">{plan.summary.affectedFiles}</span>
         </div>
         <div className="p-3 rounded-lg bg-red-900/10 border border-red-900/20 text-center">
@@ -110,7 +123,9 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
           <span className="text-xl font-bold text-orange-500">{plan.summary.high}</span>
         </div>
         <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
-          <span className="block text-[10px] uppercase font-bold text-muted-foreground">Esfuerzo Alto</span>
+          <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+            Esfuerzo Alto
+          </span>
           <span className="text-xl font-bold">{plan.summary.estimatedEffortHigh}</span>
         </div>
         <div className="p-3 rounded-lg bg-red-900/10 border border-red-900/20 text-center">
@@ -139,7 +154,9 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
         >
           <option value="ALL">Todos los responsables</option>
           {plan.summary.byOwner.map((o) => (
-            <option key={o.owner} value={o.owner}>{o.owner}</option>
+            <option key={o.owner} value={o.owner}>
+              {o.owner}
+            </option>
           ))}
         </select>
         <select
@@ -162,7 +179,10 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
           </p>
         ) : (
           filteredItems.map((item) => (
-            <div key={item.code} className="rounded-xl border border-border overflow-hidden bg-muted/10">
+            <div
+              key={item.code}
+              className="rounded-xl border border-border overflow-hidden bg-muted/10"
+            >
               <div className="p-4 border-b border-border bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -170,10 +190,14 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
                     <span className="text-sm font-bold">{item.title}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyStyle[item.urgency]}`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyStyle[item.urgency]}`}
+                    >
                       Urgencia: {item.urgency}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${effortStyle[item.effort]}`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${effortStyle[item.effort]}`}
+                    >
                       Esfuerzo: {item.effort}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border">
@@ -182,33 +206,53 @@ export default function AggregateRemediationPlan({ sources, compact, title, maxI
                   </div>
                 </div>
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase text-right">
-                  {item.affectedFiles} {item.affectedFiles === 1 ? "archivo" : "archivos"} afectado(s)
+                  {item.affectedFiles} {item.affectedFiles === 1 ? "archivo" : "archivos"}{" "}
+                  afectado(s)
                 </div>
               </div>
 
               <div className="p-4 space-y-4">
                 <p className="text-sm leading-relaxed">{item.recommendedAction}</p>
-                
+
                 <div className="pt-2 border-t border-border/50">
                   <button
                     onClick={() => toggleExpand(item.code)}
                     className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
                   >
-                    {expandedCodes.has(item.code) ? "Ocultar archivos ejemplo" : "Ver archivos ejemplo"}
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3 h-3 transition-transform ${expandedCodes.has(item.code) ? "rotate-180" : ""}`}>
-                      <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    {expandedCodes.has(item.code)
+                      ? "Ocultar archivos ejemplo"
+                      : "Ver archivos ejemplo"}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className={`w-3 h-3 transition-transform ${expandedCodes.has(item.code) ? "rotate-180" : ""}`}
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </button>
                   {expandedCodes.has(item.code) && (
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                       {item.topExamples.map((ex, i) => (
-                        <div key={i} className="p-2 rounded bg-muted/50 border border-border/50 text-[10px] flex items-center justify-between gap-2">
-                           <span className="truncate" title={ex.filename}>{ex.filename}</span>
-                           {onOpenSource && (
-                             <button onClick={() => onOpenSource(ex.fileId)} className="text-primary hover:underline font-bold shrink-0">
-                               Ver detalle
-                             </button>
-                           )}
+                        <div
+                          key={i}
+                          className="p-2 rounded bg-muted/50 border border-border/50 text-[10px] flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate" title={ex.filename}>
+                            {ex.filename}
+                          </span>
+                          {onOpenSource && (
+                            <button
+                              onClick={() => onOpenSource(ex.fileId)}
+                              className="text-primary hover:underline font-bold shrink-0"
+                            >
+                              Ver detalle
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

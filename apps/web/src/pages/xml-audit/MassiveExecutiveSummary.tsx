@@ -31,13 +31,16 @@ export default function MassiveExecutiveSummary({
 
   const remediationSources = useMemo(() => {
     return fullAnalysisResult.results
-      .filter((r) => r.status === "ANALYZED" && r.analysis?.findings && r.analysis.findings.length > 0)
+      .filter(
+        (r) => r.status === "ANALYZED" && r.analysis?.findings && r.analysis.findings.length > 0,
+      )
       .map((r, index) => ({
         fileId: String(index),
         filename: r.name,
         status: r.status,
         riskLevel: r.analysis?.executiveSummary?.riskLevel,
-        documentKind: r.analysis?.documentKind || r.analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN",
+        documentKind:
+          r.analysis?.documentKind || r.analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN",
         findings: r.analysis!.findings!,
       }));
   }, [fullAnalysisResult.results]);

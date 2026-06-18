@@ -38,21 +38,25 @@ export function buildFindingGlossary(findings: Finding[]): FindingGlossaryEntry[
       existing.occurrences++;
       // Update severity if higher
       const currentSevWeight = severityWeight[f.severity] || 0;
-      const existingSevWeight = severityWeight[existing.severity as keyof typeof severityWeight] || 0;
+      const existingSevWeight =
+        severityWeight[existing.severity as keyof typeof severityWeight] || 0;
       if (currentSevWeight > existingSevWeight) {
         existing.severity = f.severity;
       }
       // Update priority if higher
       const currentPrioWeight = priorityWeight[f.priority as keyof typeof priorityWeight] || 0;
-      const existingPrioWeight = priorityWeight[existing.priority as keyof typeof priorityWeight] || 0;
+      const existingPrioWeight =
+        priorityWeight[existing.priority as keyof typeof priorityWeight] || 0;
       if (currentPrioWeight > existingPrioWeight) {
         existing.priority = f.priority || "LOW";
       }
       // Prefer non-empty title/message/recommendedAction
       if (!existing.title && f.title) existing.title = f.title;
       if (!existing.message && f.message) existing.message = f.message;
-      if (!existing.recommendedAction && f.recommendedAction) existing.recommendedAction = f.recommendedAction;
-      if (existing.actionGroup === "Informativo" && f.actionGroup) existing.actionGroup = f.actionGroup;
+      if (!existing.recommendedAction && f.recommendedAction)
+        existing.recommendedAction = f.recommendedAction;
+      if (existing.actionGroup === "Informativo" && f.actionGroup)
+        existing.actionGroup = f.actionGroup;
     }
   }
 
@@ -104,21 +108,32 @@ export function getFindingRemediationHint(actionGroup: string): string {
 
 export function getSeverityLabel(severity: string): string {
   switch (severity) {
-    case "CRITICAL": return "Crítico";
-    case "WARNING": return "Advertencia";
-    case "INFO": return "Informativo";
-    default: return severity;
+    case "CRITICAL":
+      return "Crítico";
+    case "WARNING":
+      return "Advertencia";
+    case "INFO":
+      return "Informativo";
+    default:
+      return severity;
   }
 }
 
 export function getCategoryLabel(category: string): string {
   switch (category) {
-    case "TOTALS": return "Totales e importes";
-    case "TAX": return "Impuestos";
-    case "COMPLEMENT": return "Complementos";
-    case "FISCAL": return "Datos fiscales";
-    case "TECHNICAL": return "Técnico / timbrado";
-    case "STRUCTURE": return "Estructura XML";
-    default: return "General";
+    case "TOTALS":
+      return "Totales e importes";
+    case "TAX":
+      return "Impuestos";
+    case "COMPLEMENT":
+      return "Complementos";
+    case "FISCAL":
+      return "Datos fiscales";
+    case "TECHNICAL":
+      return "Técnico / timbrado";
+    case "STRUCTURE":
+      return "Estructura XML";
+    default:
+      return "General";
   }
 }

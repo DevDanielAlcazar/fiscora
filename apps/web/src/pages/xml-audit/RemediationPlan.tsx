@@ -73,7 +73,9 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
             <div key={item.code} className="p-3 rounded-lg border border-border bg-muted/20">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-bold font-mono text-primary">{item.code}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${urgencyStyle[item.urgency]}`}>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border ${urgencyStyle[item.urgency]}`}
+                >
                   {item.urgency}
                 </span>
               </div>
@@ -81,9 +83,7 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
               <p className="text-[10px] text-muted-foreground italic mb-2">
                 Responsable: {item.ownerSuggestion}
               </p>
-              <p className="text-[10px] text-foreground leading-tight">
-                {item.recommendedAction}
-              </p>
+              <p className="text-[10px] text-foreground leading-tight">{item.recommendedAction}</p>
             </div>
           ))}
         </div>
@@ -105,7 +105,9 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
-          <span className="block text-[10px] uppercase font-bold text-muted-foreground">Acciones</span>
+          <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+            Acciones
+          </span>
           <span className="text-xl font-bold">{plan.summary.totalItems}</span>
         </div>
         <div className="p-3 rounded-lg bg-red-900/10 border border-red-900/20 text-center">
@@ -117,7 +119,9 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
           <span className="text-xl font-bold text-orange-500">{plan.summary.high}</span>
         </div>
         <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
-          <span className="block text-[10px] uppercase font-bold text-muted-foreground">Esfuerzo Alto</span>
+          <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+            Esfuerzo Alto
+          </span>
           <span className="text-xl font-bold">{plan.summary.estimatedEffortHigh}</span>
         </div>
       </div>
@@ -142,7 +146,9 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
         >
           <option value="ALL">Todos los responsables</option>
           {plan.summary.byOwner.map((o) => (
-            <option key={o.owner} value={o.owner}>{o.owner}</option>
+            <option key={o.owner} value={o.owner}>
+              {o.owner}
+            </option>
           ))}
         </select>
         <select
@@ -165,7 +171,10 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
           </p>
         ) : (
           filteredItems.map((item) => (
-            <div key={item.code} className="rounded-xl border border-border overflow-hidden bg-muted/10">
+            <div
+              key={item.code}
+              className="rounded-xl border border-border overflow-hidden bg-muted/10"
+            >
               <div className="p-4 border-b border-border bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -173,10 +182,14 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
                     <span className="text-sm font-bold">{item.title}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyStyle[item.urgency]}`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyStyle[item.urgency]}`}
+                    >
                       Urgencia: {item.urgency}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${effortStyle[item.effort]}`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${effortStyle[item.effort]}`}
+                    >
                       Esfuerzo: {item.effort}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border">
@@ -191,56 +204,101 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
 
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Acción Recomendada</p>
-                   <p className="text-sm leading-relaxed">{item.recommendedAction}</p>
-                   
-                   {item.evidenceSummary.length > 0 && (
-                     <div className="pt-2">
-                        <button
-                          onClick={() => toggleExpand(item.code)}
-                          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                        >
-                          {expandedCodes.has(item.code) ? "Ocultar evidencia" : "Ver evidencia resumida"}
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3 h-3 transition-transform ${expandedCodes.has(item.code) ? "rotate-180" : ""}`}>
-                            <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        {expandedCodes.has(item.code) && (
-                          <ul className="mt-2 space-y-1 p-3 rounded bg-muted/50 border border-border/50 text-[10px] font-mono list-disc list-inside">
-                            {item.evidenceSummary.map((ev, i) => <li key={i} className="break-all">{ev}</li>)}
-                          </ul>
-                        )}
-                     </div>
-                   )}
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    Acción Recomendada
+                  </p>
+                  <p className="text-sm leading-relaxed">{item.recommendedAction}</p>
 
-                   {item.relatedCodes.length > 0 && (
-                     <div className="pt-2 text-[10px] text-muted-foreground flex gap-1 items-center flex-wrap">
-                        <span className="font-bold uppercase">Relacionados:</span>
-                        {item.relatedCodes.map(c => <span key={c} className="px-1.5 py-0.5 bg-muted rounded border border-border">{c}</span>)}
-                     </div>
-                   )}
+                  {item.evidenceSummary.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => toggleExpand(item.code)}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        {expandedCodes.has(item.code)
+                          ? "Ocultar evidencia"
+                          : "Ver evidencia resumida"}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className={`w-3 h-3 transition-transform ${expandedCodes.has(item.code) ? "rotate-180" : ""}`}
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                      {expandedCodes.has(item.code) && (
+                        <ul className="mt-2 space-y-1 p-3 rounded bg-muted/50 border border-border/50 text-[10px] font-mono list-disc list-inside">
+                          {item.evidenceSummary.map((ev, i) => (
+                            <li key={i} className="break-all">
+                              {ev}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  {item.relatedCodes.length > 0 && (
+                    <div className="pt-2 text-[10px] text-muted-foreground flex gap-1 items-center flex-wrap">
+                      <span className="font-bold uppercase">Relacionados:</span>
+                      {item.relatedCodes.map((c) => (
+                        <span
+                          key={c}
+                          className="px-1.5 py-0.5 bg-muted rounded border border-border"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
-                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Checklist de revisión</p>
-                   <div className="space-y-2">
-                      {item.checklist.map((step, idx) => (
-                        <div key={idx} className="flex gap-3 items-start group cursor-pointer" onClick={() => toggleCheck(item.code, idx)}>
-                          <div className={`mt-0.5 shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                            checkedItems[item.code]?.has(idx) ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30 group-hover:border-primary"
-                          }`}>
-                            {checkedItems[item.code]?.has(idx) && (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                          <span className={`text-sm leading-tight transition-colors ${checkedItems[item.code]?.has(idx) ? "text-muted-foreground line-through decoration-muted-foreground/50" : "text-foreground"}`}>
-                            {step}
-                          </span>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    Checklist de revisión
+                  </p>
+                  <div className="space-y-2">
+                    {item.checklist.map((step, idx) => (
+                      <div
+                        key={idx}
+                        className="flex gap-3 items-start group cursor-pointer"
+                        onClick={() => toggleCheck(item.code, idx)}
+                      >
+                        <div
+                          className={`mt-0.5 shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                            checkedItems[item.code]?.has(idx)
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-muted-foreground/30 group-hover:border-primary"
+                          }`}
+                        >
+                          {checkedItems[item.code]?.has(idx) && (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="w-3 h-3"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
                         </div>
-                      ))}
-                   </div>
+                        <span
+                          className={`text-sm leading-tight transition-colors ${checkedItems[item.code]?.has(idx) ? "text-muted-foreground line-through decoration-muted-foreground/50" : "text-foreground"}`}
+                        >
+                          {step}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

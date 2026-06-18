@@ -1,5 +1,9 @@
 import type { AnalysisResult } from "../../api/xml-audit";
-import { sortFindingsByPriority, groupFindingsByActionGroup, getPriorityLabel } from "./findingPriority";
+import {
+  sortFindingsByPriority,
+  groupFindingsByActionGroup,
+  getPriorityLabel,
+} from "./findingPriority";
 import { buildFindingGlossary, getSeverityLabel } from "./findingGlossary.helpers";
 import { buildRemediationPlan } from "./remediationPlan.helpers";
 
@@ -1655,16 +1659,18 @@ export default function PrintableIndividualReport({ result }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {buildRemediationPlan(result.findings).items.slice(0, 10).map((item) => (
-                  <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "4px 6px", fontWeight: 700, fontFamily: "monospace" }}>
-                      {item.code}
-                    </td>
-                    <td style={{ padding: "4px 6px" }}>{item.urgency}</td>
-                    <td style={{ padding: "4px 6px" }}>{item.ownerSuggestion}</td>
-                    <td style={{ padding: "4px 6px" }}>{item.recommendedAction}</td>
-                  </tr>
-                ))}
+                {buildRemediationPlan(result.findings)
+                  .items.slice(0, 10)
+                  .map((item) => (
+                    <tr key={item.code} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "4px 6px", fontWeight: 700, fontFamily: "monospace" }}>
+                        {item.code}
+                      </td>
+                      <td style={{ padding: "4px 6px" }}>{item.urgency}</td>
+                      <td style={{ padding: "4px 6px" }}>{item.ownerSuggestion}</td>
+                      <td style={{ padding: "4px 6px" }}>{item.recommendedAction}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

@@ -10,7 +10,10 @@ import {
   getTopAffectedFiles,
 } from "./massiveAggregates";
 import { getPriorityLabel } from "./findingPriority";
-import { buildAggregateRemediationPlan, type AggregateRemediationSource } from "./remediationPlan.helpers";
+import {
+  buildAggregateRemediationPlan,
+  type AggregateRemediationSource,
+} from "./remediationPlan.helpers";
 
 interface Props {
   fullAnalysisResult: ZipFullAnalysisResult;
@@ -29,15 +32,21 @@ export default function PrintableZipReport({ fullAnalysisResult }: Props) {
   const totalAnalyzed = totals.analyzed + totals.failed;
 
   const remediationSources: AggregateRemediationSource[] = r.results
-      .filter((res) => res.status === "ANALYZED" && res.analysis?.findings && res.analysis.findings.length > 0)
-      .map((res, index) => ({
-        fileId: String(index),
-        filename: res.name,
-        status: res.status,
-        riskLevel: res.analysis?.executiveSummary?.riskLevel,
-        documentKind: res.analysis?.documentKind || res.analysis?.analysisMeta?.coverage?.documentKind || "UNKNOWN",
-        findings: res.analysis!.findings!,
-      }));
+    .filter(
+      (res) =>
+        res.status === "ANALYZED" && res.analysis?.findings && res.analysis.findings.length > 0,
+    )
+    .map((res, index) => ({
+      fileId: String(index),
+      filename: res.name,
+      status: res.status,
+      riskLevel: res.analysis?.executiveSummary?.riskLevel,
+      documentKind:
+        res.analysis?.documentKind ||
+        res.analysis?.analysisMeta?.coverage?.documentKind ||
+        "UNKNOWN",
+      findings: res.analysis!.findings!,
+    }));
   const aggregatePlan = buildAggregateRemediationPlan(remediationSources);
   return (
     <div className="print-report-zip hidden">

@@ -28,7 +28,10 @@ import PrintableZipReport from "./xml-audit/PrintableZipReport";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import CopySummaryActions from "./xml-audit/CopySummaryActions";
-import { buildIndividualExecutiveText, buildSupportMessageFromAnalysis } from "./xml-audit/shareSummary.helpers";
+import {
+  buildIndividualExecutiveText,
+  buildSupportMessageFromAnalysis,
+} from "./xml-audit/shareSummary.helpers";
 
 /* Todos los textos visibles deben guardarse en UTF-8. No pegar texto mojibake. */
 export default function XmlAuditPage() {
