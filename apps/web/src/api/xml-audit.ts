@@ -236,6 +236,20 @@ export interface NominaOtroPagoInfo {
   clave?: string | null;
   concepto?: string | null;
   importe?: string | null;
+  subsidioAlEmpleo?: { subsidioCausado?: string | null } | null;
+}
+
+export interface NominaPercepcionesHeader {
+  totalSueldos?: string | null;
+  totalSeparacionIndemnizacion?: string | null;
+  totalJubilacionPensionRetiro?: string | null;
+  totalGravado?: string | null;
+  totalExento?: string | null;
+}
+
+export interface NominaDeduccionesHeader {
+  totalOtrasDeducciones?: string | null;
+  totalImpuestosRetenidos?: string | null;
 }
 
 export interface NominaInfo {
@@ -249,6 +263,8 @@ export interface NominaInfo {
   totalDeducciones?: string | null;
   totalOtrosPagos?: string | null;
   receptor?: NominaReceptorInfo;
+  percepcionesHeader?: NominaPercepcionesHeader | null;
+  deduccionesHeader?: NominaDeduccionesHeader | null;
   percepciones: NominaPercepcionInfo[];
   deducciones: NominaDeduccionInfo[];
   otrosPagos: NominaOtroPagoInfo[];

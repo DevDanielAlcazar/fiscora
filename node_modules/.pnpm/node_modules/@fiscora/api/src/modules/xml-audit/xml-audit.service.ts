@@ -29,6 +29,7 @@ import {
   CFDI_MONEDAS_BASICAS,
 } from "./xml-audit.catalogs.js";
 import { validatePaymentComplementAdvanced } from "./payment-complement-validations.helper.js";
+import { validateNominaAdvanced } from "./nomina-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -774,6 +775,20 @@ export interface NominaOtroPagoInfo {
   clave?: string | null;
   concepto?: string | null;
   importe?: string | null;
+  subsidioAlEmpleo?: { subsidioCausado?: string | null } | null;
+}
+
+export interface NominaPercepcionesHeader {
+  totalSueldos?: string | null;
+  totalSeparacionIndemnizacion?: string | null;
+  totalJubilacionPensionRetiro?: string | null;
+  totalGravado?: string | null;
+  totalExento?: string | null;
+}
+
+export interface NominaDeduccionesHeader {
+  totalOtrasDeducciones?: string | null;
+  totalImpuestosRetenidos?: string | null;
 }
 
 export interface NominaInfo {
@@ -787,6 +802,8 @@ export interface NominaInfo {
   totalDeducciones?: string | null;
   totalOtrosPagos?: string | null;
   receptor?: NominaReceptorInfo;
+  percepcionesHeader?: NominaPercepcionesHeader | null;
+  deduccionesHeader?: NominaDeduccionesHeader | null;
   percepciones: NominaPercepcionInfo[];
   deducciones: NominaDeduccionInfo[];
   otrosPagos: NominaOtroPagoInfo[];
@@ -2510,11 +2527,26 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
     // Percepciones
     const percepciones: NominaPercepcionInfo[] = [];
+    let percepcionesHeader: NominaPercepcionesHeader | undefined;
     const rawPercepcionesNode =
       (get(nominaNode, "nomina12:Percepciones") as Record<string, unknown>) ??
       (get(nominaNode, "Percepciones") as Record<string, unknown>) ??
       {};
     if (rawPercepcionesNode && typeof rawPercepcionesNode === "object") {
+      const rawPercHeaderTotalSueldos = str(get(rawPercepcionesNode, "@_TotalSueldos"));
+      const rawPercHeaderTotalSep = str(get(rawPercepcionesNode, "@_TotalSeparacionIndemnizacion"));
+      const rawPercHeaderTotalJub = str(get(rawPercepcionesNode, "@_TotalJubilacionPensionRetiro"));
+      const rawPercHeaderTotalGravado = str(get(rawPercepcionesNode, "@_TotalGravado"));
+      const rawPercHeaderTotalExento = str(get(rawPercepcionesNode, "@_TotalExento"));
+      if (rawPercHeaderTotalSueldos || rawPercHeaderTotalSep || rawPercHeaderTotalJub || rawPercHeaderTotalGravado || rawPercHeaderTotalExento) {
+        percepcionesHeader = {
+          totalSueldos: rawPercHeaderTotalSueldos ?? null,
+          totalSeparacionIndemnizacion: rawPercHeaderTotalSep ?? null,
+          totalJubilacionPensionRetiro: rawPercHeaderTotalJub ?? null,
+          totalGravado: rawPercHeaderTotalGravado ?? null,
+          totalExento: rawPercHeaderTotalExento ?? null,
+        };
+      }
       const rawPerc =
         (get(rawPercepcionesNode, "nomina12:Percepcion") as unknown) ??
         (get(rawPercepcionesNode, "Percepcion") as unknown);
@@ -2532,11 +2564,20 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
     // Deducciones
     const deducciones: NominaDeduccionInfo[] = [];
+    let deduccionesHeader: NominaDeduccionesHeader | undefined;
     const rawDeduccionesNode =
       (get(nominaNode, "nomina12:Deducciones") as Record<string, unknown>) ??
       (get(nominaNode, "Deducciones") as Record<string, unknown>) ??
       {};
     if (rawDeduccionesNode && typeof rawDeduccionesNode === "object") {
+      const rawDedHeaderOtras = str(get(rawDeduccionesNode, "@_TotalOtrasDeducciones"));
+      const rawDedHeaderIsr = str(get(rawDeduccionesNode, "@_TotalImpuestosRetenidos"));
+      if (rawDedHeaderOtras || rawDedHeaderIsr) {
+        deduccionesHeader = {
+          totalOtrasDeducciones: rawDedHeaderOtras ?? null,
+          totalImpuestosRetenidos: rawDedHeaderIsr ?? null,
+        };
+      }
       const rawDed =
         (get(rawDeduccionesNode, "nomina12:Deduccion") as unknown) ??
         (get(rawDeduccionesNode, "Deduccion") as unknown);
@@ -2563,12 +2604,25 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         (get(rawOtrosPagosNode, "OtroPago") as unknown);
       const opArray = Array.isArray(rawOP) ? rawOP : rawOP ? [rawOP] : [];
       otrosPagos.push(
-        ...opArray.map((o: Record<string, unknown>) => ({
-          tipoOtroPago: str(get(o, "@_TipoOtroPago")) ?? null,
-          clave: str(get(o, "@_Clave")) ?? null,
-          concepto: str(get(o, "@_Concepto")) ?? null,
-          importe: str(get(o, "@_Importe")) ?? null,
-        })),
+        ...opArray.map((o: Record<string, unknown>) => {
+          const subsidioNode =
+            (get(o, "nomina12:SubsidioAlEmpleo") as Record<string, unknown>) ??
+            (get(o, "SubsidioAlEmpleo") as Record<string, unknown>) ??
+            null;
+          let subsidioAlEmpleo: { subsidioCausado?: string | null } | null = null;
+          if (subsidioNode && typeof subsidioNode === "object" && Object.keys(subsidioNode).length > 0) {
+            subsidioAlEmpleo = {
+              subsidioCausado: str(get(subsidioNode, "@_SubsidioCausado")) ?? null,
+            };
+          }
+          return {
+            tipoOtroPago: str(get(o, "@_TipoOtroPago")) ?? null,
+            clave: str(get(o, "@_Clave")) ?? null,
+            concepto: str(get(o, "@_Concepto")) ?? null,
+            importe: str(get(o, "@_Importe")) ?? null,
+            subsidioAlEmpleo,
+          };
+        }),
       );
     }
 
@@ -2583,6 +2637,8 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       totalDeducciones,
       totalOtrosPagos,
       receptor,
+      percepcionesHeader: percepcionesHeader ?? null,
+      deduccionesHeader: deduccionesHeader ?? null,
       percepciones,
       deducciones,
       otrosPagos,
@@ -5690,6 +5746,27 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
 
   // ── Comercio Exterior 1.1 Findings ──
+  // ── Advanced Nómina Validations (A2–F4, excluding existing duplicates) ──
+  if (nomina) {
+    validateNominaAdvanced({
+      tipoComprobante,
+      total,
+      subTotal: subtotal,
+      nomina,
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        addFindingOnce({
+          severity,
+          category: "COMPLEMENT",
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
+    });
+  }
+
   if (comercioExterior) {
     // A) COMERCIO_EXTERIOR_DETECTED
     addFindingOnce({

@@ -273,6 +273,151 @@ async function testNominaConMonedaDistinta(): Promise<void> {
   assertIncludesFinding(result.findings, "NOMINA_SHOULD_HAVE_MONEDA_MXN", "WARNING");
 }
 
+// EM) Nómina sin FechaPago y NumDiasPagados
+async function testNominaSinFechaPagoNumDias(): Promise<void> {
+  const xml = buildNominaXml({
+    fechaPago: "",
+    numDiasPagados: "",
+  });
+  const result = analyzeCfdi(xml, "nomina-sin-fecha-dias.xml");
+  assertIncludesFinding(result.findings, "NOMINA_MISSING_FECHA_PAGO", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_NUM_DIAS_PAGADOS_MISSING", "WARNING");
+}
+
+// EN) FechaInicialPago > FechaFinalPago
+async function testNominaFechaInicialAfterFinal(): Promise<void> {
+  const xml = buildNominaXml({
+    fechaInicialPago: "2024-07-20",
+    fechaFinalPago: "2024-07-15",
+  });
+  const result = analyzeCfdi(xml, "nomina-fecha-inicial-after-final.xml");
+  assertIncludesFinding(result.findings, "NOMINA_FECHA_INICIAL_AFTER_FINAL", "WARNING");
+}
+
+// EO) Receptor nómina sin datos mínimos
+async function testNominaReceptorSinDatosMinimos(): Promise<void> {
+  const xml = buildNominaXml({
+    receptorCurp: "",
+    receptorNumEmpleado: "",
+    receptorTipoRegimen: "",
+    receptorPeriodicidadPago: "",
+    receptorClaveEntFed: "",
+    receptorNss: "",
+  });
+  const result = analyzeCfdi(xml, "nomina-receptor-sin-datos.xml");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_MISSING_CURP", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_MISSING_NUM_EMPLEADO", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_TIPO_REGIMEN_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_PERIODICIDAD_PAGO_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_CLAVE_ENT_FED_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_NSS_MISSING_REVIEW", "INFO");
+}
+
+// EP) Percepciones TotalGravado mismatch
+async function testNominaTotalGravadoMismatch(): Promise<void> {
+  const xml = buildNominaXml({
+    totalPercepciones: "100.00",
+    percepcionesHeaderGravado: "100.00",
+    percepcionesHeaderExento: "0.00",
+    percepciones: [
+      { tipo: "001", clave: "P001", concepto: "Sueldo", gravado: "80.00", exento: "0.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-total-gravado-mismatch.xml");
+  assertIncludesFinding(result.findings, "NOMINA_PERCEPCIONES_TOTAL_GRAVADO_MISMATCH", "CRITICAL");
+}
+
+// EQ) Percepción sin TipoPercepcion/Clave
+async function testNominaPercepcionSinTipoClave(): Promise<void> {
+  const xml = buildNominaXml({
+    totalPercepciones: "100.00",
+    percepciones: [
+      { tipo: "", clave: "", concepto: "Test", gravado: "100.00", exento: "0.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-percepcion-sin-tipo-clave.xml");
+  assertIncludesFinding(result.findings, "NOMINA_PERCEPCION_MISSING_TIPO", "WARNING");
+  assertIncludesFinding(result.findings, "NOMINA_PERCEPCION_MISSING_CLAVE", "WARNING");
+}
+
+// ER) Deducciones TotalDeducciones mismatch
+async function testNominaTotalDeduccionesMismatch(): Promise<void> {
+  const xml = buildNominaXml({
+    totalDeducciones: "100.00",
+    totalPercepciones: "1000.00",
+    totalOtrosPagos: "0.00",
+    deduccionesHeaderOtras: "40.00",
+    deduccionesHeaderIsr: "35.00",
+    deducciones: [
+      { tipo: "002", clave: "D001", concepto: "IMSS", importe: "40.00" },
+      { tipo: "001", clave: "D002", concepto: "ISR", importe: "30.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-total-ded-mismatch.xml");
+  assertIncludesFinding(result.findings, "NOMINA_TOTAL_DEDUCCIONES_MISMATCH", "CRITICAL");
+  assertIncludesFinding(result.findings, "NOMINA_DEDUCCIONES_TOTAL_ISR_MISMATCH", "WARNING");
+  // TotalOtrasDeducciones 40 matches non-ISR sum 40, no mismatch
+}
+
+// ES) ISR sin TotalImpuestosRetenidos
+async function testNominaIsrSinTotalRetenidos(): Promise<void> {
+  const xml = buildNominaXml({
+    totalDeducciones: "30.00",
+    totalPercepciones: "1000.00",
+    totalOtrosPagos: "0.00",
+    deduccionesHeaderOtras: "30.00",
+    deducciones: [
+      { tipo: "001", clave: "D001", concepto: "ISR", importe: "30.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-isr-sin-total-retenidos.xml");
+  assertIncludesFinding(result.findings, "NOMINA_ISR_WITHOUT_TOTAL_IMPUESTOS_RETENIDOS_REVIEW", "WARNING");
+}
+
+// ET) OtrosPagos total mismatch
+async function testNominaTotalOtrosPagosMismatch(): Promise<void> {
+  const xml = buildNominaXml({
+    totalPercepciones: "1000.00",
+    totalDeducciones: "0.00",
+    totalOtrosPagos: "100.00",
+    otrosPagos: [
+      { tipo: "001", clave: "OP001", concepto: "Reembolso", importe: "80.00" },
+      { tipo: "", clave: "OP002", concepto: "Test", importe: "0.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-total-op-mismatch.xml");
+  assertIncludesFinding(result.findings, "NOMINA_TOTAL_OTROS_PAGOS_MISMATCH", "CRITICAL");
+  assertIncludesFinding(result.findings, "NOMINA_OTRO_PAGO_MISSING_TIPO", "WARNING");
+}
+
+// EU) SubsidioAlEmpleo con TipoOtroPago distinto de 002
+async function testNominaSubsidioSinTipo002(): Promise<void> {
+  const xml = buildNominaXml({
+    totalPercepciones: "1000.00",
+    totalDeducciones: "0.00",
+    totalOtrosPagos: "100.00",
+    otrosPagos: [
+      { tipo: "001", clave: "OP001", concepto: "Subsidio", importe: "100.00", subsidioCausado: "50.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "nomina-subsidio-sin-002.xml");
+  assertIncludesFinding(result.findings, "NOMINA_SUBSIDIO_CAUSADO_WITHOUT_OTRO_PAGO_002_REVIEW", "WARNING");
+}
+
+// EV) CFDI Total nómina mismatch
+async function testNominaCfdiTotalMismatch(): Promise<void> {
+  const xml = buildNominaXml({
+    tipoComprobante: "N",
+    total: "950.00",
+    subTotal: "1000.00",
+    totalPercepciones: "1000.00",
+    totalDeducciones: "100.00",
+    totalOtrosPagos: "0.00",
+  });
+  const result = analyzeCfdi(xml, "nomina-cfdi-total-mismatch.xml");
+  assertIncludesFinding(result.findings, "NOMINA_CFDI_TOTAL_MISMATCH", "CRITICAL");
+}
+
 // EC) Pago missing required fields
 async function testPagoMissingRequiredFields(): Promise<void> {
   const xml = buildRepXml({
@@ -1713,6 +1858,7 @@ const NOMINA_NS = 'xmlns:nomina12="http://www.sat.gob.mx/nomina12"';
 function buildNominaXml(opts?: {
   tipoComprobante?: string;
   total?: string;
+  subTotal?: string;
   version?: string;
   tipoNomina?: string;
   fechaPago?: string;
@@ -1733,6 +1879,12 @@ function buildNominaXml(opts?: {
   receptorSalarioBase?: string;
   receptorSalarioDiario?: string;
   receptorClaveEntFed?: string;
+  receptorBanco?: string;
+  receptorCuentaBancaria?: string;
+  percepcionesHeaderGravado?: string;
+  percepcionesHeaderExento?: string;
+  deduccionesHeaderOtras?: string;
+  deduccionesHeaderIsr?: string;
   percepciones?: Array<{
     tipo: string;
     clave: string;
@@ -1741,31 +1893,45 @@ function buildNominaXml(opts?: {
     exento: string;
   }>;
   deducciones?: Array<{ tipo: string; clave: string; concepto: string; importe: string }>;
-  otrosPagos?: Array<{ tipo: string; clave: string; concepto: string; importe: string }>;
+  otrosPagos?: Array<{
+    tipo: string;
+    clave: string;
+    concepto: string;
+    importe: string;
+    subsidioCausado?: string;
+  }>;
   omitirPercepciones?: boolean;
+  omitirDeducciones?: boolean;
 }): string {
   const tipo = opts?.tipoComprobante ?? "I";
   const total = opts?.total ?? "15000.00";
+  const subTotal = opts?.subTotal ?? total;
   const version = opts?.version ?? "1.2";
   const tipoNomina = opts?.tipoNomina ?? "O";
-  const fechaPago = opts?.fechaPago ?? "2024-07-15";
-  const fechaInicialPago = opts?.fechaInicialPago ?? "2024-07-01";
-  const fechaFinalPago = opts?.fechaFinalPago ?? "2024-07-15";
-  const numDiasPagados = opts?.numDiasPagados ?? "15";
+  const fechaPago = opts?.fechaPago !== undefined ? opts.fechaPago : "2024-07-15";
+  const fechaInicialPago = opts?.fechaInicialPago !== undefined ? opts.fechaInicialPago : "2024-07-01";
+  const fechaFinalPago = opts?.fechaFinalPago !== undefined ? opts.fechaFinalPago : "2024-07-15";
+  const numDiasPagados = opts?.numDiasPagados !== undefined ? opts.numDiasPagados : "15";
   const totalPercepciones = opts?.totalPercepciones ?? "15000.00";
   const totalDeducciones = opts?.totalDeducciones ?? "3000.00";
   const totalOtrosPagos = opts?.totalOtrosPagos ?? "0.00";
-  const curp = opts?.receptorCurp ?? "ABCD123456HDFRRL09";
-  const nss = opts?.receptorNss ?? "12345678901";
-  const numEmpleado = opts?.receptorNumEmpleado ?? "EMP001";
-  const depto = opts?.receptorDepto ?? "SISTEMAS";
-  const puesto = opts?.receptorPuesto ?? "ANALISTA";
-  const tipoContrato = opts?.receptorTipoContrato ?? "01";
-  const tipoRegimen = opts?.receptorTipoRegimen ?? "02";
-  const periodicidad = opts?.receptorPeriodicidadPago ?? "02";
-  const salBase = opts?.receptorSalarioBase ?? "500.00";
-  const salDiario = opts?.receptorSalarioDiario ?? "520.00";
-  const claveEdofed = opts?.receptorClaveEntFed ?? "CDMX";
+  const curp = opts?.receptorCurp !== undefined ? opts.receptorCurp : "ABCD123456HDFRRL09";
+  const nss = opts?.receptorNss !== undefined ? opts.receptorNss : "12345678901";
+  const numEmpleado = opts?.receptorNumEmpleado !== undefined ? opts.receptorNumEmpleado : "EMP001";
+  const depto = opts?.receptorDepto !== undefined ? opts.receptorDepto : "SISTEMAS";
+  const puesto = opts?.receptorPuesto !== undefined ? opts.receptorPuesto : "ANALISTA";
+  const tipoContrato = opts?.receptorTipoContrato !== undefined ? opts.receptorTipoContrato : "01";
+  const tipoRegimen = opts?.receptorTipoRegimen !== undefined ? opts.receptorTipoRegimen : "02";
+  const periodicidad = opts?.receptorPeriodicidadPago !== undefined ? opts.receptorPeriodicidadPago : "02";
+  const salBase = opts?.receptorSalarioBase !== undefined ? opts.receptorSalarioBase : "500.00";
+  const salDiario = opts?.receptorSalarioDiario !== undefined ? opts.receptorSalarioDiario : "520.00";
+  const claveEdofed = opts?.receptorClaveEntFed !== undefined ? opts.receptorClaveEntFed : "CDMX";
+  const banco = opts?.receptorBanco !== undefined ? opts.receptorBanco : "";
+  const cuentaBancaria = opts?.receptorCuentaBancaria !== undefined ? opts.receptorCuentaBancaria : "";
+  const percHeaderGravado = opts?.percepcionesHeaderGravado;
+  const percHeaderExento = opts?.percepcionesHeaderExento;
+  const dedHeaderOtras = opts?.deduccionesHeaderOtras;
+  const dedHeaderIsr = opts?.deduccionesHeaderIsr;
 
   const defaultPercepciones = [
     { tipo: "001", clave: "P001", concepto: "Sueldo", gravado: "13000.00", exento: "0.00" },
@@ -1780,45 +1946,56 @@ function buildNominaXml(opts?: {
     clave: string;
     concepto: string;
     importe: string;
+    subsidioCausado?: string;
   }> = [];
 
   const percList = opts?.percepciones ?? defaultPercepciones;
   const dedList = opts?.deducciones ?? defaultDeducciones;
   const opList = opts?.otrosPagos ?? defaultOtrosPagos;
 
+  const percHeaderAttrs = `${percHeaderGravado ? ` TotalGravado="${percHeaderGravado}"` : ""}${percHeaderExento ? ` TotalExento="${percHeaderExento}"` : ""}`;
+  const dedHeaderAttrs = `${dedHeaderOtras ? ` TotalOtrasDeducciones="${dedHeaderOtras}"` : ""}${dedHeaderIsr ? ` TotalImpuestosRetenidos="${dedHeaderIsr}"` : ""}`;
+
   const percepcionesXml = opts?.omitirPercepciones
     ? ""
-    : `        <nomina12:Percepciones TotalSueldos="${totalPercepciones}">
-${percList.map((p) => `          <nomina12:Percepcion TipoPercepcion="${p.tipo}" Clave="${p.clave}" Concepto="${p.concepto}" ImporteGravado="${p.gravado}" ImporteExento="${p.exento}"/>`).join("\n")}
+    : `        <nomina12:Percepciones TotalSueldos="${totalPercepciones}"${percHeaderAttrs}>
+${percList.map((p) => `          <nomina12:Percepcion${p.tipo ? ` TipoPercepcion="${p.tipo}"` : ""}${p.clave ? ` Clave="${p.clave}"` : ""}${p.concepto ? ` Concepto="${p.concepto}"` : ""} ImporteGravado="${p.gravado}" ImporteExento="${p.exento}"/>`).join("\n")}
         </nomina12:Percepciones>`;
 
-  const deduccionesXml =
-    dedList.length > 0
-      ? `        <nomina12:Deducciones TotalOtrasDeducciones="${totalDeducciones}">
-${dedList.map((d) => `          <nomina12:Deduccion TipoDeduccion="${d.tipo}" Clave="${d.clave}" Concepto="${d.concepto}" Importe="${d.importe}"/>`).join("\n")}
+  const deduccionesXml = opts?.omitirDeducciones
+    ? ""
+    : dedList.length > 0
+      ? `        <nomina12:Deducciones${dedHeaderAttrs || ` TotalOtrasDeducciones="${totalDeducciones}"`}>
+${dedList.map((d) => `          <nomina12:Deduccion${d.tipo ? ` TipoDeduccion="${d.tipo}"` : ""}${d.clave ? ` Clave="${d.clave}"` : ""}${d.concepto ? ` Concepto="${d.concepto}"` : ""}${d.importe ? ` Importe="${d.importe}"` : ""}/>`).join("\n")}
         </nomina12:Deducciones>`
       : "";
 
   const otrosPagosXml =
     opList.length > 0
       ? `        <nomina12:OtrosPagos>
-${opList.map((o) => `          <nomina12:OtroPago TipoOtroPago="${o.tipo}" Clave="${o.clave}" Concepto="${o.concepto}" Importe="${o.importe}"/>`).join("\n")}
+${opList.map((o) => {
+  const subsidioXml = o.subsidioCausado
+    ? `\n            <nomina12:SubsidioAlEmpleo SubsidioCausado="${o.subsidioCausado}"/>`
+    : "";
+  return `          <nomina12:OtroPago${o.tipo ? ` TipoOtroPago="${o.tipo}"` : ""}${o.clave ? ` Clave="${o.clave}"` : ""}${o.concepto ? ` Concepto="${o.concepto}"` : ""}${o.importe ? ` Importe="${o.importe}"` : ""}>${subsidioXml}\n          </nomina12:OtroPago>`;
+}).join("\n")}
         </nomina12:OtrosPagos>`
       : "";
 
-  const typeLabel =
-    tipo === "I" ? "Ingreso" : tipo === "N" ? "Nómina" : tipo === "P" ? "Pago" : tipo;
+  const nominaAttrs = `Version="${version}" TipoNomina="${tipoNomina}"${fechaPago !== null ? ` FechaPago="${fechaPago}"` : ""}${fechaInicialPago !== null ? ` FechaInicialPago="${fechaInicialPago}"` : ""}${fechaFinalPago !== null ? ` FechaFinalPago="${fechaFinalPago}"` : ""}${numDiasPagados !== null ? ` NumDiasPagados="${numDiasPagados}"` : ""} TotalPercepciones="${totalPercepciones}" TotalDeducciones="${totalDeducciones}" TotalOtrosPagos="${totalOtrosPagos}"`;
+
+  const receptorAttrs = `${curp !== null ? ` CURP="${curp}"` : ""}${nss !== null ? ` NumSeguridadSocial="${nss}"` : ""}${numEmpleado !== null ? ` NumEmpleado="${numEmpleado}"` : ""}${depto ? ` Departamento="${depto}"` : ""}${puesto ? ` Puesto="${puesto}"` : ""}${tipoContrato ? ` TipoContrato="${tipoContrato}"` : ""}${tipoRegimen ? ` TipoRegimen="${tipoRegimen}"` : ""}${periodicidad ? ` PeriodicidadPago="${periodicidad}"` : ""}${salBase ? ` SalarioBaseCotApor="${salBase}"` : ""}${salDiario ? ` SalarioDiarioIntegrado="${salDiario}"` : ""}${claveEdofed ? ` ClaveEntFed="${claveEdofed}"` : ""}${banco ? ` Banco="${banco}"` : ""}${cuentaBancaria ? ` CuentaBancaria="${cuentaBancaria}"` : ""}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${NOMINA_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="N" Folio="1" Fecha="2024-07-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="${total}" Moneda="MXN" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${NOMINA_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="N" Folio="1" Fecha="2024-07-01T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="${subTotal}" Moneda="MXN" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
   <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
   <cfdi:Receptor Rfc="XAXX010101001" Nombre="TRABAJADOR SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="S01"/>
   <cfdi:Conceptos>
     <cfdi:Concepto ClaveProdServ="84111505" Cantidad="1" ClaveUnidad="ACT" Descripcion="Nómina" ValorUnitario="${total}" Importe="${total}" ObjetoImp="01"/>
   </cfdi:Conceptos>
   <cfdi:Complemento>
-    <nomina12:Nomina Version="${version}" TipoNomina="${tipoNomina}" FechaPago="${fechaPago}" FechaInicialPago="${fechaInicialPago}" FechaFinalPago="${fechaFinalPago}" NumDiasPagados="${numDiasPagados}" TotalPercepciones="${totalPercepciones}" TotalDeducciones="${totalDeducciones}" TotalOtrosPagos="${totalOtrosPagos}">
-      <nomina12:Receptor CURP="${curp}" NumSeguridadSocial="${nss}" NumEmpleado="${numEmpleado}"${depto ? ` Departamento="${depto}"` : ""}${puesto ? ` Puesto="${puesto}"` : ""}${tipoContrato ? ` TipoContrato="${tipoContrato}"` : ""}${tipoRegimen ? ` TipoRegimen="${tipoRegimen}"` : ""}${periodicidad ? ` PeriodicidadPago="${periodicidad}"` : ""}${salBase ? ` SalarioBaseCotApor="${salBase}"` : ""}${salDiario ? ` SalarioDiarioIntegrado="${salDiario}"` : ""}${claveEdofed ? ` ClaveEntFed="${claveEdofed}"` : ""}/>
+    <nomina12:Nomina ${nominaAttrs}>
+      <nomina12:Receptor${receptorAttrs}/>
       ${percepcionesXml}
       ${deduccionesXml}
       ${otrosPagosXml}
@@ -4310,6 +4487,16 @@ async function main() {
   await runCase("DZ) ObjetoImp 01 con impuestos", testObjetoImp01ConImpuestos);
   await runCase("EA) UsoCFDI CP01 sin Tipo P", testUsoCfdiCp01SinTipoP);
   await runCase("EB) Nómina con moneda distinta de MXN", testNominaConMonedaDistinta);
+  await runCase("EM) Nómina sin FechaPago y NumDiasPagados", testNominaSinFechaPagoNumDias);
+  await runCase("EN) FechaInicialPago > FechaFinalPago", testNominaFechaInicialAfterFinal);
+  await runCase("EO) Receptor nómina sin datos mínimos", testNominaReceptorSinDatosMinimos);
+  await runCase("EP) Percepciones TotalGravado mismatch", testNominaTotalGravadoMismatch);
+  await runCase("EQ) Percepción sin Tipo/Clave", testNominaPercepcionSinTipoClave);
+  await runCase("ER) Deducciones TotalDeducciones mismatch", testNominaTotalDeduccionesMismatch);
+  await runCase("ES) ISR sin TotalImpuestosRetenidos", testNominaIsrSinTotalRetenidos);
+  await runCase("ET) OtrosPagos total mismatch", testNominaTotalOtrosPagosMismatch);
+  await runCase("EU) Subsidio sin Tipo 002", testNominaSubsidioSinTipo002);
+  await runCase("EV) CFDI Total nómina mismatch", testNominaCfdiTotalMismatch);
   await runCase("EC) Pago missing required fields", testPagoMissingRequiredFields);
   await runCase("ED) FechaPago inválida", testPagoFechaInvalida);
   await runCase("EE) TipoCambio requerido moneda extranjera", testRepTipoCambioExtranjero);
