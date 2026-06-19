@@ -437,6 +437,7 @@ export interface RetencionesEmisorInfo {
   rfcEmisor?: string | null;
   nombre?: string | null;
   curp?: string | null;
+  regimenFiscalE?: string | null;
 }
 
 export interface RetencionesReceptorInfo {
@@ -445,6 +446,7 @@ export interface RetencionesReceptorInfo {
   curp?: string | null;
   nombre?: string | null;
   numRegIdTrib?: string | null;
+  domicilioFiscalR?: string | null;
 }
 
 export interface RetencionesPeriodoInfo {

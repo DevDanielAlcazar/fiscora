@@ -3893,6 +3893,112 @@ async function testCceTotalUsdVsCfdiTotalMismatch(): Promise<void> {
   assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW debe ser WARNING");
 }
 
+// FQ) Retenciones lugarExpRetenc faltante
+async function testRetLugarExpFaltante(): Promise<void> {
+  const xml = buildRetencionesXml({
+    attrsOverride: `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="06" Sello="abc" NumCert="00001000000500000000" Cert="def"`,
+  });
+  const result = analyzeCfdi(xml, "ret-lugar-exp-faltante.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_LUGAR_EXP_MISSING");
+  assertIncludesFinding(result.findings, "RETENCIONES_DESC_RETENC_MISSING_REVIEW");
+  const f = result.findings.find((x) => x.code === "RETENCIONES_LUGAR_EXP_MISSING")!;
+  assertEqual(f.severity, "WARNING", "LUGAR_EXP_MISSING debe ser WARNING");
+}
+
+// FR) Retenciones emisor sin nombre y régimen
+async function testRetEmisorSinNombreRegimen(): Promise<void> {
+  const xml = buildRetencionesXml({
+    emisor: `<retenciones:Emisor RfcE="EKU9003173C9" CURPE="XXXX000000HXXX"/>`,
+  });
+  const result = analyzeCfdi(xml, "ret-emisor-sin-nombre-regimen.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_EMISOR_NAME_MISSING");
+  assertIncludesFinding(result.findings, "RETENCIONES_EMISOR_REGIMEN_MISSING");
+}
+
+// FS) Retenciones receptor sin nacionalidad ni domicilio
+async function testRetReceptorSinNacionalidadDomicilio(): Promise<void> {
+  const xml = buildRetencionesXml({
+    receptor: `<retenciones:Receptor><retenciones:Nacional RfcR="XAXX010101000" NomDenRazSocR="CLIENTE SA DE CV" CURPR="XXXX000000HXXA"/></retenciones:Receptor>`,
+  });
+  const result = analyzeCfdi(xml, "ret-receptor-sin-nacionalidad-domicilio.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_RECEPTOR_NACIONALIDAD_MISSING");
+  assertIncludesFinding(result.findings, "RETENCIONES_RECEPTOR_NACIONAL_DOMICILIO_MISSING_REVIEW");
+}
+
+// FT) Retenciones receptor nacional con RFC genérico y sin nombre
+async function testRetReceptorRfcGenericoSinNombre(): Promise<void> {
+  const xml = buildRetencionesXml({
+    receptor: `<retenciones:Receptor Nacionalidad="Nacional"><retenciones:Nacional RfcR="XAXX010101000" CURPR="XXXX000000HXXA"/></retenciones:Receptor>`,
+  });
+  const result = analyzeCfdi(xml, "ret-receptor-generico-sin-nombre.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_RECEPTOR_NACIONAL_WITH_GENERIC_RFC_REVIEW");
+  assertIncludesFinding(result.findings, "RETENCIONES_RECEPTOR_NACIONAL_WITHOUT_NAME");
+}
+
+// FU) Retenciones periodo incompleto (sin MesIni ni MesFin)
+async function testRetPeriodoIncompleto(): Promise<void> {
+  const xml = buildRetencionesXml({
+    periodo: `<retenciones:Periodo Ejerc="2024"/>`,
+  });
+  const result = analyzeCfdi(xml, "ret-periodo-incompleto.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_PERIODO_MES_INI_MISSING");
+  assertIncludesFinding(result.findings, "RETENCIONES_PERIODO_MES_FIN_MISSING");
+}
+
+// FV) Retenciones total operación cero
+async function testRetTotalOperacionCero(): Promise<void> {
+  const xml = buildRetencionesXml({
+    totales: `<retenciones:Totales MontoTotOperacion="0.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="0.00" Impuesto="001" MontoRet="0.00" TipoPagoRet="Pago definitivo"/></retenciones:ImpRetenidos></retenciones:Totales>`,
+  });
+  const result = analyzeCfdi(xml, "ret-total-operacion-cero.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_TOTAL_OPERATION_ZERO_REVIEW");
+  const f = result.findings.find((x) => x.code === "RETENCIONES_TOTAL_OPERATION_ZERO_REVIEW")!;
+  assertEqual(f.severity, "INFO", "TOTAL_OPERATION_ZERO_REVIEW debe ser INFO");
+}
+
+// FW) Retenciones total ret excede operación
+async function testRetTotalRetExcedeOperacion(): Promise<void> {
+  const xml = buildRetencionesXml({
+    totales: `<retenciones:Totales MontoTotOperacion="10000.00" MontoTotRet="20000.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="8000.00" Impuesto="001" MontoRet="20000.00" TipoPagoRet="Pago definitivo"/></retenciones:ImpRetenidos></retenciones:Totales>`,
+  });
+  const result = analyzeCfdi(xml, "ret-total-ret-excede.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_TOTAL_RET_EXCEEDS_OPERATION");
+  const f = result.findings.find((x) => x.code === "RETENCIONES_TOTAL_RET_EXCEEDS_OPERATION")!;
+  assertEqual(f.severity, "CRITICAL", "TOTAL_RET_EXCEEDS_OPERATION debe ser CRITICAL");
+}
+
+// FX) Retenciones total ret 0 con impuestos > 0 y tipo pago faltante
+async function testRetTotalRetCeroConImpuestosYTipoPagoFaltante(): Promise<void> {
+  const xml = buildRetencionesXml({
+    totales: `<retenciones:Totales MontoTotOperacion="10000.00" MontoTotRet="0.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="8000.00" Impuesto="001" MontoRet="1600.00"/></retenciones:ImpRetenidos></retenciones:Totales>`,
+  });
+  const result = analyzeCfdi(xml, "ret-total-ret-cero-con-impuestos.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_TOTAL_RET_ZERO_WITH_IMPUESTOS");
+  assertIncludesFinding(result.findings, "RETENCIONES_IMP_RETENIDO_TIPO_PAGO_MISSING_REVIEW");
+}
+
+// FY) Retenciones complemento dividendos faltante
+async function testRetComplementoDividendosFaltante(): Promise<void> {
+  const xml = buildRetencionesXml({
+    attrsOverride: `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="01" DescRetenc="Dividendos" LugarExpRetenc="12345" Sello="abc" NumCert="00001000000500000000" Cert="def"`,
+  });
+  const result = analyzeCfdi(xml, "ret-complemento-dividendos-faltante.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_COMPLEMENTO_DIVIDENDOS_MISSING");
+  const f = result.findings.find((x) => x.code === "RETENCIONES_COMPLEMENTO_DIVIDENDOS_MISSING")!;
+  assertEqual(f.severity, "WARNING", "COMPLEMENTO_DIVIDENDOS_MISSING debe ser WARNING");
+}
+
+// FZ) Retenciones complemento desconocido
+async function testRetComplementoDesconocido(): Promise<void> {
+  const xml = buildRetencionesXml({
+    complemento: `<retenciones:Complemento><custom:AlgoDesconocido xmlns:custom="http://example.com"><custom:Dato valor="test"/></custom:AlgoDesconocido><tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="fz000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/></retenciones:Complemento>`,
+  });
+  const result = analyzeCfdi(xml, "ret-complemento-desconocido.xml");
+  assertIncludesFinding(result.findings, "RETENCIONES_COMPLEMENTO_DESCONOCIDO_REVIEW");
+  const f = result.findings.find((x) => x.code === "RETENCIONES_COMPLEMENTO_DESCONOCIDO_REVIEW")!;
+  assertEqual(f.severity, "INFO", "COMPLEMENTO_DESCONOCIDO_REVIEW debe ser INFO");
+}
+
 // ─── Impuestos Locales fixtures ─────────────────────────────────────────────
 
 const IMPLOCAL_NS = 'xmlns:implocal="http://www.sat.gob.mx/ImpuestosLocales"';
@@ -4237,13 +4343,13 @@ function buildRetencionesXml(opts?: {
 }): string {
   const attr =
     opts?.attrsOverride ??
-    `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="01" DescRetenc="Retenciones" LugarExpRetenc="12345" Sello="abc" NumCert="00001000000500000000" Cert="def"`;
+    `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="06" DescRetenc="Honorarios" LugarExpRetenc="12345" Sello="abc" NumCert="00001000000500000000" Cert="def"`;
   const emisor =
     opts?.emisor ??
-    `<retenciones:Emisor RfcE="EKU9003173C9" NomDenRazSocE="EMPRESA SA DE CV" CURPE="XXXX000000HXXX"/>`;
+    `<retenciones:Emisor RfcE="EKU9003173C9" NomDenRazSocE="EMPRESA SA DE CV" CURPE="XXXX000000HXXX" RegimenFiscalE="601"/>`;
   const receptor =
     opts?.receptor ??
-    `<retenciones:Receptor Nacionalidad="Nacional"><retenciones:Nacional RfcR="XAXX010101000" NomDenRazSocR="CLIENTE SA DE CV" CURPR="XXXX000000HXXA"/></retenciones:Receptor>`;
+    `<retenciones:Receptor Nacionalidad="Nacional"><retenciones:Nacional RfcR="XAXX010101000" NomDenRazSocR="CLIENTE SA DE CV" CURPR="XXXX000000HXXA" DomicilioFiscalR="12345"/></retenciones:Receptor>`;
   const periodo = opts?.periodo ?? `<retenciones:Periodo MesIni="01" MesFin="01" Ejerc="2024"/>`;
   const totales =
     opts?.totales ??
@@ -4368,8 +4474,8 @@ async function testRetencionesValidoBase(): Promise<void> {
   assertTruthy(result.retenciones, "retenciones debe existir");
   assertEqual(result.retenciones!.version, "2.0", "version debe ser 2.0");
   assertEqual(result.retenciones!.folioInt, "RET-2024-001", "folioInt debe coincidir");
-  assertEqual(result.retenciones!.cveRetenc, "01", "cveRetenc debe coincidir");
-  assertEqual(result.retenciones!.descRetenc, "Retenciones", "descRetenc debe coincidir");
+  assertEqual(result.retenciones!.cveRetenc, "06", "cveRetenc debe coincidir");
+  assertEqual(result.retenciones!.descRetenc, "Honorarios", "descRetenc debe coincidir");
   assertEqual(result.retenciones!.lugarExpRetenc, "12345", "lugarExpRetenc debe coincidir");
   assertEqual(
     result.retenciones!.uuid,
@@ -4858,6 +4964,16 @@ async function main() {
   await runCase("FN) CCE TotalUSD vs suma mercancías mismatch", testCceTotalUsdMercanciasMismatch);
   await runCase("FO) CCE con Exportacion distinta de 02", testCceSinExportacion02);
   await runCase("FP) CCE moneda USD TotalUSD vs Total CFDI mismatch", testCceTotalUsdVsCfdiTotalMismatch);
+  await runCase("FQ) Retenciones lugarExpRetenc faltante", testRetLugarExpFaltante);
+  await runCase("FR) Retenciones emisor sin nombre y régimen", testRetEmisorSinNombreRegimen);
+  await runCase("FS) Retenciones receptor sin nacionalidad ni domicilio", testRetReceptorSinNacionalidadDomicilio);
+  await runCase("FT) Retenciones receptor nacional con RFC genérico y sin nombre", testRetReceptorRfcGenericoSinNombre);
+  await runCase("FU) Retenciones periodo incompleto", testRetPeriodoIncompleto);
+  await runCase("FV) Retenciones total operación cero", testRetTotalOperacionCero);
+  await runCase("FW) Retenciones total ret excede operación", testRetTotalRetExcedeOperacion);
+  await runCase("FX) Retenciones total ret 0 con impuestos > 0", testRetTotalRetCeroConImpuestosYTipoPagoFaltante);
+  await runCase("FY) Retenciones complemento dividendos faltante", testRetComplementoDividendosFaltante);
+  await runCase("FZ) Retenciones complemento desconocido", testRetComplementoDesconocido);
   await runCase("CI) Impuestos Locales válido base", testImpuestosLocalesValidoBase);
   await runCase(
     "CJ) Impuestos Locales total retenciones mismatch",

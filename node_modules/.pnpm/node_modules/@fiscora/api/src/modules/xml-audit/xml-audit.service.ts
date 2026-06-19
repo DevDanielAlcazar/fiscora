@@ -32,6 +32,7 @@ import { validatePaymentComplementAdvanced } from "./payment-complement-validati
 import { validateNominaAdvanced } from "./nomina-validations.helper.js";
 import { validateCartaPorteAdvanced } from "./carta-porte-validations.helper.js";
 import { validateComercioExteriorAdvanced } from "./comercio-exterior-validations.helper.js";
+import { validateRetencionesAdvanced } from "./retenciones-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -980,6 +981,7 @@ export interface RetencionesEmisorInfo {
   rfcEmisor?: string | null;
   nombre?: string | null;
   curp?: string | null;
+  regimenFiscalE?: string | null;
 }
 
 export interface RetencionesReceptorInfo {
@@ -988,6 +990,7 @@ export interface RetencionesReceptorInfo {
   curp?: string | null;
   nombre?: string | null;
   numRegIdTrib?: string | null;
+  domicilioFiscalR?: string | null;
 }
 
 export interface RetencionesPeriodoInfo {
@@ -9481,6 +9484,7 @@ function buildRetencionesResult(
       rfcEmisor: str(get(emisorNode, "@_RfcE")) ?? null,
       nombre: str(get(emisorNode, "@_NomDenRazSocE")) ?? null,
       curp: str(get(emisorNode, "@_CURPE")) ?? null,
+      regimenFiscalE: str(get(emisorNode, "@_RegimenFiscalE")) ?? null,
     };
   }
 
@@ -9518,6 +9522,10 @@ function buildRetencionesResult(
       numRegIdTrib:
         extranjero && typeof extranjero === "object"
           ? (str(get(extranjero, "@_NumRegIdTrib")) ?? null)
+          : null,
+      domicilioFiscalR:
+        nacional && typeof nacional === "object"
+          ? (str(get(nacional, "@_DomicilioFiscalR")) ?? null)
           : null,
     };
   }
@@ -10057,6 +10065,41 @@ function buildRetencionesResult(
       ],
     });
   }
+
+  // ── Advanced Retenciones Validations (A5–H2, excluding existing duplicates) ──
+  const retenciones: RetencionesInfo = {
+    version,
+    folioInt,
+    sello,
+    numCert,
+    cert,
+    fechaExp,
+    cveRetenc,
+    descRetenc,
+    lugarExpRetenc,
+    emisor,
+    receptor,
+    periodo,
+    totales,
+    complementoNames,
+    uuid,
+    fechaTimbrado,
+    rfcProvCertif,
+  };
+  validateRetencionesAdvanced({
+    retenciones,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({
+        severity,
+        category: "FISCAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
+    },
+  });
 
   // ── Executive Summary ──
   let riskLevel: "OK" | "WARNING" | "CRITICAL" = "OK";
