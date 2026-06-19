@@ -31,6 +31,7 @@ import {
 import { validatePaymentComplementAdvanced } from "./payment-complement-validations.helper.js";
 import { validateNominaAdvanced } from "./nomina-validations.helper.js";
 import { validateCartaPorteAdvanced } from "./carta-porte-validations.helper.js";
+import { validateComercioExteriorAdvanced } from "./comercio-exterior-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -850,17 +851,66 @@ export interface NominaInfo {
 
 export type DocumentKind = "CFDI" | "RETENCIONES" | "UNKNOWN";
 
+export interface CceDomicilio {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  localidad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  codigoPostal?: string | null;
+}
+
+export interface CceMercancia {
+  noIdentificacion?: string | null;
+  fraccionArancelaria?: string | null;
+  cantidadAduana?: string | null;
+  unidadAduana?: string | null;
+  valorUnitarioAduana?: string | null;
+  valorDolares?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  subModelo?: string | null;
+  numeroSerie?: string | null;
+  descripcionesEspecificas?: string | null;
+}
+
+export interface CceDestinatario {
+  numRegIdTrib?: string | null;
+  nombre?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
+export interface CceReceptor {
+  numRegIdTrib?: string | null;
+  residenciaFiscal?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
+export interface CceEmisor {
+  curp?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
 export interface ComercioExteriorInfo {
   version?: string | null;
   tipoOperacion?: string | null;
   claveDePedimento?: string | null;
   certificadoOrigen?: string | null;
+  numCertificadoOrigen?: string | null;
   numeroExportadorConfiable?: string | null;
   incoterm?: string | null;
   subDivision?: string | null;
   observaciones?: string | null;
   tipoCambioUSD?: string | null;
   totalUSD?: string | null;
+  motivoTraslado?: string | null;
+  emisor?: CceEmisor | null;
+  receptor?: CceReceptor | null;
+  destinatarios: CceDestinatario[];
+  mercancias: CceMercancia[];
 }
 
 export interface ImpuestoLocalRetencionInfo {
@@ -1482,6 +1532,21 @@ function strAttr(node: Record<string, unknown>, ...names: string[]): string | nu
     if (isNonEmptyString(val)) return val;
   }
   return null;
+}
+
+function extractCceDomicilio(rawDom: Record<string, unknown> | null): CceDomicilio | null {
+  if (!rawDom || typeof rawDom !== "object" || Object.keys(rawDom).length === 0) return null;
+  return {
+    calle: str(get(rawDom, "@_Calle")) ?? null,
+    numeroExterior: str(get(rawDom, "@_NumeroExterior")) ?? null,
+    numeroInterior: str(get(rawDom, "@_NumeroInterior")) ?? null,
+    colonia: str(get(rawDom, "@_Colonia")) ?? null,
+    localidad: str(get(rawDom, "@_Localidad")) ?? null,
+    municipio: str(get(rawDom, "@_Municipio")) ?? null,
+    estado: str(get(rawDom, "@_Estado")) ?? null,
+    pais: str(get(rawDom, "@_Pais")) ?? null,
+    codigoPostal: str(get(rawDom, "@_CodigoPostal")) ?? null,
+  };
 }
 
 function extractGlobalTaxes(comprobante: Record<string, unknown>): GlobalTaxesInfo | null {
@@ -2778,11 +2843,99 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     typeof comercioExteriorNode === "object" &&
     Object.keys(comercioExteriorNode).length > 0
   ) {
+    // ── Emisor dentro de CCE ──
+    const rawCceEmisor =
+      (get(comercioExteriorNode, "cce11:Emisor") as Record<string, unknown>) ??
+      (get(comercioExteriorNode, "Emisor") as Record<string, unknown>) ??
+      null;
+    let cceEmisor: CceEmisor | null = null;
+    if (rawCceEmisor && typeof rawCceEmisor === "object") {
+      const rawDom =
+        (get(rawCceEmisor, "cce11:Domicilio") as Record<string, unknown>) ??
+        (get(rawCceEmisor, "Domicilio") as Record<string, unknown>) ??
+        null;
+      cceEmisor = {
+        curp: str(get(rawCceEmisor, "@_CURP")) ?? null,
+        domicilio: extractCceDomicilio(rawDom),
+      };
+    }
+
+    // ── Receptor dentro de CCE ──
+    const rawCceReceptor =
+      (get(comercioExteriorNode, "cce11:Receptor") as Record<string, unknown>) ??
+      (get(comercioExteriorNode, "Receptor") as Record<string, unknown>) ??
+      null;
+    let cceReceptor: CceReceptor | null = null;
+    if (rawCceReceptor && typeof rawCceReceptor === "object") {
+      const rawDom =
+        (get(rawCceReceptor, "cce11:Domicilio") as Record<string, unknown>) ??
+        (get(rawCceReceptor, "Domicilio") as Record<string, unknown>) ??
+        null;
+      cceReceptor = {
+        numRegIdTrib: str(get(rawCceReceptor, "@_NumRegIdTrib")) ?? null,
+        residenciaFiscal: str(get(rawCceReceptor, "@_ResidenciaFiscal")) ?? null,
+        domicilio: extractCceDomicilio(rawDom),
+      };
+    }
+
+    // ── Destinatarios ──
+    const rawDestinatarios =
+      (get(comercioExteriorNode, "cce11:Destinatario") as unknown) ??
+      (get(comercioExteriorNode, "Destinatario") as unknown) ??
+      null;
+    const destinatariosArr: unknown[] = rawDestinatarios
+      ? Array.isArray(rawDestinatarios)
+        ? rawDestinatarios
+        : [rawDestinatarios]
+      : [];
+    const destinatarios: CceDestinatario[] = (destinatariosArr as Record<string, unknown>[]).map(
+      (d) => {
+        const rawDom =
+          (get(d, "cce11:Domicilio") as Record<string, unknown>) ??
+          (get(d, "Domicilio") as Record<string, unknown>) ??
+          null;
+        return {
+          numRegIdTrib: str(get(d, "@_NumRegIdTrib")) ?? null,
+          nombre: str(get(d, "@_Nombre")) ?? null,
+          domicilio: extractCceDomicilio(rawDom),
+        };
+      },
+    );
+
+    // ── Mercancias ──
+    const rawMercsNode =
+      (get(comercioExteriorNode, "cce11:Mercancias") as Record<string, unknown>) ??
+      (get(comercioExteriorNode, "Mercancias") as Record<string, unknown>) ??
+      null;
+    let mercanciasNodes: unknown[] = [];
+    if (rawMercsNode && typeof rawMercsNode === "object") {
+      const rawMer =
+        (get(rawMercsNode, "cce11:Mercancia") as unknown) ??
+        (get(rawMercsNode, "Mercancia") as unknown);
+      mercanciasNodes = Array.isArray(rawMer) ? rawMer : rawMer ? [rawMer] : [];
+    }
+    const mercancias: CceMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map(
+      (m) => ({
+        noIdentificacion: str(get(m, "@_NoIdentificacion")) ?? null,
+        fraccionArancelaria: str(get(m, "@_FraccionArancelaria")) ?? null,
+        cantidadAduana: str(get(m, "@_CantidadAduana")) ?? null,
+        unidadAduana: str(get(m, "@_UnidadAduana")) ?? null,
+        valorUnitarioAduana: str(get(m, "@_ValorUnitarioAduana")) ?? null,
+        valorDolares: str(get(m, "@_ValorDolares")) ?? null,
+        marca: str(get(m, "@_Marca")) ?? null,
+        modelo: str(get(m, "@_Modelo")) ?? null,
+        subModelo: str(get(m, "@_SubModelo")) ?? null,
+        numeroSerie: str(get(m, "@_NumeroSerie")) ?? null,
+        descripcionesEspecificas: str(get(m, "@_DescripcionesEspecificas")) ?? null,
+      }),
+    );
+
     comercioExterior = {
       version: str(get(comercioExteriorNode, "@_Version")) ?? null,
       tipoOperacion: str(get(comercioExteriorNode, "@_TipoOperacion")) ?? null,
       claveDePedimento: str(get(comercioExteriorNode, "@_ClaveDePedimento")) ?? null,
       certificadoOrigen: str(get(comercioExteriorNode, "@_CertificadoOrigen")) ?? null,
+      numCertificadoOrigen: str(get(comercioExteriorNode, "@_NumCertificadoOrigen")) ?? null,
       numeroExportadorConfiable:
         str(get(comercioExteriorNode, "@_NumeroExportadorConfiable")) ?? null,
       incoterm: str(get(comercioExteriorNode, "@_Incoterm")) ?? null,
@@ -2790,6 +2943,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       observaciones: str(get(comercioExteriorNode, "@_Observaciones")) ?? null,
       tipoCambioUSD: str(get(comercioExteriorNode, "@_TipoCambioUSD")) ?? null,
       totalUSD: str(get(comercioExteriorNode, "@_TotalUSD")) ?? null,
+      motivoTraslado: str(get(comercioExteriorNode, "@_MotivoTraslado")) ?? null,
+      emisor: cceEmisor,
+      receptor: cceReceptor,
+      destinatarios,
+      mercancias,
     };
   }
 
@@ -6013,6 +6171,30 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         });
       }
     }
+  }
+
+  // ── Advanced Comercio Exterior Validations (A4–E12, excluding existing duplicates) ──
+  if (comercioExterior) {
+    validateComercioExteriorAdvanced({
+      tipoComprobante,
+      exportacion,
+      moneda,
+      total,
+      subtotal,
+      comercioExterior,
+      concepts: concepts ?? [],
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        addFindingOnce({
+          severity,
+          category: "COMPLEMENT",
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
+    });
   }
 
   // ── Impuestos Locales 1.0 Findings ──

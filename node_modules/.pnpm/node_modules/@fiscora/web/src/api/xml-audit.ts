@@ -308,17 +308,66 @@ export interface NominaInfo {
   otrosPagos: NominaOtroPagoInfo[];
 }
 
+export interface CceDomicilio {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  localidad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  codigoPostal?: string | null;
+}
+
+export interface CceMercancia {
+  noIdentificacion?: string | null;
+  fraccionArancelaria?: string | null;
+  cantidadAduana?: string | null;
+  unidadAduana?: string | null;
+  valorUnitarioAduana?: string | null;
+  valorDolares?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  subModelo?: string | null;
+  numeroSerie?: string | null;
+  descripcionesEspecificas?: string | null;
+}
+
+export interface CceDestinatario {
+  numRegIdTrib?: string | null;
+  nombre?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
+export interface CceReceptor {
+  numRegIdTrib?: string | null;
+  residenciaFiscal?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
+export interface CceEmisor {
+  curp?: string | null;
+  domicilio?: CceDomicilio | null;
+}
+
 export interface ComercioExteriorInfo {
   version?: string | null;
   tipoOperacion?: string | null;
   claveDePedimento?: string | null;
   certificadoOrigen?: string | null;
+  numCertificadoOrigen?: string | null;
   numeroExportadorConfiable?: string | null;
   incoterm?: string | null;
   subDivision?: string | null;
   observaciones?: string | null;
   tipoCambioUSD?: string | null;
   totalUSD?: string | null;
+  motivoTraslado?: string | null;
+  emisor?: CceEmisor | null;
+  receptor?: CceReceptor | null;
+  destinatarios: CceDestinatario[];
+  mercancias: CceMercancia[];
 }
 
 export interface ImpuestoLocalRetencionInfo {

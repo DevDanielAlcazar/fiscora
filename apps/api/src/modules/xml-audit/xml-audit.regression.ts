@@ -3587,43 +3587,110 @@ const CCE11_NS = 'xmlns:cce11="http://www.sat.gob.mx/ComercioExterior"';
 function buildComercioExteriorXml(opts?: {
   tipoComprobante?: string;
   total?: string;
+  subtotal?: string;
   version?: string;
   tipoOperacion?: string;
   claveDePedimento?: string;
   incoterm?: string;
   moneda?: string;
   totalUSD?: string;
+  tipoCambioUSD?: string;
+  certificadoOrigen?: string;
+  numCertificadoOrigen?: string;
+  subDivision?: string;
+  exportacion?: string;
   omitirComplemento?: boolean;
+  omitirMercancias?: boolean;
+  omitirReceptorCce?: boolean;
+  omitirReceptorDomicilioCce?: boolean;
+  mercancias?: Array<{
+    noIdentificacion?: string;
+    fraccionArancelaria?: string;
+    cantidadAduana?: string;
+    unidadAduana?: string;
+    valorUnitarioAduana?: string;
+    valorDolares?: string;
+  }>;
+  receptorCceResidenciaFiscal?: string;
+  receptorCceNumRegIdTrib?: string;
+  destinatarioPais?: string;
+  conceptNoIdentificacion?: string;
 }): string {
   const tipo = opts?.tipoComprobante ?? "I";
   const total = opts?.total ?? "1000.00";
+  const subtotal = opts?.subtotal ?? "1000.00";
+  const exportacion = opts?.exportacion ?? "02";
   const version = opts?.version ?? "1.1";
   const tipoOperacion = opts?.tipoOperacion ?? "2";
   const claveDePedimento = opts?.claveDePedimento ?? "A1";
   const incoterm = opts?.incoterm ?? "FOB";
   const moneda = opts?.moneda ?? "USD";
   const totalUSD = opts?.totalUSD ?? "1000.00";
+  const tipoCambioUSD = opts?.tipoCambioUSD;
+  const certificadoOrigen = opts?.certificadoOrigen;
+  const numCertificadoOrigen = opts?.numCertificadoOrigen;
+  const subDivision = opts?.subDivision;
+  const omitirMercancias = opts?.omitirMercancias ?? false;
+  const omitirReceptorCce = opts?.omitirReceptorCce ?? false;
+  const conceptNoIdentificacion = opts?.conceptNoIdentificacion ?? "001";
+
+  // Mercancias XML
+  const mercanciasData = opts?.mercancias ?? (omitirMercancias ? [] : [
+    {
+      noIdentificacion: "001",
+      fraccionArancelaria: "01010101",
+      cantidadAduana: "1",
+      unidadAduana: "PZA",
+      valorUnitarioAduana: "1000.00",
+      valorDolares: "1000.00",
+    },
+  ]);
+  const mercanciasXml = mercanciasData.length > 0
+    ? `\n        <cce11:Mercancias>\n${mercanciasData.map((m) => {
+        const ni = m.noIdentificacion ? ` NoIdentificacion="${m.noIdentificacion}"` : "";
+        const fa = m.fraccionArancelaria ? ` FraccionArancelaria="${m.fraccionArancelaria}"` : "";
+        const ca = m.cantidadAduana ? ` CantidadAduana="${m.cantidadAduana}"` : "";
+        const ua = m.unidadAduana ? ` UnidadAduana="${m.unidadAduana}"` : "";
+        const vua = m.valorUnitarioAduana ? ` ValorUnitarioAduana="${m.valorUnitarioAduana}"` : "";
+        const vd = m.valorDolares ? ` ValorDolares="${m.valorDolares}"` : "";
+        return `          <cce11:Mercancia${ni}${fa}${ca}${ua}${vua}${vd}/>`;
+      }).join("\n")}\n        </cce11:Mercancias>`
+    : "";
+
+  // Receptor CCE XML
+  const receptorCceXml = omitirReceptorCce
+    ? ""
+    : `\n        <cce11:Receptor${opts?.receptorCceResidenciaFiscal !== undefined ? ` ResidenciaFiscal="${opts.receptorCceResidenciaFiscal}"` : ""}${opts?.receptorCceNumRegIdTrib !== undefined ? ` NumRegIdTrib="${opts.receptorCceNumRegIdTrib}"` : ""}>${opts?.omitirReceptorDomicilioCce ? "" : `\n          <cce11:Domicilio Pais="USA" CodigoPostal="12345"/>`}\n        </cce11:Receptor>`;
+
+  // Destinatario XML
+  const destinatarioXml = opts?.destinatarioPais
+    ? `\n        <cce11:Destinatario Nombre="DESTINATARIO SA">
+          <cce11:Domicilio Pais="${opts.destinatarioPais}"/>
+        </cce11:Destinatario>`
+    : "";
+
+  const cceExtraAttrs = `${tipoCambioUSD !== undefined ? ` TipoCambioUSD="${tipoCambioUSD}"` : ""}${certificadoOrigen !== undefined ? ` CertificadoOrigen="${certificadoOrigen}"` : ""}${numCertificadoOrigen !== undefined ? ` NumCertificadoOrigen="${numCertificadoOrigen}"` : ""}${subDivision !== undefined ? ` SubDivision="${subDivision}"` : ""}`;
 
   const complementContent = opts?.omitirComplemento
     ? ""
-    : `<cce11:ComercioExterior ${CCE11_NS} Version="${version}" TipoOperacion="${tipoOperacion}"${claveDePedimento ? ` ClaveDePedimento="${claveDePedimento}"` : ""}${incoterm ? ` Incoterm="${incoterm}"` : ""}${totalUSD ? ` TotalUSD="${totalUSD}"` : ""}/>`;
+    : `<cce11:ComercioExterior ${CCE11_NS} Version="${version}" TipoOperacion="${tipoOperacion}"${claveDePedimento ? ` ClaveDePedimento="${claveDePedimento}"` : ""}${incoterm ? ` Incoterm="${incoterm}"` : ""}${totalUSD ? ` TotalUSD="${totalUSD}"` : ""}${cceExtraAttrs}>${receptorCceXml}${destinatarioXml}${mercanciasXml}\n      </cce11:ComercioExterior>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="123" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="${moneda}" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="123" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="${subtotal}" Moneda="${moneda}" Total="${total}" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="${exportacion}">
   <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
   <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
   <cfdi:Conceptos>
-    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto de prueba" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="${conceptNoIdentificacion}" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto de prueba" ValorUnitario="${subtotal}" Importe="${subtotal}" ObjetoImp="02">
       <cfdi:Impuestos>
         <cfdi:Traslados>
-          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+          <cfdi:Traslado Base="${subtotal}" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="${(parseFloat(subtotal) * 0.16).toFixed(2)}"/>
         </cfdi:Traslados>
       </cfdi:Impuestos>
     </cfdi:Concepto>
   </cfdi:Conceptos>
-  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+  <cfdi:Impuestos TotalImpuestosTrasladados="${(parseFloat(subtotal) * 0.16).toFixed(2)}">
     <cfdi:Traslados>
-      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+      <cfdi:Traslado Base="${subtotal}" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="${(parseFloat(subtotal) * 0.16).toFixed(2)}"/>
     </cfdi:Traslados>
   </cfdi:Impuestos>
   <cfdi:Complemento>
@@ -3685,6 +3752,145 @@ async function testComercioExteriorComplementoVacio(): Promise<void> {
   const xml = buildComercioExteriorXml({ omitirComplemento: true });
   const result = analyzeCfdi(xml, "ce-vacio.xml");
   assertEqual(result.comercioExterior, undefined, "comercioExterior debe ser undefined");
+}
+
+// FG) Comercio Exterior sin TipoCambioUSD/TotalUSD
+async function testCceSinTipoCambioTotalUsd(): Promise<void> {
+  const xml = buildComercioExteriorXml({ totalUSD: "", tipoCambioUSD: "" });
+  const result = analyzeCfdi(xml, "cce-sin-tc-total-usd.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_MISSING");
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING");
+  const tuFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_MISSING")!;
+  assertEqual(tuFinding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_MISSING debe ser WARNING");
+  const tcFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING")!;
+  assertEqual(tcFinding.severity, "WARNING", "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING debe ser WARNING");
+}
+
+// FH) CertificadoOrigen 1 sin NumCertificadoOrigen
+async function testCceCertOrigen1SinNumCert(): Promise<void> {
+  const xml = buildComercioExteriorXml({ certificadoOrigen: "1" });
+  const result = analyzeCfdi(xml, "cce-cert-origen-1-sin-num.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT debe ser WARNING");
+}
+
+// FI) Receptor sin ResidenciaFiscal/NumRegIdTrib
+async function testCceReceptorSinResidenciaNumReg(): Promise<void> {
+  const xml = buildComercioExteriorXml({ omitirReceptorCce: true });
+  const result = analyzeCfdi(xml, "cce-receptor-sin-residencia-numreg.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL");
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB");
+  const rfFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL")!;
+  assertEqual(rfFinding.severity, "WARNING", "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL debe ser WARNING");
+  const nrFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB")!;
+  assertEqual(nrFinding.severity, "WARNING", "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB debe ser WARNING");
+}
+
+// FJ) Sin mercancías
+async function testCceSinMercancias(): Promise<void> {
+  const xml = buildComercioExteriorXml({ omitirMercancias: true });
+  const result = analyzeCfdi(xml, "cce-sin-mercancias.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_WITHOUT_MERCANCIAS");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_WITHOUT_MERCANCIAS")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_WITHOUT_MERCANCIAS debe ser WARNING");
+}
+
+// FK) Mercancía sin NoIdentificacion/FraccionArancelaria/UnidadAduana
+async function testCceMercanciaSinCamposRequeridos(): Promise<void> {
+  const xml = buildComercioExteriorXml({
+    mercancias: [{ cantidadAduana: "1", valorUnitarioAduana: "100.00", valorDolares: "100.00" }],
+  });
+  const result = analyzeCfdi(xml, "cce-mercancia-sin-campos.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION");
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_FRACCION_ARANCELARIA");
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_UNIDAD_ADUANA");
+  const niFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION")!;
+  assertEqual(niFinding.severity, "WARNING", "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION debe ser WARNING");
+}
+
+// FL) Fracción arancelaria formato inválido
+async function testCceFraccionFormatoInvalido(): Promise<void> {
+  const xml = buildComercioExteriorXml({
+    mercancias: [{
+      noIdentificacion: "001",
+      fraccionArancelaria: "ABC123",
+      cantidadAduana: "1",
+      unidadAduana: "PZA",
+      valorUnitarioAduana: "100.00",
+      valorDolares: "100.00",
+    }],
+  });
+  const result = analyzeCfdi(xml, "cce-fraccion-formato-invalido.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW")!;
+  assertEqual(finding.severity, "INFO", "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW debe ser INFO");
+}
+
+// FM) ValorDolares mismatch
+async function testCceValorDolaresMismatch(): Promise<void> {
+  const xml = buildComercioExteriorXml({
+    mercancias: [{
+      noIdentificacion: "001",
+      fraccionArancelaria: "01010101",
+      cantidadAduana: "10",
+      unidadAduana: "PZA",
+      valorUnitarioAduana: "5.00",
+      valorDolares: "30.00",
+    }],
+  });
+  const result = analyzeCfdi(xml, "cce-valor-dolares-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH debe ser WARNING");
+}
+
+// FN) TotalUSD vs suma mercancías mismatch
+async function testCceTotalUsdMercanciasMismatch(): Promise<void> {
+  const xml = buildComercioExteriorXml({
+    totalUSD: "100.00",
+    mercancias: [
+      { noIdentificacion: "001", fraccionArancelaria: "01010101", cantidadAduana: "1", unidadAduana: "PZA", valorUnitarioAduana: "50.00", valorDolares: "50.00" },
+      { noIdentificacion: "002", fraccionArancelaria: "01010102", cantidadAduana: "1", unidadAduana: "PZA", valorUnitarioAduana: "30.00", valorDolares: "30.00" },
+    ],
+  });
+  const result = analyzeCfdi(xml, "cce-total-usd-merc-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH debe ser WARNING");
+}
+
+// FO) CCE con Exportacion distinta de 02
+async function testCceSinExportacion02(): Promise<void> {
+  const xml = buildComercioExteriorXml({ exportacion: "01" });
+  const result = analyzeCfdi(xml, "cce-sin-exportacion-02.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW debe ser WARNING");
+}
+
+// FP) Moneda USD TotalUSD vs Total CFDI mismatch
+async function testCceTotalUsdVsCfdiTotalMismatch(): Promise<void> {
+  const xml = buildComercioExteriorXml({
+    moneda: "USD",
+    total: "100.00",
+    totalUSD: "80.00",
+    tipoCambioUSD: "1.00",
+  });
+  const result = analyzeCfdi(xml, "cce-total-usd-vs-cfdi-total-mismatch.xml");
+
+  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW");
+  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW")!;
+  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW debe ser WARNING");
 }
 
 // ─── Impuestos Locales fixtures ─────────────────────────────────────────────
@@ -4642,6 +4848,16 @@ async function main() {
   await runCase("CF) Comercio Exterior TotalUSD mismatch", testComercioExteriorTotalUSDMismatch);
   await runCase("CG) Comercio Exterior versión faltante", testComercioExteriorVersionFaltante);
   await runCase("CH) Comercio Exterior complemento vacío", testComercioExteriorComplementoVacio);
+  await runCase("FG) CCE sin TipoCambioUSD/TotalUSD", testCceSinTipoCambioTotalUsd);
+  await runCase("FH) CCE CertificadoOrigen 1 sin NumCertificadoOrigen", testCceCertOrigen1SinNumCert);
+  await runCase("FI) CCE Receptor sin ResidenciaFiscal/NumRegIdTrib", testCceReceptorSinResidenciaNumReg);
+  await runCase("FJ) CCE sin mercancías", testCceSinMercancias);
+  await runCase("FK) CCE mercancía sin campos requeridos", testCceMercanciaSinCamposRequeridos);
+  await runCase("FL) CCE fracción arancelaria formato inválido", testCceFraccionFormatoInvalido);
+  await runCase("FM) CCE ValorDolares mismatch", testCceValorDolaresMismatch);
+  await runCase("FN) CCE TotalUSD vs suma mercancías mismatch", testCceTotalUsdMercanciasMismatch);
+  await runCase("FO) CCE con Exportacion distinta de 02", testCceSinExportacion02);
+  await runCase("FP) CCE moneda USD TotalUSD vs Total CFDI mismatch", testCceTotalUsdVsCfdiTotalMismatch);
   await runCase("CI) Impuestos Locales válido base", testImpuestosLocalesValidoBase);
   await runCase(
     "CJ) Impuestos Locales total retenciones mismatch",
