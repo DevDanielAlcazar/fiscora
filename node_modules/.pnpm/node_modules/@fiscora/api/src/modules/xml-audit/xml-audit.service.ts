@@ -33,6 +33,7 @@ import { validateNominaAdvanced } from "./nomina-validations.helper.js";
 import { validateCartaPorteAdvanced } from "./carta-porte-validations.helper.js";
 import { validateComercioExteriorAdvanced } from "./comercio-exterior-validations.helper.js";
 import { validateRetencionesAdvanced } from "./retenciones-validations.helper.js";
+import { validateCatalogConsistency } from "./catalog-consistency.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -9371,6 +9372,31 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     },
   };
 
+  // ── Catalog Consistency Validations (CFDI) ──
+  validateCatalogConsistency({
+    tipoComprobante,
+    moneda,
+    exportacion,
+    metodoPago,
+    formaPago,
+    concepts: concepts ?? undefined,
+    cfdiRelations,
+    paymentComplement,
+    nomina,
+    cartaPorte,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({
+        severity,
+        category: "TECHNICAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
+    },
+  });
+
   return {
     documentKind: "CFDI",
     uuid,
@@ -10375,6 +10401,24 @@ function buildRetencionesResult(
       hasSafeNormalization: safeNormalizationApplied,
     },
   };
+
+  // ── Catalog Consistency Validations (Retenciones) ──
+  validateCatalogConsistency({
+    retencionesNacionalidad: receptor?.nacionalidad,
+    retencionesCveRetenc: cveRetenc,
+    retencionesImpuestos: totales?.impuestosRetenidos,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({
+        severity,
+        category: "TECHNICAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
+    },
+  });
 
   return {
     documentKind: "RETENCIONES",

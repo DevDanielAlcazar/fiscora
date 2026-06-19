@@ -4840,6 +4840,112 @@ async function testAnalysisMetaNoContenidoSensible(): Promise<void> {
   assertEqual(combined.includes("<retenciones:"), false, "no debe contener <retenciones:");
 }
 
+// GA) TipoComprobante desconocido
+async function testCatTipoComprobanteUnknown(): Promise<void> {
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('TipoDeComprobante="I"', 'TipoDeComprobante="X"');
+  const result = analyzeCfdi(xml, "cat-tipo-comprobante-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_TIPO_COMPROBANTE_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_TIPO_COMPROBANTE_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "WARNING", "TIPO_COMPROBANTE_UNKNOWN debe ser WARNING");
+}
+
+// GB) Exportacion desconocida
+async function testCatExportacionUnknown(): Promise<void> {
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('Exportacion="01"', 'Exportacion="99"');
+  const result = analyzeCfdi(xml, "cat-exportacion-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_EXPORTACION_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_EXPORTACION_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "WARNING", "EXPORTACION_UNKNOWN debe ser WARNING");
+}
+
+// GC) MetodoPago desconocido
+async function testCatMetodoPagoUnknown(): Promise<void> {
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('MetodoPago="PPD"', 'MetodoPago="ABC"');
+  const result = analyzeCfdi(xml, "cat-metodo-pago-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_METODO_PAGO_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_METODO_PAGO_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "WARNING", "METODO_PAGO_UNKNOWN debe ser WARNING");
+}
+
+// GD) ObjetoImp desconocido en concepto
+async function testCatObjetoImpUnknown(): Promise<void> {
+  const xml = buildConceptTaxXml({ objetoImp: "99", importe: "1000.00" });
+  const result = analyzeCfdi(xml, "cat-objeto-imp-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_OBJETO_IMP_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_OBJETO_IMP_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "WARNING", "OBJETO_IMP_UNKNOWN debe ser WARNING");
+}
+
+// GE) Impuesto/TipoFactor desconocidos en concepto
+async function testCatConceptTaxUnknown(): Promise<void> {
+  const xml = buildConceptTaxXml({
+    objetoImp: "02",
+    importe: "1000.00",
+    traslados: [{ base: "1000.00", impuesto: "999", tipoFactor: "Raro", tasaOCuota: "0.160000", importe: "160.00" }],
+  });
+  const result = analyzeCfdi(xml, "cat-concept-tax-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_CONCEPT_TAX_IMPUESTO_UNKNOWN_REVIEW");
+  assertIncludesFinding(result.findings, "CATALOG_CONCEPT_TAX_TIPO_FACTOR_UNKNOWN_REVIEW");
+}
+
+// GF) TipoRelacion desconocido
+async function testCatTipoRelacionUnknown(): Promise<void> {
+  const xml = buildEgresoCfdiRelacionadosXml("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "99");
+  const result = analyzeCfdi(xml, "cat-tipo-relacion-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_TIPO_RELACION_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_TIPO_RELACION_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "INFO", "TIPO_RELACION_UNKNOWN debe ser INFO");
+}
+
+// GG) Pago FormaDePagoP/MonedaP desconocidos
+async function testCatPagoFormaMonedaUnknown(): Promise<void> {
+  const xml = buildRepXml({ formaDePagoP: "77", monedaP: "ABC" });
+  const result = analyzeCfdi(xml, "cat-pago-forma-moneda-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_PAYMENT_FORMA_PAGO_UNKNOWN_REVIEW");
+  assertIncludesFinding(result.findings, "CATALOG_PAYMENT_MONEDA_UNKNOWN_REVIEW");
+}
+
+// GH) DR ObjetoImpDR/ImpuestoDR desconocidos
+async function testCatDrObjetoImpImpuestoUnknown(): Promise<void> {
+  const xml = buildRepXml({
+    docs: [{
+      monedaDR: "MXN",
+      equivalenciaDR: "1",
+      numParcialidad: "1",
+      impSaldoAnt: "1000.00",
+      impPagado: "400.00",
+      impSaldoInsoluto: "600.00",
+      objetoImpDR: "99",
+      trasladosDR: [{ baseDR: "400.00", impuestoDR: "999", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
+    }],
+  });
+  const result = analyzeCfdi(xml, "cat-dr-objeto-imp-impuesto-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_RELATED_DOCUMENT_OBJETO_IMP_UNKNOWN_REVIEW");
+  assertIncludesFinding(result.findings, "CATALOG_PAYMENT_DR_TAX_IMPUESTO_UNKNOWN_REVIEW");
+}
+
+// GI) Nómina TipoNomina desconocido
+async function testCatNominaTipoNominaUnknown(): Promise<void> {
+  const xml = buildNominaXml({ tipoNomina: "X" });
+  const result = analyzeCfdi(xml, "cat-nomina-tipo-nomina-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_NOMINA_TIPO_NOMINA_UNKNOWN_REVIEW");
+  const f = result.findings.find((x) => x.code === "CATALOG_NOMINA_TIPO_NOMINA_UNKNOWN_REVIEW")!;
+  assertEqual(f.severity, "WARNING", "NOMINA_TIPO_NOMINA_UNKNOWN debe ser WARNING");
+}
+
+// GJ) Retenciones Nacionalidad/CveRetenc/ImpuestoRet desconocidos
+async function testCatRetencionesMultiUnknown(): Promise<void> {
+  const xml = buildRetencionesXml({
+    attrsOverride: `Version="2.0" FolioInt="RET-2024-001" FechaExp="2024-01-15T12:00:00" CveRetenc="99" DescRetenc="Desconocido" LugarExpRetenc="12345" Sello="abc" NumCert="00001000000500000000" Cert="def"`,
+    receptor: `<retenciones:Receptor Nacionalidad="Otro"><retenciones:Nacional RfcR="XAXX010101000" NomDenRazSocR="CLIENTE SA DE CV" CURPR="XXXX000000HXXA" DomicilioFiscalR="12345"/></retenciones:Receptor>`,
+    totales: `<retenciones:Totales MontoTotOperacion="10000.00" MontoTotRet="1600.00"><retenciones:ImpRetenidos><retenciones:ImpRetenido BaseRet="8000.00" Impuesto="99" MontoRet="1600.00" TipoPagoRet="Pago definitivo"/></retenciones:ImpRetenidos></retenciones:Totales>`,
+  });
+  const result = analyzeCfdi(xml, "cat-retenciones-multi-unknown.xml");
+  assertIncludesFinding(result.findings, "CATALOG_RETENCIONES_NACIONALIDAD_UNKNOWN_REVIEW");
+  assertIncludesFinding(result.findings, "CATALOG_RETENCIONES_CVE_RETENC_UNKNOWN_REVIEW");
+  assertIncludesFinding(result.findings, "CATALOG_RETENCIONES_IMPUESTO_RET_UNKNOWN_REVIEW");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -5050,6 +5156,17 @@ async function main() {
   await runCase("EJ) DR Tax base/rate checks", testRepDrTaxChecks);
   await runCase("EK) Totales sin DR taxes", testRepTotalesSinDrTaxes);
   await runCase("EL) Pago múltiples validaciones", testRepMultiplePagoLevel);
+
+  await runCase("GA) Catálogo TipoComprobante desconocido", testCatTipoComprobanteUnknown);
+  await runCase("GB) Catálogo Exportacion desconocida", testCatExportacionUnknown);
+  await runCase("GC) Catálogo MetodoPago desconocido", testCatMetodoPagoUnknown);
+  await runCase("GD) Catálogo ObjetoImp desconocido en concepto", testCatObjetoImpUnknown);
+  await runCase("GE) Catálogo Impuesto/TipoFactor desconocidos en concepto", testCatConceptTaxUnknown);
+  await runCase("GF) Catálogo TipoRelacion desconocido", testCatTipoRelacionUnknown);
+  await runCase("GG) Catálogo Pago FormaDePagoP/MonedaP desconocidos", testCatPagoFormaMonedaUnknown);
+  await runCase("GH) Catálogo DR ObjetoImpDR/ImpuestoDR desconocidos", testCatDrObjetoImpImpuestoUnknown);
+  await runCase("GI) Catálogo Nómina TipoNomina desconocido", testCatNominaTipoNominaUnknown);
+  await runCase("GJ) Catálogo Retenciones Nacionalidad/CveRetenc/ImpuestoRet desconocidos", testCatRetencionesMultiUnknown);
 
   printSummary();
 
