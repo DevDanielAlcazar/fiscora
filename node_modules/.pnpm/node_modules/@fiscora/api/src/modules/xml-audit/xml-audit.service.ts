@@ -34,6 +34,7 @@ import { validateCartaPorteAdvanced } from "./carta-porte-validations.helper.js"
 import { validateComercioExteriorAdvanced } from "./comercio-exterior-validations.helper.js";
 import { validateRetencionesAdvanced } from "./retenciones-validations.helper.js";
 import { validateCatalogConsistency } from "./catalog-consistency.helper.js";
+import { validateTaxAdvanced } from "./tax-advanced-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -9396,6 +9397,34 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       });
     },
   });
+
+  // ── Tax Advanced Validations (CFDI) ──
+  if (concepts) {
+    validateTaxAdvanced({
+      concepts,
+      globalTaxes: globalTaxes ?? null,
+      subtotal,
+      total,
+      descuento,
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        const category =
+          code.startsWith("TAX_") || code.startsWith("RETENTION_") || code.startsWith("GLOBAL_TAX_")
+            ? "TAX"
+            : code.startsWith("CFDI_TOTAL_")
+              ? "TOTALS"
+              : "FISCAL";
+        addFindingOnce({
+          severity,
+          category,
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
+    });
+  }
 
   return {
     documentKind: "CFDI",

@@ -41,6 +41,7 @@ fiscora/
 ✅ **Bootstrap Admin**: Sistema seguro para crear admin inicial
 ✅ **Validation**: Zod schemas para validación de datos
 ✅ **Code Quality**: ESLint y Prettier configurados
+✅ **Tax Advanced Validations**: 13 nuevos códigos (A1–G3) en helper separado, regresión 202/202
 
 ## Auth Module
 
