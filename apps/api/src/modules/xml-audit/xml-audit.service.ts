@@ -36,6 +36,7 @@ import { validateRetencionesAdvanced } from "./retenciones-validations.helper.js
 import { validateCatalogConsistency } from "./catalog-consistency.helper.js";
 import { validateTaxAdvanced } from "./tax-advanced-validations.helper.js";
 import { validateConceptsAdvanced } from "./concept-validations.helper.js";
+import { validateStamp } from "./stamp-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -4574,6 +4575,25 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       ],
     });
   }
+
+  // ── Timbre Fiscal Digital Advanced Validations ──
+  validateStamp({
+    hasTimbreFiscalDigital,
+    versionTimbre,
+    uuid,
+    fechaTimbrado,
+    fecha,
+    rfcProvCertif,
+    selloCfd,
+    selloSat,
+    sello,
+    noCertificadoSat,
+    certificado,
+    diag,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({ severity, category: "TECHNICAL", code, title, message, recommendedAction, evidence });
+    },
+  });
 
   // ── Payment Complement Findings (only for tipo Pago/P) ──
   const isPago = tipoComprobante === "P";
