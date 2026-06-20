@@ -5258,6 +5258,233 @@ async function testObjetoImp01WithGlobalTaxes(): Promise<void> {
   assertIncludesFinding(result.findings, "OBJETOIMP_01_WITH_GLOBAL_TAXES_REVIEW", "WARNING");
 }
 
+// ─── Concept Advanced Test Cases ─────────────────────────────────────────────
+
+function buildMissingFieldsXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GU" Fecha="2024-11-01T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto Cantidad="1" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="01">
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gu-0000-0000-0000-000000000001" FechaTimbrado="2024-11-01T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildCantidadNoPositivaXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GV" Fecha="2024-11-02T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="MXN" Total="0.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="0" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="100.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gv-0000-0000-0000-000000000002" FechaTimbrado="2024-11-02T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildUnitValueNegativeXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GW" Fecha="2024-11-03T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="-10.00" Importe="-10.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="-10.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="-1.60"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="-1.60">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="-10.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="-1.60"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gw-0000-0000-0000-000000000003" FechaTimbrado="2024-11-03T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildImportCalculationMismatchXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GX" Fecha="2024-11-04T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="150.00" Moneda="MXN" Total="150.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="2" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="100.00" Importe="150.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gx-0000-0000-0000-000000000004" FechaTimbrado="2024-11-04T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildDiscountNegativeXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GY" Fecha="2024-11-05T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" Descuento="-1.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gy-0000-0000-0000-000000000005" FechaTimbrado="2024-11-05T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildDiscountWithoutGlobalXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="GZ" Fecha="2024-11-06T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="990.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" Descuento="10.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="gz-0000-0000-0000-000000000006" FechaTimbrado="2024-11-06T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildGlobalDiscountMismatchXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="HA" Fecha="2024-11-07T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="990.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Descuento="20.00" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" Descuento="10.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="0.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="0.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="0.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="ha-0000-0000-0000-000000000007" FechaTimbrado="2024-11-07T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildSubtotalMismatchXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="HB" Fecha="2024-11-08T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="100.00" Moneda="MXN" Total="100.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="80.00" Importe="80.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="hb-0000-0000-0000-000000000008" FechaTimbrado="2024-11-08T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildClaveProdServFormatInvalidXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="HC" Fecha="2024-11-09T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="ABC123" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="hc-0000-0000-0000-000000000009" FechaTimbrado="2024-11-09T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildObjetoImp04ReviewXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="HD" Fecha="2024-11-10T10:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Sello="abc">
+  <cfdi:Emisor Rfc="EKU9003173C9" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="EKU9003173C9" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" NoIdentificacion="001" Cantidad="1" ClaveUnidad="H87" Unidad="PZA" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="04"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="hd-0000-0000-0000-000000000010" FechaTimbrado="2024-11-10T10:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+async function testConceptMissingFields(): Promise<void> {
+  const xml = buildMissingFieldsXml();
+  const result = analyzeCfdi(xml, "concept-missing-fields.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_MISSING_CLAVE_PROD_SERV", "WARNING");
+  assertIncludesFinding(result.findings, "CONCEPT_MISSING_CLAVE_UNIDAD", "WARNING");
+  assertIncludesFinding(result.findings, "CONCEPT_MISSING_DESCRIPCION", "WARNING");
+}
+
+async function testCantidadNoPositiva(): Promise<void> {
+  const xml = buildCantidadNoPositivaXml();
+  const result = analyzeCfdi(xml, "cantidad-no-positiva.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_ZERO_QUANTITY_REVIEW", "WARNING");
+}
+
+async function testUnitValueNegative(): Promise<void> {
+  const xml = buildUnitValueNegativeXml();
+  const result = analyzeCfdi(xml, "unit-value-negative.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_UNIT_VALUE_NEGATIVE", "WARNING");
+}
+
+async function testImportCalculationMismatch(): Promise<void> {
+  const xml = buildImportCalculationMismatchXml();
+  const result = analyzeCfdi(xml, "import-calculation-mismatch.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_UNIT_VALUE_MISMATCH_REVIEW", "WARNING");
+}
+
+async function testDiscountNegative(): Promise<void> {
+  const xml = buildDiscountNegativeXml();
+  const result = analyzeCfdi(xml, "discount-negative.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_DISCOUNT_NEGATIVE", "WARNING");
+}
+
+async function testDiscountWithoutGlobal(): Promise<void> {
+  const xml = buildDiscountWithoutGlobalXml();
+  const result = analyzeCfdi(xml, "discount-without-global.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_DISCOUNT_WITHOUT_GLOBAL_DISCOUNT_REVIEW", "WARNING");
+}
+
+async function testGlobalDiscountMismatch(): Promise<void> {
+  const xml = buildGlobalDiscountMismatchXml();
+  const result = analyzeCfdi(xml, "global-discount-mismatch.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_GLOBAL_DISCOUNT_MISMATCH", "WARNING");
+}
+
+async function testSubtotalMismatch(): Promise<void> {
+  const xml = buildSubtotalMismatchXml();
+  const result = analyzeCfdi(xml, "subtotal-mismatch.xml");
+  assertIncludesFinding(result.findings, "COMPROBANTE_SUBTOTAL_CONCEPT_SUM_MISMATCH", "CRITICAL");
+}
+
+async function testClaveProdServFormatInvalid(): Promise<void> {
+  const xml = buildClaveProdServFormatInvalidXml();
+  const result = analyzeCfdi(xml, "clave-prod-serv-format-invalid.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_CLAVE_PROD_SERV_FORMAT_REVIEW", "INFO");
+}
+
+async function testObjetoImp04Review(): Promise<void> {
+  const xml = buildObjetoImp04ReviewXml();
+  const result = analyzeCfdi(xml, "objetoimp-04-review.xml");
+  assertIncludesFinding(result.findings, "CONCEPT_OBJETO_IMP_04_08_REVIEW", "INFO");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -5490,6 +5717,17 @@ async function main() {
   await runCase("GR) Global base sum mismatch", testGlobalBaseSumMismatch);
   await runCase("GS) Total con impuestos concepto mismatch", testTotalWithConceptTaxesMismatch);
   await runCase("GT) ObjetoImp 01 con impuestos globales", testObjetoImp01WithGlobalTaxes);
+
+  await runCase("GU) Concepto sin ClaveProdServ/ClaveUnidad/Descripción", testConceptMissingFields);
+  await runCase("GV) Cantidad no positiva", testCantidadNoPositiva);
+  await runCase("GW) Valor unitario negativo", testUnitValueNegative);
+  await runCase("GX) Importe cálculo mismatch", testImportCalculationMismatch);
+  await runCase("GY) Descuento negativo", testDiscountNegative);
+  await runCase("GZ) Descuento por concepto sin descuento global", testDiscountWithoutGlobal);
+  await runCase("HA) Descuento global mismatch", testGlobalDiscountMismatch);
+  await runCase("HB) Subtotal vs suma conceptos mismatch", testSubtotalMismatch);
+  await runCase("HC) ClaveProdServ formato inválido", testClaveProdServFormatInvalid);
+  await runCase("HD) ObjetoImp 04 review", testObjetoImp04Review);
 
   printSummary();
 

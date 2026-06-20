@@ -35,6 +35,7 @@ import { validateComercioExteriorAdvanced } from "./comercio-exterior-validation
 import { validateRetencionesAdvanced } from "./retenciones-validations.helper.js";
 import { validateCatalogConsistency } from "./catalog-consistency.helper.js";
 import { validateTaxAdvanced } from "./tax-advanced-validations.helper.js";
+import { validateConceptsAdvanced } from "./concept-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -8390,6 +8391,37 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         { label: "Tipo comprobante", value: tipoComprobante ?? "—" },
         { label: "UUID", value: uuid ?? "—" },
       ],
+    });
+  }
+
+  // ── Concept Advanced Validations ──
+  if (concepts) {
+    validateConceptsAdvanced({
+      concepts,
+      subtotal,
+      descuento,
+      total,
+      tipoComprobante,
+      isPagoType,
+      addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+        const category =
+          code.startsWith("CONCEPT_DISCOUNT_") || code.startsWith("CONCEPT_GLOBAL_DISCOUNT_")
+            ? "TAX"
+            : code.startsWith("CONCEPTS_TOTAL_") || code.startsWith("CFDI_WITHOUT_")
+              ? "TOTALS"
+              : code.startsWith("CONCEPT_IMPORT_") || code.startsWith("CONCEPT_ZERO_IMPORT_") || code.startsWith("CONCEPT_ROUNDING_")
+                ? "TAX"
+                : "FISCAL";
+        addFindingOnce({
+          severity,
+          category,
+          code,
+          title,
+          message,
+          recommendedAction,
+          evidence,
+        });
+      },
     });
   }
 
