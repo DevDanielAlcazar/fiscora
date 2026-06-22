@@ -5803,6 +5803,211 @@ async function testHnTfdPresentNotStamped(): Promise<void> {
   assertIncludesFinding(result.findings, "TFD_UUID_MISSING", "WARNING");
 }
 
+// ── CFDI Relations Advanced Validations (HO–HX) ──
+
+const REL_4_NS = 'xmlns:cfdi="http://www.sat.gob.mx/cfd/4"';
+const REL_XSI_NS = 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
+const REL_SCHEMA =
+  'xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd"';
+
+function buildRelBase(opts: {
+  tipo?: string;
+  relaciones?: string;
+  complemento?: string;
+  uuid?: string;
+  sello?: string;
+  certificado?: string;
+}): string {
+  const tipo = opts.tipo ?? "I";
+  const uuid = opts.uuid ?? "ho-00000000-0000-0000-0000-000000000000";
+  const relaciones = opts.relaciones ?? "";
+  const complemento = opts.complemento ?? `<tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="${uuid}" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>`;
+  const sello = opts.sello ?? "";
+  const certificado = opts.certificado ?? "certificadoBase64Placeholder";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${REL_4_NS} ${REL_XSI_NS} ${REL_SCHEMA} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="${certificado}"${sello ? ` Sello="${sello}"` : ""} SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  ${relaciones}
+  <cfdi:Complemento>${complemento}</cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// HO) CfdiRelacionados vacío (grupo sin CfdiRelacionado)
+async function testHoRelationGroupEmpty(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01"/>`,
+  });
+  const result = analyzeCfdi(xml, "ho-relation-group-empty.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATION_GROUP_WITHOUT_RELATED_UUIDS", "WARNING");
+}
+
+// HP) TipoRelacion faltante
+async function testHpRelationTipoMissing(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados>
+      <cfdi:CfdiRelacionado UUID="hp-11111111-1111-4111-8111-111111111111"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "hp-relation-tipo-missing.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATION_GROUP_WITHOUT_TIPO_RELACION", "WARNING");
+}
+
+// HQ) UUID relacionado inválido (formato no estándar)
+async function testHqRelatedUuidInvalid(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
+      <cfdi:CfdiRelacionado UUID="NO-UUID"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "hq-related-uuid-invalid.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATED_UUID_NON_STANDARD", "WARNING");
+}
+
+// HR) UUID relacionado duplicado
+async function testHrRelatedUuidDuplicated(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
+      <cfdi:CfdiRelacionado UUID="hr-11111111-1111-4111-8111-111111111111"/>
+      <cfdi:CfdiRelacionado UUID="hr-11111111-1111-4111-8111-111111111111"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "hr-related-uuid-duplicated.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATED_DUPLICATE_UUID", "INFO");
+}
+
+// HS) UUID relacionado igual al UUID propio
+async function testHsSelfRelation(): Promise<void> {
+  const selfUuid = "hs-self-0000-0000-0000-000000000000";
+  const xml = buildRelBase({
+    uuid: selfUuid,
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
+      <cfdi:CfdiRelacionado UUID="${selfUuid}"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "hs-self-relation.xml");
+  assertIncludesFinding(result.findings, "CFDI_SELF_RELATION", "WARNING");
+}
+
+// HT) TipoRelacion 04 con múltiples UUIDs
+async function testHtTipo04MultipleUuids(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="04">
+      <cfdi:CfdiRelacionado UUID="ht-11111111-1111-4111-8111-111111111111"/>
+      <cfdi:CfdiRelacionado UUID="ht-22222222-2222-4222-8222-222222222222"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "ht-tipo04-multiple-uuids.xml");
+  assertIncludesFinding(result.findings, "SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW", "INFO");
+}
+
+// HU) Pago sin DoctoRelacionado pero con CfdiRelacionados
+function buildHuPagoSinDocConRelXml(): string {
+  const uuid = "hu-00000000-0000-0000-0000-000000000000";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${REL_4_NS} xmlns:pago20="http://www.sat.gob.mx/Pagos20" ${REL_XSI_NS} ${REL_SCHEMA} Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:CfdiRelacionados TipoRelacion="01">
+    <cfdi:CfdiRelacionado UUID="hu-00000000-0000-0000-0000-000000000000"/>
+  </cfdi:CfdiRelacionados>
+  <cfdi:Complemento>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="0.00" NumOperacion="OP001"/>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="${uuid}" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+async function testHuPagoSinDocConRel(): Promise<void> {
+  const xml = buildHuPagoSinDocConRelXml();
+  const result = analyzeCfdi(xml, "hu-pago-sin-doc-con-rel.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_WITHOUT_RELATED_DOCUMENTS_BUT_CFDI_RELACIONADOS_REVIEW", "WARNING");
+}
+
+// HV) Pago con DoctoRelacionado repetido en CfdiRelacionados
+function buildHvPagoDocDuplicadoEnRelXml(): string {
+  const docUuid = "D24D7610-B86B-4AEA-9C5A-3D14B9057645";
+  const timbreUuid = "E54D7610-A86B-5AEA-9C5A-3D14B9057645";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:pago20="http://www.sat.gob.mx/Pagos20" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="P" Folio="2" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:CfdiRelacionados TipoRelacion="01">
+    <cfdi:CfdiRelacionado UUID="${docUuid}"/>
+  </cfdi:CfdiRelacionados>
+  <cfdi:Complemento>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001">
+        <pago20:DoctoRelacionado IdDocumento="${docUuid}" MonedaDR="MXN" EquivalenciaDR="1" NumParcialidad="1" ImpSaldoAnt="5000.00" ImpPagado="5000.00" ImpSaldoInsoluto="0.00" ObjetoImpDR="01"/>
+      </pago20:Pago>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="${timbreUuid}" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+async function testHvPagoDocDuplicadoEnRel(): Promise<void> {
+  const xml = buildHvPagoDocDuplicadoEnRelXml();
+  const result = analyzeCfdi(xml, "hv-pago-doc-duplicado-en-rel.xml");
+  assertIncludesFinding(result.findings, "PAYMENT_DOC_RELATED_UUID_DUPLICATED_IN_CFDI_RELACIONADOS_REVIEW", "INFO");
+}
+
+// HW) Más de 20 UUIDs en un grupo
+function buildHwTooManyUuidsXml(): string {
+  const items: string[] = [];
+  for (let i = 1; i <= 21; i++) {
+    const hex = i.toString(16).padStart(2, "0");
+    items.push(`      <cfdi:CfdiRelacionado UUID="hw-${hex}000000-0000-0000-0000-${hex}0000000000${hex}"/>`);
+  }
+  return buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
+${items.join("\n")}
+    </cfdi:CfdiRelacionados>`,
+  });
+}
+
+async function testHwTooManyUuids(): Promise<void> {
+  const xml = buildHwTooManyUuidsXml();
+  const result = analyzeCfdi(xml, "hw-too-many-uuids.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATION_TOO_MANY_UUIDS_REVIEW", "INFO");
+}
+
+// HX) Múltiples grupos de CfdiRelacionados
+async function testHxMultipleRelationGroups(): Promise<void> {
+  const xml = buildRelBase({
+    relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
+      <cfdi:CfdiRelacionado UUID="hx-11111111-1111-4111-8111-111111111111"/>
+    </cfdi:CfdiRelacionados>
+    <cfdi:CfdiRelacionados TipoRelacion="03">
+      <cfdi:CfdiRelacionado UUID="hx-22222222-2222-4222-8222-222222222222"/>
+    </cfdi:CfdiRelacionados>`,
+  });
+  const result = analyzeCfdi(xml, "hx-multiple-relation-groups.xml");
+  assertIncludesFinding(result.findings, "CFDI_RELATION_MULTIPLE_GROUPS_REVIEW", "INFO");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -6057,6 +6262,17 @@ async function main() {
   await runCase("HL) TFD SelloCFD/SelloSAT no base64", testHlSelloNotBase64);
   await runCase("HM) Certificado comprobante corto", testHmCertificadoTooShort);
   await runCase("HN) TFD presente pero isStamped false", testHnTfdPresentNotStamped);
+
+  await runCase("HO) CfdiRelacionados vacío", testHoRelationGroupEmpty);
+  await runCase("HP) TipoRelacion faltante", testHpRelationTipoMissing);
+  await runCase("HQ) UUID relacionado inválido", testHqRelatedUuidInvalid);
+  await runCase("HR) UUID relacionado duplicado", testHrRelatedUuidDuplicated);
+  await runCase("HS) UUID relacionado igual al propio", testHsSelfRelation);
+  await runCase("HT) TipoRelacion 04 con múltiples UUIDs", testHtTipo04MultipleUuids);
+  await runCase("HU) Pago sin DoctoRelacionado con CfdiRelacionados", testHuPagoSinDocConRel);
+  await runCase("HV) DoctoRelacionado repetido en CfdiRelacionados", testHvPagoDocDuplicadoEnRel);
+  await runCase("HW) Relación con demasiados UUIDs", testHwTooManyUuids);
+  await runCase("HX) Múltiples grupos de relación", testHxMultipleRelationGroups);
 
   printSummary();
 

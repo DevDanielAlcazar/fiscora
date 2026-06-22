@@ -37,6 +37,7 @@ import { validateCatalogConsistency } from "./catalog-consistency.helper.js";
 import { validateTaxAdvanced } from "./tax-advanced-validations.helper.js";
 import { validateConceptsAdvanced } from "./concept-validations.helper.js";
 import { validateStamp } from "./stamp-validations.helper.js";
+import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -5274,6 +5275,17 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       ],
     });
   }
+
+  // ── CFDI Relations Advanced Validations ──
+  validateCfdiRelationsAdvanced({
+    tipoComprobante,
+    uuid,
+    cfdiRelations: cfdiRelations ?? null,
+    paymentComplement,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+    },
+  });
 
   // ── Carta Porte Findings ──
   if (cartaPorte) {
