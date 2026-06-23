@@ -6237,6 +6237,354 @@ async function testIhUsoCfdiFormatoDesconocido(): Promise<void> {
   assertIncludesFinding(result.findings, "RECEPTOR_USO_CFDI_FORMAT_REVIEW", "INFO");
 }
 
+// ── II–IR Builders ──
+
+function buildIiPaymentOnNonPaymentXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} xmlns:pago20="http://www.sat.gob.mx/Pagos20" ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ii-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001"/>
+    </pago20:Pagos>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIkCartaPorteInternacionalSinCceXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ik-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" IdCCP="A1" TranspInternac="Sí" TotalDistRec="100.00">
+      <cartaporte30:Ubicaciones>
+        <cartaporte30:Ubicacion TipoUbicacion="Origen" IDUbicacion="OR001" RFCRemitenteDestinatario="XAXX010101000" FechaHoraSalidaLlegada="2024-01-15T12:00:00"/>
+        <cartaporte30:Ubicacion TipoUbicacion="Destino" IDUbicacion="DE001" RFCRemitenteDestinatario="XAXX010101001" FechaHoraSalidaLlegada="2024-01-16T12:00:00" DistanciaRecorrida="100.00"/>
+      </cartaporte30:Ubicaciones>
+      <cartaporte30:Mercancias>
+        <cartaporte30:Mercancia BienesTransp="01010101" Descripcion="Producto" Cantidad="1" ClaveUnidad="H87" PesoEnKg="10.000"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIlPagoConImpuestosXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} xmlns:pago20="http://www.sat.gob.mx/Pagos20" ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="il-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildImTrasladoConImpuestosXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="T" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="S01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="im-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildInNominaConCceXml(): string {
+  const cce = `<cce11:ComercioExterior ${CCE11_NS} Version="1.1" TipoOperacion="2" ClaveDePedimento="A1" Incoterm="FOB" TotalUSD="1000.00">
+        <cce11:Receptor>
+          <cce11:Domicilio Pais="USA" CodigoPostal="12345"/>
+        </cce11:Receptor>
+        <cce11:Mercancias>
+          <cce11:Mercancia NoIdentificacion="001" FraccionArancelaria="01010101" CantidadAduana="1" UnidadAduana="PZA" ValorUnitarioAduana="1000.00" ValorDolares="1000.00"/>
+        </cce11:Mercancias>
+      </cce11:ComercioExterior>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="N" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CN01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="in-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    ${cce}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIoNominaConCartaPorteXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="N" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CN01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="io-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" IdCCP="A1" TranspInternac="No" TotalDistRec="100.00">
+      <cartaporte30:Ubicaciones>
+        <cartaporte30:Ubicacion TipoUbicacion="Origen" IDUbicacion="OR001" RFCRemitenteDestinatario="XAXX010101000" FechaHoraSalidaLlegada="2024-01-15T12:00:00"/>
+        <cartaporte30:Ubicacion TipoUbicacion="Destino" IDUbicacion="DE001" RFCRemitenteDestinatario="XAXX010101001" FechaHoraSalidaLlegada="2024-01-16T12:00:00" DistanciaRecorrida="100.00"/>
+      </cartaporte30:Ubicaciones>
+      <cartaporte30:Mercancias>
+        <cartaporte30:Mercancia BienesTransp="01010101" Descripcion="Producto" Cantidad="1" ClaveUnidad="H87" PesoEnKg="10.000"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIpPagoConRelYDocXml(): string {
+  const docUuid = "ip-11111111-1111-4111-8111-111111111111";
+  const timbreUuid = "ip-00000000-0000-0000-0000-000000000000";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} xmlns:pago20="http://www.sat.gob.mx/Pagos20" ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="P" Folio="2" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:CfdiRelacionados TipoRelacion="01">
+    <cfdi:CfdiRelacionado UUID="${docUuid}"/>
+  </cfdi:CfdiRelacionados>
+  <cfdi:Complemento>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001">
+        <pago20:DoctoRelacionado IdDocumento="${docUuid}" MonedaDR="MXN" EquivalenciaDR="1" NumParcialidad="1" ImpSaldoAnt="5000.00" ImpPagado="5000.00" ImpSaldoInsoluto="0.00" ObjetoImpDR="01"/>
+      </pago20:Pago>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="${timbreUuid}" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIqMultipleComplementsXml(): string {
+  const cce = `<cce11:ComercioExterior ${CCE11_NS} Version="1.1" TipoOperacion="2" ClaveDePedimento="A1" Incoterm="FOB" TotalUSD="1000.00">
+        <cce11:Receptor>
+          <cce11:Domicilio Pais="USA" CodigoPostal="12345"/>
+        </cce11:Receptor>
+        <cce11:Mercancias>
+          <cce11:Mercancia NoIdentificacion="001" FraccionArancelaria="01010101" CantidadAduana="1" UnidadAduana="PZA" ValorUnitarioAduana="1000.00" ValorDolares="1000.00"/>
+        </cce11:Mercancias>
+      </cce11:ComercioExterior>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} xmlns:pago20="http://www.sat.gob.mx/Pagos20" ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="iq-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    <pago20:Pagos Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001"/>
+    </pago20:Pagos>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" IdCCP="A1" TranspInternac="No" TotalDistRec="100.00">
+      <cartaporte30:Ubicaciones>
+        <cartaporte30:Ubicacion TipoUbicacion="Origen" IDUbicacion="OR001" RFCRemitenteDestinatario="XAXX010101000" FechaHoraSalidaLlegada="2024-01-15T12:00:00"/>
+        <cartaporte30:Ubicacion TipoUbicacion="Destino" IDUbicacion="DE001" RFCRemitenteDestinatario="XAXX010101001" FechaHoraSalidaLlegada="2024-01-16T12:00:00" DistanciaRecorrida="100.00"/>
+      </cartaporte30:Ubicaciones>
+      <cartaporte30:Mercancias>
+        <cartaporte30:Mercancia BienesTransp="01010101" Descripcion="Producto" Cantidad="1" ClaveUnidad="H87" PesoEnKg="10.000"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+    ${cce}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIrAddendaConCriticalXml(): string {
+  const addendaNs = 'xmlns:add="http://www.example.com/addenda"';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${addendaNs} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="" Nombre="" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI=""/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ir-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+  <cfdi:Addenda>
+    <add:CustomData>
+      <add:OrderID>12345</add:OrderID>
+    </add:CustomData>
+  </cfdi:Addenda>
+</cfdi:Comprobante>`;
+}
+
+// ── II–IR Test Functions ──
+
+async function testIiPaymentOnNonPayment(): Promise<void> {
+  const xml = buildIiPaymentOnNonPaymentXml();
+  const result = analyzeCfdi(xml, "ii-payment-on-non-payment.xml");
+  assertIncludesFinding(result.findings, "CROSS_PAYMENT_COMPLEMENT_ON_NON_PAYMENT_REVIEW", "WARNING");
+}
+
+async function testIjNominaOnNonNomina(): Promise<void> {
+  const extra = `<nomina12:Nomina xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="1.2" TipoNomina="O" FechaPago="2024-01-15" FechaInicialPago="2024-01-01" FechaFinalPago="2024-01-15" NumDiasPagados="15" TotalPercepciones="10000.00" TotalDeducciones="2000.00">
+      <nomina12:Percepciones TotalSueldos="10000.00" TotalGravado="10000.00" TotalExento="0.00"/>
+    </nomina12:Nomina>`;
+  const xml = buildPartyBase({ tipo: "T", usoCfdi: "S01", extraComplemento: extra });
+  const result = analyzeCfdi(xml, "ij-nomina-on-non-nomina.xml");
+  assertIncludesFinding(result.findings, "NOMINA_WITH_UNEXPECTED_CFDI_TYPE", "WARNING");
+}
+
+async function testIkCartaPorteInternacionalSinCce(): Promise<void> {
+  const xml = buildIkCartaPorteInternacionalSinCceXml();
+  const result = analyzeCfdi(xml, "ik-cartaporte-internacional-sin-cce.xml");
+  assertIncludesFinding(result.findings, "CROSS_CARTA_PORTE_INTERNACIONAL_WITHOUT_CCE_REVIEW", "WARNING");
+}
+
+async function testIlPagoConImpuestos(): Promise<void> {
+  const xml = buildIlPagoConImpuestosXml();
+  const result = analyzeCfdi(xml, "il-pago-con-impuestos.xml");
+  assertIncludesFinding(result.findings, "CROSS_TIPO_P_WITH_TAXES_REVIEW", "WARNING");
+}
+
+async function testImTrasladoConImpuestos(): Promise<void> {
+  const xml = buildImTrasladoConImpuestosXml();
+  const result = analyzeCfdi(xml, "im-traslado-con-impuestos.xml");
+  assertIncludesFinding(result.findings, "CROSS_TIPO_T_WITH_TAXES_REVIEW", "WARNING");
+}
+
+async function testInNominaConCce(): Promise<void> {
+  const xml = buildInNominaConCceXml();
+  const result = analyzeCfdi(xml, "in-nomina-con-cce.xml");
+  assertIncludesFinding(result.findings, "CROSS_NOMINA_WITH_COMERCIO_EXTERIOR_REVIEW", "WARNING");
+}
+
+async function testIoNominaConCartaPorte(): Promise<void> {
+  const xml = buildIoNominaConCartaPorteXml();
+  const result = analyzeCfdi(xml, "io-nomina-con-cartaporte.xml");
+  assertIncludesFinding(result.findings, "CROSS_NOMINA_WITH_CARTA_PORTE_REVIEW", "WARNING");
+}
+
+async function testIpPagoConRelYDoc(): Promise<void> {
+  const xml = buildIpPagoConRelYDocXml();
+  const result = analyzeCfdi(xml, "ip-pago-con-rel-y-doc.xml");
+  assertIncludesFinding(result.findings, "CROSS_PAYMENT_WITH_CFDI_RELACIONADOS_AND_DOCTOS_REVIEW", "INFO");
+}
+
+async function testIqMultipleComplements(): Promise<void> {
+  const xml = buildIqMultipleComplementsXml();
+  const result = analyzeCfdi(xml, "iq-multiple-complements.xml");
+  assertIncludesFinding(result.findings, "CROSS_MULTIPLE_HIGH_COMPLEXITY_COMPLEMENTS_REVIEW", "INFO");
+}
+
+async function testIrAddendaConCritical(): Promise<void> {
+  const xml = buildIrAddendaConCriticalXml();
+  const result = analyzeCfdi(xml, "ir-addenda-con-critical.xml");
+  assertIncludesFinding(result.findings, "CROSS_ADDENDA_WITH_CRITICAL_FINDINGS_REVIEW", "INFO");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -6515,6 +6863,17 @@ async function main() {
   await runCase("IF) UsoCFDI D para persona moral", testIfUsoCfdiDPersonaMoral);
   await runCase("IG) Regimen 616 con RFC no genérico", testIgRegimen616NoGenerico);
   await runCase("IH) UsoCFDI formato desconocido", testIhUsoCfdiFormatoDesconocido);
+
+  await runCase("II) Complemento Pago en Tipo I", testIiPaymentOnNonPayment);
+  await runCase("IJ) Nómina en Tipo I", testIjNominaOnNonNomina);
+  await runCase("IK) Carta Porte internacional sin Comercio Exterior", testIkCartaPorteInternacionalSinCce);
+  await runCase("IL) Tipo P con impuestos globales o por concepto", testIlPagoConImpuestos);
+  await runCase("IM) Tipo T con impuestos", testImTrasladoConImpuestos);
+  await runCase("IN) Nómina con Comercio Exterior", testInNominaConCce);
+  await runCase("IO) Nómina con Carta Porte", testIoNominaConCartaPorte);
+  await runCase("IP) Pago con CfdiRelacionados y DoctoRelacionado", testIpPagoConRelYDoc);
+  await runCase("IQ) Múltiples complementos complejos", testIqMultipleComplements);
+  await runCase("IR) Addenda con critical findings", testIrAddendaConCritical);
 
   printSummary();
 

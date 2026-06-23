@@ -39,6 +39,7 @@ import { validateConceptsAdvanced } from "./concept-validations.helper.js";
 import { validateStamp } from "./stamp-validations.helper.js";
 import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.helper.js";
 import { validatePartiesAdvanced } from "./party-validations.helper.js";
+import { validateCrossModuleConsistency } from "./cross-module-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -9511,6 +9512,47 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       },
     });
   }
+
+  // ── Cross-Module Consistency Validations ──
+  const anyConceptHasTaxes = concepts ? concepts.some((c) => hasConceptTaxes(c)) : false;
+  const anyGlobalTaxes = !!(globalTaxes && (globalTaxes.transferred.length > 0 || globalTaxes.withheld.length > 0));
+  const hasCriticalFindings = findings.some((f) => f.severity === "CRITICAL");
+  const hasPaymentComplement = !!paymentComplement || knownComplements.includes("Pagos");
+  const paymentDocumentsCount = paymentComplement
+    ? paymentComplement.pagos.reduce((acc, p) => acc + p.documentosRelacionados.length, 0)
+    : 0;
+  const relationGroupsCount = cfdiRelations ? cfdiRelations.groups.length : 0;
+
+  validateCrossModuleConsistency({
+    tipoComprobante,
+    version,
+    exportacion,
+    moneda,
+    hasPaymentComplement,
+    hasNomina: !!nomina,
+    hasCartaPorte: !!cartaPorte,
+    cartaPorteTranspInternac: cartaPorte?.transpInternac ?? null,
+    hasComercioExterior: !!comercioExterior,
+    hasCfdiRelations: !!cfdiRelations,
+    hasDonatarias: !!donatarias,
+    hasLeyendasFiscales: !!leyendasFiscales,
+    hasImpuestosLocales: !!impuestosLocales,
+    hasAddenda: !!addenda,
+    hasConceptTaxes: anyConceptHasTaxes,
+    hasGlobalTaxes: anyGlobalTaxes,
+    conceptsCount: concepts?.length ?? 0,
+    paymentDocumentsCount,
+    relationGroupsCount,
+    knownComplements,
+    unknownComplements,
+    concepts: concepts ? concepts.map((c) => ({ objetoImp: c.objetoImp })) : null,
+    cartaPorteMercancias: cartaPorte?.mercancias?.map((m) => ({ bienesTransp: m.bienesTransp })) ?? null,
+    comercioExteriorMercancias: comercioExterior?.mercancias?.map((m) => ({ noIdentificacion: m.noIdentificacion })) ?? null,
+    hasCriticalFindings,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+    },
+  });
 
   return {
     documentKind: "CFDI",
