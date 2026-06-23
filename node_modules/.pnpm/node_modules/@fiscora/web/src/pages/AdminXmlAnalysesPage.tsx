@@ -621,6 +621,33 @@ export default function AdminXmlAnalysesPage() {
                                 <p className="text-xs text-muted-foreground">
                                   {f.message as string}
                                 </p>
+                                {f.location &&
+                                  typeof f.location === "object" && (
+                                    <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
+                                      <span>Módulo: {String((f.location as Record<string, unknown>).module ?? "")}</span>
+                                      {(f.location as Record<string, unknown>).section &&
+                                        <span>Sección: {String((f.location as Record<string, unknown>).section)}</span>}
+                                      {(f.location as Record<string, unknown>).field &&
+                                        <span>Campo: {String((f.location as Record<string, unknown>).field)}</span>}
+                                      {(f.location as Record<string, unknown>).index !== undefined &&
+                                        <span>Índice: {String((f.location as Record<string, unknown>).index)}</span>}
+                                    </div>
+                                  )}
+                                {f.valueTrace &&
+                                  typeof f.valueTrace === "object" && (
+                                    <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
+                                      {(f.valueTrace as Record<string, unknown>).observed !== undefined &&
+                                        <span>Observado: {String((f.valueTrace as Record<string, unknown>).observed)}</span>}
+                                      {(f.valueTrace as Record<string, unknown>).expected !== undefined &&
+                                        <span>Esperado: {String((f.valueTrace as Record<string, unknown>).expected)}</span>}
+                                      {(f.valueTrace as Record<string, unknown>).calculated !== undefined &&
+                                        <span>Calc: {String((f.valueTrace as Record<string, unknown>).calculated)}</span>}
+                                      {(f.valueTrace as Record<string, unknown>).difference !== undefined &&
+                                        <span>Dif: {String((f.valueTrace as Record<string, unknown>).difference)}</span>}
+                                      {(f.valueTrace as Record<string, unknown>).tolerance !== undefined &&
+                                        <span>Tol: {String((f.valueTrace as Record<string, unknown>).tolerance)}</span>}
+                                    </div>
+                                  )}
                                 {(() => {
                                   const ev = f.evidence as Record<string, unknown>[] | undefined;
                                   if (!ev || ev.length === 0) return null;

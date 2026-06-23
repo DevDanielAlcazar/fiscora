@@ -11,19 +11,8 @@
  */
 
 import assert from "node:assert";
-import {
-  analyzeCfdi,
-  type CfdiAnalysisResult,
-  type Finding,
-  type NormalizedXml,
-  getFindingPriority,
-  getFindingActionGroup,
-  sanitizeEvidenceValue,
-  sanitizeFindingEvidence,
-  sanitizeFinding,
-  limitFindings,
-  toAnalysisResponse,
-} from "./xml-audit.service.js";
+import { analyzeCfdi, toAnalysisResponse, type CfdiAnalysisResult, type Finding, type NormalizedXml, getFindingPriority, getFindingActionGroup, sanitizeEvidenceValue, sanitizeFindingEvidence, sanitizeFinding, limitFindings } from "./xml-audit.service.js";
+import { type FindingLocation, type FindingValueTrace } from "./finding-evidence-location.helper.js";
 import { analyzeZipFull, generateNormalizedZip } from "./xml-zip-audit.service.js";
 import {
   getMetodoPagoLabel,
@@ -6585,6 +6574,410 @@ async function testIrAddendaConCritical(): Promise<void> {
   assertIncludesFinding(result.findings, "CROSS_ADDENDA_WITH_CRITICAL_FINDINGS_REVIEW", "INFO");
 }
 
+// ── IS–JB Test Functions ──
+
+async function testIsCfdi33ConCampos40(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/3 http://www.sat.gob.mx/sitio_internet/cfd/3/cfdv33.xsd" Version="3.3" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="is-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "is-cfdi33-con-campos40.xml");
+  assertIncludesFinding(result.findings, "CFDI33_WITH_CFDI40_ONLY_FIELDS_REVIEW", "WARNING");
+}
+
+async function testItCfdi40SinCamposNucleo(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="01">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="it-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "it-cfdi40-sin-campos-nucleo.xml");
+  assertIncludesFinding(result.findings, "CFDI40_WITHOUT_CFDI40_CORE_FIELDS_REVIEW", "WARNING");
+}
+
+async function testIuTipoPConMetodoForma(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <pago20:Pagos xmlns:pago20="http://www.sat.gob.mx/Pagos20" Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001"/>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="iu-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "iu-tipo-p-con-metodo-forma.xml");
+  assertIncludesFinding(result.findings, "CFDI_PAYMENT_METHOD_ON_PAYMENT_REVIEW", "INFO");
+  assertIncludesFinding(result.findings, "CFDI_PAYMENT_FORM_ON_PAYMENT_REVIEW", "INFO");
+}
+
+async function testIvPueSinFormaPago(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="iv-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "iv-pue-sin-formapago.xml");
+  assertIncludesFinding(result.findings, "METODO_PAGO_PUE_WITHOUT_FORMA_PAGO", "WARNING");
+}
+
+async function testIwPueConFormaPago99(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="iw-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "iw-pue-con-formapago99.xml");
+  assertIncludesFinding(result.findings, "INGRESO_PUE_WITH_FORMA_PAGO_99_REVIEW", "WARNING");
+}
+
+async function testIxMonedaUsdSinTipoCambio(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="USD" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="ix-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "ix-moneda-usd-sin-tc.xml");
+  assertIncludesFinding(result.findings, "COMPROBANTE_TIPO_CAMBIO_REQUIRED", "WARNING");
+}
+
+async function testIyTipoCambioNoPositivo(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="USD" Total="1000.00" TipoDeComprobante="I" TipoCambio="0" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="iy-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "iy-tc-no-positivo.xml");
+  assertIncludesFinding(result.findings, "COMPROBANTE_TIPO_CAMBIO_INVALID", "WARNING");
+}
+
+async function testIzLugarExpedicionInvalido(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="ABC" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="iz-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "iz-lugar-expedicion-invalido.xml");
+  assertIncludesFinding(result.findings, "COMPROBANTE_LUGAR_EXPEDICION_FORMAT_REVIEW", "INFO");
+}
+
+async function testJaConfirmacionFormatoSospechoso(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01" Confirmacion="AB 12">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="ja-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "ja-confirmacion-formato.xml");
+  assertIncludesFinding(result.findings, "CFDI_CONFIRMACION_FORMAT_REVIEW", "INFO");
+}
+
+async function testJbPago40ConExportacionNo01(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <pago20:Pagos xmlns:pago20="http://www.sat.gob.mx/Pagos20" Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="5000.00" NumOperacion="OP001"/>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="jb-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "jb-pago40-exportacion-no01.xml");
+  assertIncludesFinding(result.findings, "CFDI40_PAYMENT_WITH_EXPORTACION_NOT_01_REVIEW", "WARNING");
+}
+
+// ── JC–JJ: Evidence Location & ValueTrace ────────────────────────────────────
+
+async function testJcConceptLocation(): Promise<void> {
+  const xml = buildConceptTaxXml({ objetoImp: "01" });
+  const result = analyzeCfdi(xml, "jc-concept-location.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "CONCEPT_OBJETO_IMP_01_WITH_TAXES")!;
+  assertTruthy(finding, "Finding CONCEPT_OBJETO_IMP_01_WITH_TAXES debe existir");
+  assertTruthy(
+    finding.location && finding.location.module === "concepts",
+    `location.module debe ser concepts, obtenido: ${JSON.stringify(finding.location)}`,
+  );
+}
+
+async function testJdPaymentLocation(): Promise<void> {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="P" Folio="1" Fecha="2024-02-10T10:00:00" FormaPago="99" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="0.00" Moneda="XXX" Total="0.00" TipoDeComprobante="P" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="CP01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Pago" ValorUnitario="0.00" Importe="0.00" ObjetoImp="01"/>
+  </cfdi:Conceptos>
+  <cfdi:Complemento>
+    <pago20:Pagos xmlns:pago20="http://www.sat.gob.mx/Pagos20" Version="2.0">
+      <pago20:Pago FechaPago="2024-02-10T10:30:00" FormaDePagoP="03" MonedaP="MXN" Monto="0" NumOperacion="OP001"/>
+    </pago20:Pagos>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="jd-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-02-10T11:00:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml, "jd-payment-location.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "PAYMENT_AMOUNT_NON_POSITIVE")!;
+  assertTruthy(finding, "Finding PAYMENT_AMOUNT_NON_POSITIVE debe existir");
+  assertTruthy(
+    finding.location && finding.location.module === "payment",
+    `location.module debe ser payment, obtenido: ${JSON.stringify(finding.location)}`,
+  );
+}
+
+async function testJeCartaPorteLocation(): Promise<void> {
+  const xml = buildCartaPorteXml({ ubicaciones: [], mercancias: [] });
+  const result = analyzeCfdi(xml, "je-carta-porte-location.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "CARTA_PORTE_MISSING_UBICACIONES")!;
+  assertTruthy(finding, "Finding CARTA_PORTE_MISSING_UBICACIONES debe existir");
+  assertTruthy(
+    finding.location && finding.location.module === "carta-porte",
+    `location.module debe ser carta-porte, obtenido: ${JSON.stringify(finding.location)}`,
+  );
+}
+
+async function testJfComercioExteriorLocation(): Promise<void> {
+  const xml = buildComercioExteriorXml({ tipoOperacion: "99" });
+  const result = analyzeCfdi(xml, "jf-comercio-exterior-location.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW")!;
+  assertTruthy(finding, "Finding COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW debe existir");
+  assertTruthy(
+    finding.location && finding.location.module === "comercio-exterior",
+    `location.module debe ser comercio-exterior, obtenido: ${JSON.stringify(finding.location)}`,
+  );
+}
+
+async function testJgTfdNoSelloCertificado(): Promise<void> {
+  const xml = buildHkSelloTooShortXml();
+  const result = analyzeCfdi(xml, "jg-tfd-no-sello.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "TFD_SELLO_CFD_TOO_SHORT_REVIEW")!;
+  assertTruthy(finding, "Finding TFD_SELLO_CFD_TOO_SHORT_REVIEW debe existir");
+  assertTruthy(
+    finding.location && finding.location.module === "tfd",
+    `location.module debe ser tfd, obtenido: ${JSON.stringify(finding.location)}`,
+  );
+  for (const e of (finding.evidence ?? [])) {
+    if (e.value) {
+      assertTruthy(
+        e.value.length <= 250,
+        `Evidence value para '${e.label}' excede 250 caracteres (posible sello/certificado completo)`,
+      );
+    }
+  }
+}
+
+async function testJhValueTraceNumerico(): Promise<void> {
+  const xml = buildConceptTaxXml({
+    traslados: [{
+      base: "1000.00", impuesto: "002", tipoFactor: "Tasa",
+      tasaOCuota: "0.160000", importe: "150.00",
+    }],
+  });
+  const result = analyzeCfdi(xml, "jh-value-trace.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "CONCEPT_TAX_AMOUNT_MISMATCH")!;
+  assertTruthy(finding, "Finding CONCEPT_TAX_AMOUNT_MISMATCH debe existir");
+  assertTruthy(
+    finding.valueTrace,
+    `valueTrace debe estar presente, obtenido: ${JSON.stringify(finding.valueTrace)}`,
+  );
+  const vt = finding.valueTrace!;
+  const hasSomething = vt.calculated !== undefined || vt.difference !== undefined
+    || vt.expected !== undefined || vt.observed !== undefined || vt.tolerance !== undefined;
+  assertTruthy(hasSomething, "valueTrace debe contener al menos un campo");
+  assertTruthy(
+    vt.calculated !== undefined || vt.difference !== undefined,
+    "valueTrace debe contener calculated o difference para mismatch numérico",
+  );
+}
+
+async function testJiSanitizationPreserves(): Promise<void> {
+  const xml = buildConceptTaxXml({ objetoImp: "01" });
+  const result = analyzeCfdi(xml, "ji-sanitization.xml");
+  const response = toAnalysisResponse(result);
+  const finding = response.findings.find((f) => f.code === "CONCEPT_OBJETO_IMP_01_WITH_TAXES")!;
+  assertTruthy(finding, "Finding debe existir");
+  assertTruthy(finding.location, "location debe preservarse después de sanitización");
+  const rawFinding = result.findings.find((f) => f.code === "CONCEPT_OBJETO_IMP_01_WITH_TAXES")!;
+  const inferred = { ...rawFinding, location: { module: "concepts" as const } };
+  const sanitized = sanitizeFinding(inferred);
+  assertTruthy(
+    sanitized.location?.module === "concepts",
+    "sanitizeFinding debe conservar location",
+  );
+}
+
+async function testJjNoBreakNoEvidence(): Promise<void> {
+  const xml = buildCfdi40Ingreso({ includeTimbre: true });
+  const result = analyzeCfdi(xml, "jj-no-evidence.xml");
+  const response = toAnalysisResponse(result);
+  assertTruthy(response.findings.length > 0, "Deben existir findings");
+  for (const f of response.findings) {
+    assertTruthy(f.code, "Cada finding debe tener code");
+    assertTruthy(f.severity, "Cada finding debe tener severity");
+  }
+  const findingWithNoEv: Finding = {
+    id: "test-no-ev",
+    severity: "INFO",
+    category: "TECHNICAL",
+    code: "TEST_NO_EVIDENCE",
+    title: "Test",
+    message: "Test without evidence",
+  };
+  const enriched = { ...findingWithNoEv, priority: getFindingPriority(findingWithNoEv.severity, findingWithNoEv.category) as Finding["priority"], actionGroup: getFindingActionGroup(findingWithNoEv) };
+  const sanitized = sanitizeFinding(enriched);
+  assertEqual(sanitized.code, "TEST_NO_EVIDENCE", "Finding sin evidence debe procesarse sin error");
+  assertEqual(sanitized.evidence, undefined, "Finding sin evidence debe mantener evidence undefined");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -6874,6 +7267,27 @@ async function main() {
   await runCase("IP) Pago con CfdiRelacionados y DoctoRelacionado", testIpPagoConRelYDoc);
   await runCase("IQ) Múltiples complementos complejos", testIqMultipleComplements);
   await runCase("IR) Addenda con critical findings", testIrAddendaConCritical);
+  await runCase("IS) CFDI 3.3 con campos 4.0", testIsCfdi33ConCampos40);
+  await runCase("IT) CFDI 4.0 sin campos núcleo", testItCfdi40SinCamposNucleo);
+  await runCase("IU) Tipo P con MetodoPago/FormaPago", testIuTipoPConMetodoForma);
+  await runCase("IV) PUE sin FormaPago", testIvPueSinFormaPago);
+  await runCase("IW) PUE con FormaPago 99", testIwPueConFormaPago99);
+  await runCase("IX) Moneda USD sin TipoCambio", testIxMonedaUsdSinTipoCambio);
+  await runCase("IY) TipoCambio no positivo", testIyTipoCambioNoPositivo);
+  await runCase("IZ) LugarExpedicion inválido", testIzLugarExpedicionInvalido);
+  await runCase("JA) Confirmacion formato sospechoso", testJaConfirmacionFormatoSospechoso);
+  await runCase("JB) Pago 4.0 con Exportacion distinta de 01", testJbPago40ConExportacionNo01);
+
+  // ── JC–JJ: Evidence Location & ValueTrace ──
+
+  await runCase("JC) Finding de concepto incluye location inferida", testJcConceptLocation);
+  await runCase("JD) Finding de pago incluye location inferida", testJdPaymentLocation);
+  await runCase("JE) Finding de Carta Porte incluye location inferida", testJeCartaPorteLocation);
+  await runCase("JF) Finding de Comercio Exterior incluye location inferida", testJfComercioExteriorLocation);
+  await runCase("JG) Finding de TFD no expone sello/certificado", testJgTfdNoSelloCertificado);
+  await runCase("JH) valueTrace se genera para mismatch numérico", testJhValueTraceNumerico);
+  await runCase("JI) Sanitización conserva location/valueTrace", testJiSanitizationPreserves);
+  await runCase("JJ) No se rompe finding sin evidence", testJjNoBreakNoEvidence);
 
   printSummary();
 

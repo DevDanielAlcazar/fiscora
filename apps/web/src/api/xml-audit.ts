@@ -204,6 +204,44 @@ export interface ConceptInfo {
   impuestos?: ConceptImpuestos;
 }
 
+export interface FindingLocation {
+  module:
+    | "cfdi-base"
+    | "parties"
+    | "concepts"
+    | "concept-taxes"
+    | "global-taxes"
+    | "tfd"
+    | "cfdi-relations"
+    | "payment"
+    | "nomina"
+    | "carta-porte"
+    | "comercio-exterior"
+    | "retenciones"
+    | "impuestos-locales"
+    | "leyendas-fiscales"
+    | "donatarias"
+    | "addenda"
+    | "cross-module"
+    | "version"
+    | "catalogs"
+    | "unknown";
+  section?: string;
+  logicalPath?: string;
+  field?: string;
+  index?: number;
+  parentIndex?: number;
+  groupKey?: string;
+}
+
+export interface FindingValueTrace {
+  observed?: string | number | boolean | null;
+  expected?: string | number | boolean | null;
+  calculated?: string | number | boolean | null;
+  difference?: string | number | null;
+  tolerance?: string | number | null;
+}
+
 export interface Finding {
   id: string;
   severity: "INFO" | "WARNING" | "CRITICAL";
@@ -215,6 +253,8 @@ export interface Finding {
   evidence?: { label: string; value?: string }[];
   priority?: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW";
   actionGroup?: string;
+  location?: FindingLocation;
+  valueTrace?: FindingValueTrace;
 }
 
 export interface GlobalTaxLine {

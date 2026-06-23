@@ -40,6 +40,12 @@ import { validateStamp } from "./stamp-validations.helper.js";
 import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.helper.js";
 import { validatePartiesAdvanced } from "./party-validations.helper.js";
 import { validateCrossModuleConsistency } from "./cross-module-validations.helper.js";
+import { validateCfdiVersionConsistency } from "./cfdi-version-validations.helper.js";
+import {
+  type FindingLocation,
+  type FindingValueTrace,
+  inferFindingLocationFromEvidence,
+} from "./finding-evidence-location.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -187,6 +193,8 @@ export interface Finding {
   evidence?: { label: string; value?: string }[];
   priority?: "BLOCKER" | "HIGH" | "MEDIUM" | "LOW";
   actionGroup?: string;
+  location?: FindingLocation;
+  valueTrace?: FindingValueTrace;
 }
 
 export function getFindingPriority(
@@ -1929,6 +1937,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const lugarExpedicion = str(get(comprobante, "@_LugarExpedicion"));
   const exportacion = str(get(comprobante, "@_Exportacion"));
   const tipoCambio = str(get(comprobante, "@_TipoCambio"));
+  const confirmacion = str(get(comprobante, "@_Confirmacion"));
 
   // Impuestos
   const impuestos = (get(comprobante, "cfdi:Impuestos") as Record<string, unknown>) ?? {};
@@ -9554,6 +9563,31 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     },
   });
 
+  // ── CFDI Version Consistency Validations ──
+  validateCfdiVersionConsistency({
+    version,
+    tipoComprobante,
+    exportacion,
+    moneda,
+    tipoCambio,
+    formaPago,
+    metodoPago,
+    lugarExpedicion,
+    confirmacion,
+    total,
+    emisor: { nombre: nombreEmisor },
+    receptor: {
+      nombre: nombreReceptor,
+      regimenFiscalReceptor,
+      domicilioFiscalReceptor,
+      usoCfdi,
+    },
+    concepts: concepts ? concepts.map((c) => ({ objetoImp: c.objetoImp })) : null,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+    },
+  });
+
   return {
     documentKind: "CFDI",
     uuid,
@@ -10662,7 +10696,16 @@ export function toAnalysisResponse(result: CfdiAnalysisResult): AnalysisResponse
       priority: getFindingPriority(f.severity, f.category),
       actionGroup: getFindingActionGroup(f),
     }));
-    const sanitized = enriched.map((f) => sanitizeFinding(f));
+    const withLocation = enriched.map((f) => {
+      if (f.location || f.valueTrace) return f;
+      const inferred = inferFindingLocationFromEvidence(f);
+      return {
+        ...f,
+        ...(inferred.location ? { location: inferred.location } : {}),
+        ...(inferred.valueTrace ? { valueTrace: inferred.valueTrace } : {}),
+      };
+    });
+    const sanitized = withLocation.map((f) => sanitizeFinding(f));
     return limitFindings(sanitized);
   })();
 

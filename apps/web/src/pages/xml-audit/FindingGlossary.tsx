@@ -222,17 +222,21 @@ export default function FindingGlossary({ findings, compact }: Props) {
                     </svg>
                   </button>
                   {expandedCodes.has(entry.code) && (
-                    <div className="mt-2 p-3 rounded bg-muted/50 border border-border/50 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
-                      {entry.sampleEvidence.map((e, idx) => (
-                        <div key={idx} className="contents">
-                          <span className="text-muted-foreground whitespace-nowrap">
-                            {e.label}:
-                          </span>
-                          <span className="font-mono text-foreground/80 break-all">
-                            {e.value ?? "—"}
-                          </span>
+                    <div className="mt-2 p-3 rounded bg-muted/50 border border-border/50 space-y-2 text-xs">
+                      {entry.sampleEvidence.length > 0 && (
+                        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
+                          {entry.sampleEvidence.map((e, idx) => (
+                            <div key={idx} className="contents">
+                              <span className="text-muted-foreground whitespace-nowrap">
+                                {e.label}:
+                              </span>
+                              <span className="font-mono text-foreground/80 break-all">
+                                {e.value ?? "—"}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
