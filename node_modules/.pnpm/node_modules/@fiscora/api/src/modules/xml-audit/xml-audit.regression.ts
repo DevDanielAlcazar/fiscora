@@ -6008,6 +6008,235 @@ async function testHxMultipleRelationGroups(): Promise<void> {
   assertIncludesFinding(result.findings, "CFDI_RELATION_MULTIPLE_GROUPS_REVIEW", "INFO");
 }
 
+// ── HY–IH Builders ──
+
+function buildPartyBase(opts: {
+  tipo?: string;
+  rfcEmisor?: string;
+  nombreEmisor?: string;
+  regimenFiscal?: string;
+  rfcReceptor?: string;
+  nombreReceptor?: string;
+  regimenFiscalReceptor?: string;
+  domicilioFiscalReceptor?: string;
+  usoCfdi?: string;
+  extraComplemento?: string;
+}): string {
+  const tipo = opts.tipo ?? "I";
+  const rfcEmisor = opts.rfcEmisor ?? "XAXX010101000";
+  const nombreEmisor = opts.nombreEmisor ?? "EMPRESA SA DE CV";
+  const regimenFiscal = opts.regimenFiscal ?? "601";
+  const rfcReceptor = opts.rfcReceptor ?? "XAXX010101001";
+  const nombreReceptor = opts.nombreReceptor ?? "CLIENTE SA DE CV";
+  const regimenFiscalReceptor = opts.regimenFiscalReceptor ?? "608";
+  const domicilioFiscalReceptor = opts.domicilioFiscalReceptor ?? "12345";
+  const usoCfdi = opts.usoCfdi ?? "G03";
+  const extra = opts.extraComplemento ?? "";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="${tipo}" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor${rfcEmisor ? ` Rfc="${rfcEmisor}"` : ""}${nombreEmisor ? ` Nombre="${nombreEmisor}"` : ""}${regimenFiscal ? ` RegimenFiscal="${regimenFiscal}"` : ""}/>
+  <cfdi:Receptor${rfcReceptor ? ` Rfc="${rfcReceptor}"` : ""}${nombreReceptor ? ` Nombre="${nombreReceptor}"` : ""}${regimenFiscalReceptor ? ` RegimenFiscalReceptor="${regimenFiscalReceptor}"` : ""}${domicilioFiscalReceptor ? ` DomicilioFiscalReceptor="${domicilioFiscalReceptor}"` : ""}${usoCfdi ? ` UsoCFDI="${usoCfdi}"` : ""}/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="hy-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    ${extra}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIbGenericForeignSinResidenciaXml(): string {
+  const cce = `<cce11:ComercioExterior ${CCE11_NS} Version="1.1" TipoOperacion="2" ClaveDePedimento="A1" Incoterm="FOB" TotalUSD="1000.00">
+        <cce11:Receptor>
+          <cce11:Domicilio Pais="USA" CodigoPostal="12345"/>
+        </cce11:Receptor>
+        <cce11:Mercancias>
+          <cce11:Mercancia NoIdentificacion="001" FraccionArancelaria="01010101" CantidadAduana="1" UnidadAduana="PZA" ValorUnitarioAduana="1000.00" ValorDolares="1000.00"/>
+        </cce11:Mercancias>
+      </cce11:ComercioExterior>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="USD" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XEXX010101000" Nombre="FOREIGN BUYER" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="616" UsoCFDI="S01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ib-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    ${cce}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIcNumRegIdTribSinResidenciaXml(): string {
+  const cce = `<cce11:ComercioExterior ${CCE11_NS} Version="1.1" TipoOperacion="2" ClaveDePedimento="A1" Incoterm="FOB" TotalUSD="1000.00">
+        <cce11:Receptor NumRegIdTrib="ABC123456">
+          <cce11:Domicilio Pais="USA" CodigoPostal="12345"/>
+        </cce11:Receptor>
+        <cce11:Mercancias>
+          <cce11:Mercancia NoIdentificacion="001" FraccionArancelaria="01010101" CantidadAduana="1" UnidadAduana="PZA" ValorUnitarioAduana="1000.00" ValorDolares="1000.00"/>
+        </cce11:Mercancias>
+      </cce11:ComercioExterior>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="USD" Total="1000.00" TipoDeComprobante="I" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="02">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101001" Nombre="CLIENTE SA DE CV" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="608" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ic-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+    ${cce}
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+function buildIeNominaReceptorGenericoXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante ${CFDI_4_NS} ${XSI_NS} ${SCHEMA_LOCATION} Version="4.0" Serie="A" Folio="1" Fecha="2024-01-15T12:00:00" FormaPago="01" NoCertificado="00001000000500000000" Certificado="abc" SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="N" MetodoPago="PPD" LugarExpedicion="12345" Exportacion="01">
+  <cfdi:Emisor Rfc="XAXX010101000" Nombre="EMPRESA SA DE CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101000" Nombre="PUBLICO EN GENERAL" DomicilioFiscalReceptor="12345" RegimenFiscalReceptor="616" UsoCFDI="CN01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="H87" Descripcion="Producto" ValorUnitario="1000.00" Importe="1000.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="160.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1000.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="160.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital ${TFD_NS} Version="1.1" UUID="ie-00000000-0000-0000-0000-000000000000" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`;
+}
+
+// ── HY–IH Test Functions ──
+
+async function testHyEmisorSinRfcNombreRegimen(): Promise<void> {
+  const xml = buildPartyBase({
+    rfcEmisor: "",
+    nombreEmisor: "",
+    regimenFiscal: "",
+  });
+  const result = analyzeCfdi(xml, "hy-emisor-sin-rfc-nombre-regimen.xml");
+  assertIncludesFinding(result.findings, "EMISOR_RFC_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "EMISOR_NAME_EMPTY_REVIEW", "WARNING");
+  assertIncludesFinding(result.findings, "EMISOR_REGIMEN_FISCAL_MISSING", "WARNING");
+}
+
+async function testHzReceptorSinDatos(): Promise<void> {
+  const xml = buildPartyBase({
+    rfcReceptor: "",
+    nombreReceptor: "",
+    regimenFiscalReceptor: "",
+    domicilioFiscalReceptor: "",
+    usoCfdi: "",
+  });
+  const result = analyzeCfdi(xml, "hz-receptor-sin-datos.xml");
+  assertIncludesFinding(result.findings, "RECEPTOR_RFC_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "RECEPTOR_NAME_EMPTY_REVIEW", "WARNING");
+  assertIncludesFinding(result.findings, "RECEPTOR_REGIMEN_FISCAL_MISSING", "WARNING");
+  assertIncludesFinding(result.findings, "RECEPTOR_DOMICILIO_FISCAL_MISSING", "WARNING");
+}
+
+async function testIaReceptorRfcInvalid(): Promise<void> {
+  const xml = buildPartyBase({ rfcReceptor: "ABC" });
+  const result = analyzeCfdi(xml, "ia-receptor-rfc-invalid.xml");
+  assertIncludesFinding(result.findings, "RECEPTOR_RFC_FORMAT_REVIEW", "WARNING");
+}
+
+async function testIbGenericForeignSinResidenciaNumReg(): Promise<void> {
+  const xml = buildIbGenericForeignSinResidenciaXml();
+  const result = analyzeCfdi(xml, "ib-generic-foreign-sin-residencia-numreg.xml");
+  assertIncludesFinding(result.findings, "RECEPTOR_GENERIC_FOREIGN_WITHOUT_RESIDENCIA_FISCAL", "WARNING");
+  assertIncludesFinding(result.findings, "RECEPTOR_GENERIC_FOREIGN_WITHOUT_NUM_REG_ID_TRIB_REVIEW", "WARNING");
+}
+
+async function testIcNumRegIdTribSinResidencia(): Promise<void> {
+  const xml = buildIcNumRegIdTribSinResidenciaXml();
+  const result = analyzeCfdi(xml, "ic-numregidtrib-sin-residencia.xml");
+  assertIncludesFinding(result.findings, "RECEPTOR_NUM_REG_ID_TRIB_WITHOUT_RESIDENCIA_FISCAL_REVIEW", "WARNING");
+}
+
+async function testIdEmisorReceptorAmbosGenericos(): Promise<void> {
+  const xml = buildPartyBase({
+    rfcEmisor: "XAXX010101000",
+    rfcReceptor: "XAXX010101000",
+  });
+  const result = analyzeCfdi(xml, "id-emisor-receptor-ambos-genericos.xml");
+  assertIncludesFinding(result.findings, "EMISOR_RECEPTOR_BOTH_GENERIC_REVIEW", "WARNING");
+}
+
+async function testIeNominaReceptorGenerico(): Promise<void> {
+  const xml = buildIeNominaReceptorGenericoXml();
+  const result = analyzeCfdi(xml, "ie-nomina-receptor-generico.xml");
+  assertIncludesFinding(result.findings, "NOMINA_RECEPTOR_RFC_GENERIC_REVIEW", "WARNING");
+}
+
+async function testIfUsoCfdiDPersonaMoral(): Promise<void> {
+  const xml = buildPartyBase({
+    rfcReceptor: "ABC860101XXX",
+    usoCfdi: "D01",
+  });
+  const result = analyzeCfdi(xml, "if-usocfdi-d-persona-moral.xml");
+  assertIncludesFinding(result.findings, "USOCFDI_D_SERIES_FOR_MORAL_PERSON_REVIEW", "INFO");
+}
+
+async function testIgRegimen616NoGenerico(): Promise<void> {
+  const xml = buildPartyBase({
+    rfcReceptor: "XAXX010101001",
+    regimenFiscalReceptor: "616",
+  });
+  const result = analyzeCfdi(xml, "ig-regimen-616-no-generico.xml");
+  assertIncludesFinding(result.findings, "REGIMEN_616_WITH_NON_GENERIC_RFC_REVIEW", "INFO");
+}
+
+async function testIhUsoCfdiFormatoDesconocido(): Promise<void> {
+  const xml = buildPartyBase({ usoCfdi: "ZZ99" });
+  const result = analyzeCfdi(xml, "ih-usocfdi-formato-desconocido.xml");
+  assertIncludesFinding(result.findings, "RECEPTOR_USO_CFDI_FORMAT_REVIEW", "INFO");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -6273,6 +6502,19 @@ async function main() {
   await runCase("HV) DoctoRelacionado repetido en CfdiRelacionados", testHvPagoDocDuplicadoEnRel);
   await runCase("HW) Relación con demasiados UUIDs", testHwTooManyUuids);
   await runCase("HX) Múltiples grupos de relación", testHxMultipleRelationGroups);
+
+  // ── HY–IH: Party (Emisor/Receptor) Advanced Validations ──
+
+  await runCase("HY) Emisor sin RFC/nombre/régimen", testHyEmisorSinRfcNombreRegimen);
+  await runCase("HZ) Receptor sin RFC/nombre/régimen/domicilio/UsoCFDI", testHzReceptorSinDatos);
+  await runCase("IA) Receptor RFC formato inválido", testIaReceptorRfcInvalid);
+  await runCase("IB) Receptor genérico extranjero sin ResidenciaFiscal/NumRegIdTrib", testIbGenericForeignSinResidenciaNumReg);
+  await runCase("IC) Receptor con NumRegIdTrib sin ResidenciaFiscal", testIcNumRegIdTribSinResidencia);
+  await runCase("ID) Emisor y receptor ambos genéricos", testIdEmisorReceptorAmbosGenericos);
+  await runCase("IE) Nómina con receptor genérico", testIeNominaReceptorGenerico);
+  await runCase("IF) UsoCFDI D para persona moral", testIfUsoCfdiDPersonaMoral);
+  await runCase("IG) Regimen 616 con RFC no genérico", testIgRegimen616NoGenerico);
+  await runCase("IH) UsoCFDI formato desconocido", testIhUsoCfdiFormatoDesconocido);
 
   printSummary();
 

@@ -38,6 +38,7 @@ import { validateTaxAdvanced } from "./tax-advanced-validations.helper.js";
 import { validateConceptsAdvanced } from "./concept-validations.helper.js";
 import { validateStamp } from "./stamp-validations.helper.js";
 import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.helper.js";
+import { validatePartiesAdvanced } from "./party-validations.helper.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -5282,6 +5283,27 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     uuid,
     cfdiRelations: cfdiRelations ?? null,
     paymentComplement,
+    addFinding: (code, severity, title, message, recommendedAction, evidence) => {
+      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+    },
+  });
+
+  // ── Party (Emisor/Receptor) Advanced Validations ──
+  validatePartiesAdvanced({
+    tipoComprobante,
+    version,
+    emisor: { rfc: rfcEmisor, nombre: nombreEmisor, regimenFiscal },
+    receptor: {
+      rfc: rfcReceptor,
+      nombre: nombreReceptor,
+      regimenFiscalReceptor,
+      domicilioFiscalReceptor,
+      usoCfdi,
+    },
+    comercioExteriorReceptor: comercioExterior?.receptor ?? null,
+    hasComercioExterior: !!comercioExterior,
+    lugarExpedicion,
+    exportacion,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
       addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
     },
