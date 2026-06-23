@@ -8,6 +8,7 @@ import {
   type XmlAuditHistoryDetail,
 } from "../api/xml-audit";
 import ActionableSummary from "./xml-audit/ActionableSummary";
+import FindingExplorer from "./xml-audit/FindingExplorer";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
@@ -584,6 +585,7 @@ export default function XmlAuditHistoryPage() {
                     <>
                       <ActionableSummary findings={detail.analysisJson.findings} />
                       <RiskScorePanel findings={detail.analysisJson.findings} />
+                      <FindingExplorer findings={detail.analysisJson.findings} compact />
                       <RemediationPlan findings={detail.analysisJson.findings} compact />
                       <FindingGlossary findings={detail.analysisJson.findings} compact />
                     </>

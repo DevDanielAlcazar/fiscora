@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Finding } from "../api/xml-audit";
+import FindingExplorer from "./xml-audit/FindingExplorer";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import {
   getXmlAnalyses,
@@ -600,94 +601,16 @@ export default function AdminXmlAnalysesPage() {
                       </div>
                     )}
 
-                    {detail.analysisJson?.findings &&
-                      Array.isArray(detail.analysisJson.findings) &&
-                      (detail.analysisJson.findings as Record<string, unknown>[]).length > 0 && (
-                        <div className="space-y-2 pt-2 border-t border-border/40">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            Hallazgos ({detail.findingsCount})
-                          </p>
-                          <RiskScorePanel
-                            findings={detail.analysisJson.findings as Finding[]}
-                          />
-                          {(detail.analysisJson.findings as Record<string, unknown>[])
-                            .slice(0, 20)
-                            .map((f: Record<string, unknown>, i: number) => (
-                              <div
-                                key={i}
-                                className="p-2 rounded border border-border/50 bg-muted/20 space-y-1"
-                              >
-                                <div className="flex gap-2 text-[10px] text-muted-foreground">
-                                  <span className="font-semibold">{f.severity as string}</span>
-                                  <span>{f.category as string}</span>
-                                  <span className="font-mono">{f.code as string}</span>
-                                </div>
-                                <p className="text-xs font-medium">{f.title as string}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {f.message as string}
-                                </p>
-                                {(() => {
-                                  if (!f.location || typeof f.location !== "object") return null;
-                                  const loc = f.location as Record<string, unknown>;
-                                  const parts: string[] = [];
-                                  if (String(loc.module ?? "")) parts.push("Módulo: " + String(loc.module));
-                                  if (loc.section) parts.push("Sección: " + String(loc.section));
-                                  if (loc.field) parts.push("Campo: " + String(loc.field));
-                                  if (loc.index !== undefined) parts.push("Índice: " + String(loc.index));
-                                  if (parts.length === 0) return null;
-                                  return (
-                                    <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                                      <span>{parts.join(" | ")}</span>
-                                    </div>
-                                  );
-                                })()}
-                                {(() => {
-                                  if (!f.valueTrace || typeof f.valueTrace !== "object") return null;
-                                  const vt = f.valueTrace as Record<string, unknown>;
-                                  const parts: string[] = [];
-                                  if (vt.observed !== undefined && vt.observed !== null) parts.push("Observado: " + String(vt.observed));
-                                  if (vt.expected !== undefined && vt.expected !== null) parts.push("Esperado: " + String(vt.expected));
-                                  if (vt.calculated !== undefined && vt.calculated !== null) parts.push("Calc: " + String(vt.calculated));
-                                  if (vt.difference !== undefined && vt.difference !== null) parts.push("Dif: " + String(vt.difference));
-                                  if (vt.tolerance !== undefined && vt.tolerance !== null) parts.push("Tol: " + String(vt.tolerance));
-                                  if (parts.length === 0) return null;
-                                  return (
-                                    <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                                      <span>{parts.join(" | ")}</span>
-                                    </div>
-                                  );
-                                })()}
-                                {(() => {
-                                  const ev = f.evidence as Record<string, unknown>[] | undefined;
-                                  if (!ev || ev.length === 0) return null;
-                                  return (
-                                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
-                                      {ev.map((e: Record<string, unknown>, ei: number) => (
-                                        <div key={ei} className="contents">
-                                          <span className="text-muted-foreground">
-                                            {String(e.label ?? "")}:
-                                          </span>
-                                          <span className="font-mono break-all">
-                                            {e.value != null ? String(e.value) : "—"}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            ))}
-                          {(detail.analysisJson.findings as Record<string, unknown>[]).length >
-                            20 && (
-                            <p className="text-[10px] text-muted-foreground">
-                              ... y{" "}
-                              {(detail.analysisJson.findings as Record<string, unknown>[]).length -
-                                20}{" "}
-                              hallazgos más
-                            </p>
-                          )}
-                        </div>
-                      )}
+{detail.analysisJson?.findings &&
+                       Array.isArray(detail.analysisJson.findings) &&
+                       (detail.analysisJson.findings as Finding[]).length > 0 && (
+                         <>
+                           <RiskScorePanel
+                             findings={detail.analysisJson.findings as Finding[]}
+                           />
+                           <FindingExplorer findings={detail.analysisJson.findings as Finding[]} compact />
+                         </>
+                       )}
 
                     {detail.analysisJson?.technicalDiagnostics && (
                       <div className="space-y-1 pt-2 border-t border-border/40">

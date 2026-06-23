@@ -7,6 +7,7 @@ import {
   type XmlAuditHistorySummaryQuery,
 } from "../api/xml-audit";
 import ActionableSummary from "./xml-audit/ActionableSummary";
+import FindingExplorer from "./xml-audit/FindingExplorer";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import { exportXmlAuditDashboardCsv } from "./xml-audit-dashboard/dashboardCsvExport";
@@ -772,6 +773,41 @@ export default function XmlAuditDashboardPage() {
                   </div>
                 </button>
               </div>
+
+              {/* Smart Shortcuts */}
+              <div className="space-y-4 pb-12">
+                <h2 className="font-bold text-lg">Atajos inteligentes</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <button
+                    onClick={() => navigate("/modules/xml-audit/history?riskLevel=CRITICAL")}
+                    className="p-3 bg-red-900/10 border border-red-900/30 rounded-xl hover:bg-red-900/20 transition-all text-left"
+                  >
+                    <span className="block text-xs font-bold text-red-400 uppercase">Críticos</span>
+                    <span className="block text-sm text-red-300">Ver análisis con riesgo crítico</span>
+                  </button>
+                  <button
+                    onClick={() => navigate("/modules/xml-audit/history?riskLevel=CRITICAL")}
+                    className="p-3 bg-orange-900/10 border border-orange-900/30 rounded-xl hover:bg-orange-900/20 transition-all text-left"
+                  >
+                    <span className="block text-xs font-bold text-orange-400 uppercase">Alto riesgo</span>
+                    <span className="block text-sm text-orange-300">Ver CRITICAL/WARNING</span>
+                  </button>
+                  <button
+                    onClick={() => navigate("/modules/xml-audit/history/batches")}
+                    className="p-3 bg-purple-900/10 border border-purple-900/30 rounded-xl hover:bg-purple-900/20 transition-all text-left"
+                  >
+                    <span className="block text-xs font-bold text-purple-400 uppercase">Lotes con fallidos</span>
+                    <span className="block text-sm text-purple-300">Lotes ZIP que requieren atención</span>
+                  </button>
+                  <button
+                    onClick={() => navigate("/modules/xml-audit")}
+                    className="p-3 bg-blue-900/10 border border-blue-900/30 rounded-xl hover:bg-blue-900/20 transition-all text-left"
+                  >
+                    <span className="block text-xs font-bold text-blue-400 uppercase">Nuevo análisis</span>
+                    <span className="block text-sm text-blue-300">Analizar XML o ZIP masivo</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )
         )}
@@ -913,6 +949,7 @@ export default function XmlAuditDashboardPage() {
                       <>
                         <ActionableSummary findings={recordDetail.analysisJson.findings} />
                         <RiskScorePanel findings={recordDetail.analysisJson.findings} />
+                        <FindingExplorer findings={recordDetail.analysisJson.findings} compact />
                         <FindingGlossary findings={recordDetail.analysisJson.findings} compact />
                       </>
                     )}

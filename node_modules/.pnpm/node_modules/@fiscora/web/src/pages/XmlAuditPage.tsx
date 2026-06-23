@@ -20,7 +20,7 @@ import {
 } from "./xml-audit/csvExports";
 import ActionableSummary from "./xml-audit/ActionableSummary";
 import MassiveExecutiveSummary from "./xml-audit/MassiveExecutiveSummary";
-import MassiveResultsTable from "./xml-audit/MassiveResultsTable";
+import ZipRiskNavigator from "./xml-audit/ZipRiskNavigator";
 import MassiveDetailModal from "./xml-audit/MassiveDetailModal";
 import PrintableIndividualReport from "./xml-audit/PrintableIndividualReport";
 import FindingGlossary from "./xml-audit/FindingGlossary";
@@ -54,7 +54,6 @@ export default function XmlAuditPage() {
   const [normalizedZipSuccess, setNormalizedZipSuccess] = useState("");
   const [selectedMassiveDetail, setSelectedMassiveDetail] =
     useState<ZipFullAnalysisFileResult | null>(null);
-  const [massiveFilter, setMassiveFilter] = useState<string>("ALL");
   const [printMode, setPrintMode] = useState<"none" | "individual" | "zip">("none");
 
   useEffect(() => {
@@ -670,10 +669,8 @@ export default function XmlAuditPage() {
                 onOpenDetail={(file) => setSelectedMassiveDetail(file)}
               />
 
-              <MassiveResultsTable
+              <ZipRiskNavigator
                 fullAnalysisResult={fullAnalysisResult}
-                massiveFilter={massiveFilter}
-                onMassiveFilterChange={setMassiveFilter}
                 onOpenDetail={(file) => setSelectedMassiveDetail(file)}
               />
               <button

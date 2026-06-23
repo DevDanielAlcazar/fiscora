@@ -4,11 +4,15 @@ import {
   getFindingModuleLabel,
   getFindingLocationText,
   getFindingValueTraceText,
-  sortFindings,
-  filterFindings,
   aggregateFindingsByModule,
-  type FindingFilters,
 } from "./findingExplorer.helpers";
+import {
+  filterFindingsSmart,
+  sortFindingsSmart,
+  type SmartFilters,
+  type SortMode,
+} from "./auditNavigation.helpers";
+import AuditSmartFilters from "./AuditSmartFilters";
 
 interface Props {
   findings: Finding[];
@@ -28,11 +32,25 @@ const PRIORITY_BADGE: Record<string, { label: string; style: string }> = {
   LOW: { label: "Informativa", style: "text-blue-700 bg-blue-50 border-blue-200" },
 };
 
+const DEFAULT_FILTERS: SmartFilters = {
+  text: "",
+  severities: [],
+  priorities: [],
+  actionGroups: [],
+  modules: [],
+  fields: [],
+  hasLocation: null,
+  hasValueTrace: null,
+  onlyCriticalOrBlocker: false,
+  onlyWithDifference: false,
+  onlyTaxImpact: false,
+  onlyTechnicalImpact: false,
+  onlySupportMessageRelevant: false,
+};
+
 export default function FindingExplorer({ findings, compact }: Props) {
-  const [search, setSearch] = useState("");
-  const [sevFilter, setSevFilter] = useState("ALL");
-  const [prioFilter, setPrioFilter] = useState("ALL");
-  const [modFilter, setModFilter] = useState("ALL");
+  const [filters, setFilters] = useState<SmartFilters>(DEFAULT_FILTERS);
+  const [sortMode, setSortMode] = useState<SortMode>("priority");
   const [groupView, setGroupView] = useState<"list" | "module">("list");
   const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
 
@@ -45,23 +63,10 @@ export default function FindingExplorer({ findings, compact }: Props) {
     });
   }, []);
 
-  const filters: FindingFilters = useMemo(
-    () => ({
-      search: search || undefined,
-      severity: sevFilter,
-      priority: prioFilter,
-      module: modFilter !== "ALL" ? modFilter : undefined,
-    }),
-    [search, sevFilter, prioFilter, modFilter],
+  const filtered = useMemo(
+    () => sortFindingsSmart(filterFindingsSmart(findings, filters), sortMode),
+    [findings, filters, sortMode],
   );
-
-  const filtered = useMemo(() => sortFindings(filterFindings(findings, filters)), [findings, filters]);
-
-  const modules = useMemo(() => {
-    const set = new Set<string>();
-    for (const f of findings) set.add(f.location?.module ?? "unknown");
-    return Array.from(set).sort();
-  }, [findings]);
 
   const byModule = useMemo(() => aggregateFindingsByModule(findings), [findings]);
 
@@ -134,45 +139,20 @@ export default function FindingExplorer({ findings, compact }: Props) {
         <input
           type="text"
           placeholder="Buscar por código, título, mensaje, módulo, campo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={filters.text ?? ""}
+          onChange={(e) => setFilters((prev) => ({ ...prev, text: e.target.value }))}
           className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
         />
-        <div className="flex gap-2 flex-wrap text-xs">
-          <select
-            value={sevFilter}
-            onChange={(e) => setSevFilter(e.target.value)}
-            className="px-2 py-1.5 rounded border border-border bg-background"
-          >
-            <option value="ALL">Todas severidades</option>
-            <option value="CRITICAL">Crítico</option>
-            <option value="WARNING">Advertencia</option>
-            <option value="INFO">Informativo</option>
-          </select>
-          <select
-            value={prioFilter}
-            onChange={(e) => setPrioFilter(e.target.value)}
-            className="px-2 py-1.5 rounded border border-border bg-background"
-          >
-            <option value="ALL">Todas prioridades</option>
-            <option value="BLOCKER">Bloqueante</option>
-            <option value="HIGH">Alta</option>
-            <option value="MEDIUM">Media</option>
-            <option value="LOW">Informativa</option>
-          </select>
-          <select
-            value={modFilter}
-            onChange={(e) => setModFilter(e.target.value)}
-            className="px-2 py-1.5 rounded border border-border bg-background"
-          >
-            <option value="ALL">Todos módulos</option>
-            {modules.map((m) => (
-              <option key={m} value={m}>
-                {getFindingModuleLabel(m)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <AuditSmartFilters
+          findings={findings}
+          filteredFindings={filtered}
+          rawFilteredCount={findings.length}
+          filters={filters}
+          onFiltersChange={setFilters}
+          sortMode={sortMode}
+          onSortModeChange={setSortMode}
+          compact={compact}
+        />
       </div>
 
       {groupView === "module" && byModule.length > 0 && (
@@ -213,9 +193,17 @@ export default function FindingExplorer({ findings, compact }: Props) {
       {groupView === "list" && (
         <div className="space-y-2">
           {filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">
-              No hay hallazgos para los filtros seleccionados.
-            </p>
+            <div className="flex flex-col items-center gap-2 py-6">
+              <p className="text-sm text-muted-foreground italic">
+                No hay hallazgos para los filtros seleccionados.
+              </p>
+              <button
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                className="text-xs text-primary font-semibold hover:underline"
+              >
+                Limpiar filtros
+              </button>
+            </div>
           ) : (
             filtered.map((f, idx) => {
               const b = BADGE[f.severity] ?? BADGE.INFO;
