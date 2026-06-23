@@ -8,6 +8,7 @@ import {
 } from "../api/xml-audit";
 import ActionableSummary from "./xml-audit/ActionableSummary";
 import FindingGlossary from "./xml-audit/FindingGlossary";
+import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import { exportXmlAuditDashboardCsv } from "./xml-audit-dashboard/dashboardCsvExport";
 import PrintableXmlAuditDashboardReport from "./xml-audit-dashboard/PrintableXmlAuditDashboardReport";
 
@@ -449,6 +450,17 @@ export default function XmlAuditDashboardPage() {
                         ? "Existen advertencias que requieren tu validación antes de procesar fiscalmente los comprobantes."
                         : "No se detectan riesgos altos en la ventana de retención seleccionada."}
                   </p>
+                    <div className="mt-2">
+                      <RiskScorePanel
+                        approximateCounts={{
+                          criticalCount: data.totals.criticalFindings ?? data.totals.critical,
+                          warningCount: data.totals.warningFindings ?? data.totals.warning,
+                          infoCount: data.totals.infoFindings ?? 0,
+                          priorityMax: data.priorities?.[0]?.priority ?? null,
+                        }}
+                        compact
+                      />
+                    </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -900,6 +912,7 @@ export default function XmlAuditDashboardPage() {
                     recordDetail.analysisJson.findings.length > 0 && (
                       <>
                         <ActionableSummary findings={recordDetail.analysisJson.findings} />
+                        <RiskScorePanel findings={recordDetail.analysisJson.findings} />
                         <FindingGlossary findings={recordDetail.analysisJson.findings} compact />
                       </>
                     )}

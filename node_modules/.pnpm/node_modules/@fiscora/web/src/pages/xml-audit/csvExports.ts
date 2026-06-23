@@ -18,6 +18,13 @@ import {
   aggregateMassiveModulesCoverage,
   getTopAffectedFiles,
 } from "./massiveAggregates";
+import { getFindingModuleLabel } from "./findingExplorer.helpers";
+import {
+  calculateRiskScore,
+  calculateZipRiskScore,
+  getRiskBandLabel,
+  getTopRiskDrivers,
+} from "./riskScore.helpers";
 
 function descargarBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -85,9 +92,13 @@ export function handleExportJsonIndividual(result: AnalysisResult) {
 export function handleExportCsvIndividual(result: AnalysisResult) {
   const r = result;
   if (!r.findings || r.findings.length === 0) return;
+  const sr = calculateRiskScore(r.findings);
+  const topDriver = getTopRiskDrivers(r.findings, 1)[0];
   const header =
-    "ID,Severidad,Prioridad,Categoria,Grupo accionable,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia";
+    "ID,Severidad,Prioridad,Categoria,Grupo accionable,Codigo,Titulo,Mensaje,Accion recomendada,Evidencia,Modulo,Ubicacion,Campo,Observado,Esperado,Calculado,Diferencia,Tolerancia,Risk Score,Risk Band,Top Risk Driver";
   const rows = r.findings.map((f) => {
+    const loc = f.location;
+    const vt = f.valueTrace;
     const cols = [
       escCsv(f.id),
       escCsv(f.severity),
@@ -99,6 +110,17 @@ export function handleExportCsvIndividual(result: AnalysisResult) {
       escCsv(f.message),
       escCsv(f.recommendedAction ?? ""),
       escCsv(formatEvidence(f.evidence)),
+      escCsv(loc ? getFindingModuleLabel(loc.module) : ""),
+      escCsv(loc?.section ?? ""),
+      escCsv(loc?.field ?? ""),
+      escCsv(vt?.observed != null ? String(vt.observed) : ""),
+      escCsv(vt?.expected != null ? String(vt.expected) : ""),
+      escCsv(vt?.calculated != null ? String(vt.calculated) : ""),
+      escCsv(vt?.difference != null ? String(vt.difference) : ""),
+      escCsv(vt?.tolerance != null ? String(vt.tolerance) : ""),
+      escCsv(String(sr.score)),
+      escCsv(getRiskBandLabel(sr.band)),
+      escCsv(topDriver ? `${topDriver.code} - ${topDriver.title}` : ""),
     ];
     return cols.join(",");
   });
@@ -150,8 +172,11 @@ export function handleExportExcelIndividual(result: AnalysisResult) {
   }
 
   section("RESUMEN EJECUTIVO");
+  const exportSr = calculateRiskScore(r.findings ?? []);
   sub("", {
     "Nivel de riesgo": r.executiveSummary.riskLevel,
+    "Risk Score": String(exportSr.score),
+    "Risk Band": getRiskBandLabel(exportSr.band),
     Título: r.executiveSummary.title,
     Mensaje: r.executiveSummary.message,
     "Acción recomendada": r.executiveSummary.recommendedAction,
@@ -763,6 +788,7 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
   }
 
   section("RESUMEN MASIVO");
+  const zipSr = calculateZipRiskScore(r.results);
   row("Archivo ZIP", r.filename);
   row("Total entradas", r.totalEntries);
   row("XML encontrados", r.xmlFilesFound);
@@ -775,6 +801,8 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
   row("Solo informativos", r.summary.infoOnlyCount);
   row("XMLs con BOM", r.summary.filesWithBom);
   row("XMLs con normalización técnica", r.summary.filesWithTechnicalNormalization);
+  row("Risk Score Lote", zipSr.score);
+  row("Risk Band Lote", getRiskBandLabel(zipSr.band));
   const tiposStr = Object.entries(r.summary.byTipoComprobante)
     .map(([t, c]) => `${t}: ${c}`)
     .join(" | ");
@@ -804,6 +832,8 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
     "Serie",
     "Folio",
     "Riesgo",
+    "Risk Score",
+    "Risk Band",
     "Título resumen ejecutivo",
     "Mensaje resumen ejecutivo",
     "Acción recomendada",
@@ -854,6 +884,8 @@ export function handleExportMassiveCsv(result: ZipFullAnalysisResult) {
       isA ? (a?.serie ?? "") : "",
       isA ? (a?.folio ?? "") : "",
       isA ? (es?.riskLevel ?? "") : "",
+      isA && findings.length > 0 ? String(calculateRiskScore(findings).score) : "",
+      isA && findings.length > 0 ? getRiskBandLabel(calculateRiskScore(findings).band) : "",
       isA ? (es?.title ?? "") : "",
       isA ? (es?.message ?? "") : "",
       isA ? (es?.recommendedAction ?? "") : "",

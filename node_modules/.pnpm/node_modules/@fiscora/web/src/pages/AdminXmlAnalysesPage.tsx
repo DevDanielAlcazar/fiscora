@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Finding } from "../api/xml-audit";
+import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import {
   getXmlAnalyses,
   getXmlAnalysisDetail,
@@ -605,6 +607,9 @@ export default function AdminXmlAnalysesPage() {
                           <p className="text-xs font-semibold text-muted-foreground">
                             Hallazgos ({detail.findingsCount})
                           </p>
+                          <RiskScorePanel
+                            findings={detail.analysisJson.findings as Finding[]}
+                          />
                           {(detail.analysisJson.findings as Record<string, unknown>[])
                             .slice(0, 20)
                             .map((f: Record<string, unknown>, i: number) => (
@@ -621,33 +626,37 @@ export default function AdminXmlAnalysesPage() {
                                 <p className="text-xs text-muted-foreground">
                                   {f.message as string}
                                 </p>
-                                {f.location &&
-                                  typeof f.location === "object" && (
+                                {(() => {
+                                  if (!f.location || typeof f.location !== "object") return null;
+                                  const loc = f.location as Record<string, unknown>;
+                                  const parts: string[] = [];
+                                  if (String(loc.module ?? "")) parts.push("Módulo: " + String(loc.module));
+                                  if (loc.section) parts.push("Sección: " + String(loc.section));
+                                  if (loc.field) parts.push("Campo: " + String(loc.field));
+                                  if (loc.index !== undefined) parts.push("Índice: " + String(loc.index));
+                                  if (parts.length === 0) return null;
+                                  return (
                                     <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                                      <span>Módulo: {String((f.location as Record<string, unknown>).module ?? "")}</span>
-                                      {(f.location as Record<string, unknown>).section &&
-                                        <span>Sección: {String((f.location as Record<string, unknown>).section)}</span>}
-                                      {(f.location as Record<string, unknown>).field &&
-                                        <span>Campo: {String((f.location as Record<string, unknown>).field)}</span>}
-                                      {(f.location as Record<string, unknown>).index !== undefined &&
-                                        <span>Índice: {String((f.location as Record<string, unknown>).index)}</span>}
+                                      <span>{parts.join(" | ")}</span>
                                     </div>
-                                  )}
-                                {f.valueTrace &&
-                                  typeof f.valueTrace === "object" && (
+                                  );
+                                })()}
+                                {(() => {
+                                  if (!f.valueTrace || typeof f.valueTrace !== "object") return null;
+                                  const vt = f.valueTrace as Record<string, unknown>;
+                                  const parts: string[] = [];
+                                  if (vt.observed !== undefined && vt.observed !== null) parts.push("Observado: " + String(vt.observed));
+                                  if (vt.expected !== undefined && vt.expected !== null) parts.push("Esperado: " + String(vt.expected));
+                                  if (vt.calculated !== undefined && vt.calculated !== null) parts.push("Calc: " + String(vt.calculated));
+                                  if (vt.difference !== undefined && vt.difference !== null) parts.push("Dif: " + String(vt.difference));
+                                  if (vt.tolerance !== undefined && vt.tolerance !== null) parts.push("Tol: " + String(vt.tolerance));
+                                  if (parts.length === 0) return null;
+                                  return (
                                     <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                                      {(f.valueTrace as Record<string, unknown>).observed !== undefined &&
-                                        <span>Observado: {String((f.valueTrace as Record<string, unknown>).observed)}</span>}
-                                      {(f.valueTrace as Record<string, unknown>).expected !== undefined &&
-                                        <span>Esperado: {String((f.valueTrace as Record<string, unknown>).expected)}</span>}
-                                      {(f.valueTrace as Record<string, unknown>).calculated !== undefined &&
-                                        <span>Calc: {String((f.valueTrace as Record<string, unknown>).calculated)}</span>}
-                                      {(f.valueTrace as Record<string, unknown>).difference !== undefined &&
-                                        <span>Dif: {String((f.valueTrace as Record<string, unknown>).difference)}</span>}
-                                      {(f.valueTrace as Record<string, unknown>).tolerance !== undefined &&
-                                        <span>Tol: {String((f.valueTrace as Record<string, unknown>).tolerance)}</span>}
+                                      <span>{parts.join(" | ")}</span>
                                     </div>
-                                  )}
+                                  );
+                                })()}
                                 {(() => {
                                   const ev = f.evidence as Record<string, unknown>[] | undefined;
                                   if (!ev || ev.length === 0) return null;

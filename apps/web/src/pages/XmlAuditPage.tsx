@@ -11,7 +11,6 @@ import {
   type ZipFullAnalysisResult,
   type ZipFullAnalysisFileResult,
 } from "../api/xml-audit";
-import { getPriorityLabel } from "./xml-audit/findingPriority";
 
 import {
   handleExportJsonIndividual,
@@ -24,8 +23,9 @@ import MassiveExecutiveSummary from "./xml-audit/MassiveExecutiveSummary";
 import MassiveResultsTable from "./xml-audit/MassiveResultsTable";
 import MassiveDetailModal from "./xml-audit/MassiveDetailModal";
 import PrintableIndividualReport from "./xml-audit/PrintableIndividualReport";
-import PrintableZipReport from "./xml-audit/PrintableZipReport";
 import FindingGlossary from "./xml-audit/FindingGlossary";
+import FindingExplorer from "./xml-audit/FindingExplorer";
+import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import CopySummaryActions from "./xml-audit/CopySummaryActions";
 import {
@@ -42,14 +42,6 @@ export default function XmlAuditPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "INFO">("ALL");
-  const [priorityFilter, setPriorityFilter] = useState<
-    "ALL" | "BLOCKER" | "HIGH" | "MEDIUM" | "LOW"
-  >("ALL");
-  const [categoryFilter, setCategoryFilter] = useState<
-    "ALL" | "TOTALS" | "FISCAL" | "TAX" | "TECHNICAL" | "STRUCTURE" | "COMPLEMENT"
-  >("ALL");
-  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [zipValidating, setZipValidating] = useState(false);
   const [zipResult, setZipResult] = useState<ZipInventoryResult | null>(null);
@@ -95,15 +87,6 @@ export default function XmlAuditPage() {
     return () => window.removeEventListener("afterprint", onAfterPrint);
   }, []);
 
-  function toggleEvidence(code: string) {
-    setExpandedEvidence((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
-    });
-  }
-
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (!token) {
@@ -147,9 +130,6 @@ export default function XmlAuditPage() {
     try {
       const analysis = await analyzeXml(token, selectedFile);
       setResult(analysis);
-      setFilter("ALL");
-      setPriorityFilter("ALL");
-      setCategoryFilter("ALL");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible analizar el XML.");
     } finally {
@@ -649,6 +629,11 @@ export default function XmlAuditPage() {
                 )}
               </div>
 
+              <RiskScorePanel
+                files={fullAnalysisResult.results}
+                title="Score de salud del lote"
+              />
+
               {Object.keys(fullAnalysisResult.summary.byTipoComprobante).length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground">
@@ -986,117 +971,6 @@ export default function XmlAuditPage() {
                         Informativos: {result.findings.filter((f) => f.severity === "INFO").length}
                       </span>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {(["ALL", "CRITICAL", "WARNING", "INFO"] as const).map((s) => {
-                        const labels: Record<string, string> = {
-                          ALL: "Todos",
-                          CRITICAL: "Críticos",
-                          WARNING: "Advertencias",
-                          INFO: "Informativos",
-                        };
-                        const active = filter === s;
-                        return (
-                          <button
-                            key={s}
-                            onClick={() => setFilter(s)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                              active
-                                ? "bg-foreground text-background border-foreground"
-                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {labels[s]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {(["ALL", "BLOCKER", "HIGH", "MEDIUM", "LOW"] as const).map((p) => {
-                        const pLabels: Record<string, string> = {
-                          ALL: "Todas",
-                          BLOCKER: "Bloqueantes",
-                          HIGH: "Alta",
-                          MEDIUM: "Media",
-                          LOW: "Informativa",
-                        };
-                        const activeP = priorityFilter === p;
-                        return (
-                          <button
-                            key={p}
-                            onClick={() => setPriorityFilter(p)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                              activeP
-                                ? "bg-foreground text-background border-foreground"
-                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {pLabels[p]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground self-center font-medium">
-                        Categoría:
-                      </span>
-                      {(
-                        [
-                          "ALL",
-                          "TOTALS",
-                          "FISCAL",
-                          "TAX",
-                          "TECHNICAL",
-                          "STRUCTURE",
-                          "COMPLEMENT",
-                        ] as const
-                      ).map((c) => {
-                        const catLabels: Record<string, string> = {
-                          ALL: "Todas",
-                          TOTALS: "Totales",
-                          FISCAL: "Fiscal",
-                          TAX: "Impuestos",
-                          TECHNICAL: "Técnico",
-                          STRUCTURE: "Estructura",
-                          COMPLEMENT: "Complementos",
-                        };
-                        const active = categoryFilter === c;
-                        return (
-                          <button
-                            key={c}
-                            onClick={() => setCategoryFilter(c)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                              active
-                                ? "bg-foreground text-background border-foreground"
-                                : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {catLabels[c]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>
-                        Totales: {result.findings.filter((f) => f.category === "TOTALS").length}
-                      </span>
-                      <span>
-                        Fiscal: {result.findings.filter((f) => f.category === "FISCAL").length}
-                      </span>
-                      <span>
-                        Impuestos: {result.findings.filter((f) => f.category === "TAX").length}
-                      </span>
-                      <span>
-                        Técnico: {result.findings.filter((f) => f.category === "TECHNICAL").length}
-                      </span>
-                      <span>
-                        Estructura:{" "}
-                        {result.findings.filter((f) => f.category === "STRUCTURE").length}
-                      </span>
-                      <span>
-                        Complementos:{" "}
-                        {result.findings.filter((f) => f.category === "COMPLEMENT").length}
-                      </span>
-                    </div>
                     {result.findings && result.findings.length > 0 && (
                       <div className="flex justify-end mb-4">
                         <CopySummaryActions
@@ -1115,124 +989,8 @@ export default function XmlAuditPage() {
                     {result.findings && result.findings.length > 0 && (
                       <FindingGlossary findings={result.findings!} />
                     )}
-                    <div className="space-y-3">
-                      {(() => {
-                        let filtered = result.findings!;
-                        if (filter !== "ALL")
-                          filtered = filtered.filter((f) => f.severity === filter);
-                        if (categoryFilter !== "ALL")
-                          filtered = filtered.filter((f) => f.category === categoryFilter);
-                        if (priorityFilter !== "ALL")
-                          filtered = filtered.filter((f) => f.priority === priorityFilter);
-                        if (filtered.length === 0) {
-                          return (
-                            <p className="text-sm text-muted-foreground">
-                              No hay hallazgos para los filtros seleccionados.
-                            </p>
-                          );
-                        }
-                        const badge: Record<string, { label: string; style: string }> = {
-                          INFO: {
-                            label: "Informativo",
-                            style: "text-blue-700 bg-blue-50 border-blue-200",
-                          },
-                          WARNING: {
-                            label: "Advertencia",
-                            style: "text-yellow-700 bg-yellow-50 border-yellow-200",
-                          },
-                          CRITICAL: {
-                            label: "Crítico",
-                            style: "text-red-700 bg-red-50 border-red-200",
-                          },
-                        };
-                        return filtered.map((f, i) => {
-                          const b = badge[f.severity] ?? badge.INFO;
-                          return (
-                            <div key={i} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span
-                                  className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}
-                                >
-                                  {b.label}
-                                </span>
-                                {f.priority && (
-                                  <span
-                                    className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                                      f.priority === "BLOCKER"
-                                        ? "text-red-700 bg-red-50 border-red-200"
-                                        : f.priority === "HIGH"
-                                          ? "text-orange-700 bg-orange-50 border-orange-200"
-                                          : f.priority === "MEDIUM"
-                                            ? "text-yellow-700 bg-yellow-50 border-yellow-200"
-                                            : "text-blue-700 bg-blue-50 border-blue-200"
-                                    }`}
-                                  >
-                                    {getPriorityLabel(f.priority)}
-                                  </span>
-                                )}
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {f.category}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {f.code}
-                                </span>
-                              </div>
-                              <p className="text-sm font-medium">{f.title}</p>
-                              <p className="text-sm text-muted-foreground">{f.message}</p>
-                              {f.recommendedAction && (
-                                <p className="text-xs text-muted-foreground">
-                                  <span className="font-semibold">Acción recomendada:</span>{" "}
-                                  {f.recommendedAction}
-                                </p>
-                              )}
-                              {f.evidence &&
-                                f.evidence.length > 0 &&
-                                (() => {
-                                  const findingKey = f.id ?? f.code;
-                                  const isExpanded = expandedEvidence.has(findingKey);
-                                  const visibleEvidence = isExpanded
-                                    ? f.evidence
-                                    : f.evidence.slice(0, 4);
-                                  const hasMore = f.evidence.length > 4;
-                                  return (
-                                    <div className="space-y-1 pt-1 border-t border-border/40 mt-2">
-                                      <p className="text-xs font-semibold text-muted-foreground pt-1">
-                                        Evidencia detectada
-                                      </p>
-                                      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
-                                        {visibleEvidence.map((e, eIdx) => (
-                                          <div key={eIdx} className="contents">
-                                            <span className="text-muted-foreground whitespace-nowrap">
-                                              {e.label}:
-                                            </span>
-                                            <span className="font-mono text-foreground/80 break-all">
-                                              {e.value ?? "—"}
-                                            </span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      {hasMore && (
-                                        <button
-                                          onClick={() => toggleEvidence(findingKey)}
-                                          className="text-xs font-semibold text-primary hover:underline mt-1"
-                                        >
-                                          {isExpanded
-                                            ? "Ver menos"
-                                            : `Ver más evidencia (${f.evidence.length - 4} restantes)`}
-                                        </button>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-
-                              {fullAnalysisResult && (
-                                <PrintableZipReport fullAnalysisResult={fullAnalysisResult} />
-                              )}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
+                    <RiskScorePanel findings={result.findings ?? []} />
+                    <FindingExplorer findings={result.findings!} />
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">

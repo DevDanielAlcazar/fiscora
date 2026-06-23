@@ -5,6 +5,7 @@ import {
   getSeverityLabel,
   getCategoryLabel,
 } from "../xml-audit/findingGlossary.helpers";
+import { getFindingModuleLabel } from "../xml-audit/findingExplorer.helpers";
 import { buildRemediationPlan } from "../xml-audit/remediationPlan.helpers";
 
 interface Props {
@@ -223,42 +224,46 @@ export default function PrintableHistoryDetailReport({ detail }: Props) {
           <h3 className="text-lg font-bold mb-4 uppercase border-l-4 border-blue-900 pl-2">
             Hallazgos detectados
           </h3>
-          <table className="w-full border-collapse text-[10px]">
-            <thead>
-              <tr>
-                <th className={tableHeaderClass}>Prio</th>
-                <th className={tableHeaderClass}>Sev</th>
-                <th className={tableHeaderClass}>Cat</th>
-                <th className={tableHeaderClass}>Código</th>
-                <th className={tableHeaderClass}>Título</th>
-                <th className={tableHeaderClass}>Acción recomendada</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysis.findings.slice(0, 50).map((f) => (
-                <tr key={f.id}>
-                  <td className={`${tableCellClass} font-bold`}>
-                    {getPriorityLabel(f.priority || "LOW").slice(0, 4)}
-                  </td>
-                  <td className={tableCellClass}>{getSeverityLabel(f.severity).slice(0, 4)}</td>
-                  <td className={tableCellClass}>{getCategoryLabel(f.category).slice(0, 4)}</td>
-                  <td className={`${tableCellClass} font-mono font-bold text-blue-900`}>
-                    {f.code}
-                  </td>
-                  <td className={tableCellClass}>{f.title}</td>
-                  <td className={tableCellClass}>{f.recommendedAction || "Revisar contexto."}</td>
-                </tr>
-              ))}
-              {analysis.findings.length > 50 && (
-                <tr>
-                  <td colSpan={6} className={`${tableCellClass} text-center italic text-gray-500`}>
-                    ... mostrando primeros 50 de {analysis.findings.length} hallazgos. Ver glosario
-                    para resumen completo.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr>
+                    <th className={tableHeaderClass}>Prio</th>
+                    <th className={tableHeaderClass}>Sev</th>
+                    <th className={tableHeaderClass}>Cat</th>
+                    <th className={tableHeaderClass}>Código</th>
+                    <th className={tableHeaderClass}>Título</th>
+                    <th className={tableHeaderClass}>Módulo</th>
+                    <th className={tableHeaderClass}>Acción recomendada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysis.findings.slice(0, 50).map((f) => (
+                    <tr key={f.id}>
+                      <td className={`${tableCellClass} font-bold`}>
+                        {getPriorityLabel(f.priority || "LOW").slice(0, 4)}
+                      </td>
+                      <td className={tableCellClass}>{getSeverityLabel(f.severity).slice(0, 4)}</td>
+                      <td className={tableCellClass}>{getCategoryLabel(f.category).slice(0, 4)}</td>
+                      <td className={`${tableCellClass} font-mono font-bold text-blue-900`}>
+                        {f.code}
+                      </td>
+                      <td className={tableCellClass}>{f.title}</td>
+                      <td className={`${tableCellClass} text-[9px]`}>
+                        {f.location ? (f.location.section ? `${getFindingModuleLabel(f.location.module)} › ${f.location.section}` : getFindingModuleLabel(f.location.module)) : "—"}
+                      </td>
+                      <td className={tableCellClass}>{f.recommendedAction || "Revisar contexto."}</td>
+                    </tr>
+                  ))}
+                  {analysis.findings.length > 50 && (
+                    <tr>
+                      <td colSpan={7} className={`${tableCellClass} text-center italic text-gray-500`}>
+                        ... mostrando primeros 50 de {analysis.findings.length} hallazgos. Ver glosario
+                        para resumen completo.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
         </section>
       )}
 

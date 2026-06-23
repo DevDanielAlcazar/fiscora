@@ -6,6 +6,12 @@ import {
 } from "./findingPriority";
 import { buildFindingGlossary, getSeverityLabel } from "./findingGlossary.helpers";
 import { buildRemediationPlan } from "./remediationPlan.helpers";
+import {
+  calculateRiskScore,
+  getRiskBandLabel,
+  getRiskBandDescription,
+  getTopRiskDrivers,
+} from "./riskScore.helpers";
 
 interface Props {
   result: AnalysisResult;
@@ -101,6 +107,32 @@ export default function PrintableIndividualReport({ result }: Props) {
               <span style={{ fontWeight: 600 }}>Acción recomendada:</span>{" "}
               {result.executiveSummary.recommendedAction}
             </p>
+            {(() => {
+              const sr = calculateRiskScore(result.findings ?? []);
+              const drivers = getTopRiskDrivers(result.findings ?? [], 3);
+              return (
+                <div style={{ marginTop: "12px", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: "6px", fontSize: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "20px", fontWeight: 700, color: sr.band === "HEALTHY" ? "#059669" : sr.band === "REVIEW" ? "#d97706" : "#dc2626" }}>
+                      {sr.score}
+                    </span>
+                    <span style={{ fontWeight: 600 }}>{getRiskBandLabel(sr.band)}</span>
+                  </div>
+                  <p style={{ margin: "2px 0", color: "#6b7280" }}>{getRiskBandDescription(sr.band)}</p>
+                  {drivers.length > 0 && (
+                    <div style={{ marginTop: "6px" }}>
+                      <p style={{ fontWeight: 600, margin: "2px 0" }}>Principales causas:</p>
+                      {drivers.map((d, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", margin: "1px 0" }}>
+                          <span>{d.code} — {d.title}</span>
+                          <span style={{ color: "#dc2626" }}>+{d.weight}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -363,40 +395,68 @@ export default function PrintableIndividualReport({ result }: Props) {
                 <thead>
                   <tr>
                     <th style={{ width: "70px" }}>Severidad</th>
+                    <th style={{ width: "60px" }}>Prioridad</th>
                     <th style={{ width: "60px" }}>Categoría</th>
                     <th style={{ width: "80px" }}>Código</th>
                     <th>Título</th>
                     <th>Evidencia</th>
+                    <th>Módulo / Ubicación</th>
+                    <th>Valor</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {result.findings.map((f) => (
-                    <tr key={f.id}>
-                      <td>{severityBadge(f.severity)}</td>
-                      <td style={{ fontSize: "9px" }}>{f.category}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{f.code}</td>
-                      <td>
-                        <p style={{ fontWeight: 600, margin: 0, fontSize: "10px" }}>{f.title}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: "9px" }}>{f.message}</p>
-                        {f.recommendedAction && (
-                          <p style={{ margin: "2px 0 0", fontSize: "9px", color: "#555" }}>
-                            Acción: {f.recommendedAction}
-                          </p>
-                        )}
-                      </td>
-                      <td style={{ fontSize: "9px" }}>
-                        {f.evidence && f.evidence.length > 0
-                          ? f.evidence.map((e, i) => (
-                              <div key={i}>
-                                <span style={{ fontWeight: 600 }}>{e.label}:</span> {e.value ?? "—"}
-                              </div>
-                            ))
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {result.findings.slice(0, 50).map((f) => {
+                    const locText = f.location ? (() => {
+                      const parts: string[] = [];
+                      if (f.location.module && f.location.module !== "unknown") parts.push(f.location.module);
+                      if (f.location.section && f.location.index !== undefined) parts.push(`${f.location.section} #${f.location.index + 1}`);
+                      if (f.location.field) parts.push(f.location.field);
+                      return parts.join(" › ");
+                    })() : null;
+                    const vtText = f.valueTrace ? (() => {
+                      const vtp: string[] = [];
+                      if (f.valueTrace.observed != null) vtp.push(`Obs:${f.valueTrace.observed}`);
+                      if (f.valueTrace.expected != null) vtp.push(`Esp:${f.valueTrace.expected}`);
+                      if (f.valueTrace.calculated != null) vtp.push(`Calc:${f.valueTrace.calculated}`);
+                      if (f.valueTrace.difference != null) vtp.push(`Dif:${f.valueTrace.difference}`);
+                      return vtp.join(" ");
+                    })() : null;
+                    return (
+                      <tr key={f.id}>
+                        <td>{severityBadge(f.severity)}</td>
+                        <td style={{ fontSize: "9px" }}>{f.priority ?? "—"}</td>
+                        <td style={{ fontSize: "9px" }}>{f.category}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: "9px" }}>{f.code}</td>
+                        <td>
+                          <p style={{ fontWeight: 600, margin: 0, fontSize: "10px" }}>{f.title}</p>
+                          <p style={{ margin: "2px 0 0", fontSize: "9px" }}>{f.message}</p>
+                          {f.recommendedAction && (
+                            <p style={{ margin: "2px 0 0", fontSize: "9px", color: "#555" }}>
+                              Acción: {f.recommendedAction}
+                            </p>
+                          )}
+                        </td>
+                        <td style={{ fontSize: "9px" }}>
+                          {f.evidence && f.evidence.length > 0
+                            ? f.evidence.map((e, i) => (
+                                <div key={i}>
+                                  <span style={{ fontWeight: 600 }}>{e.label}:</span> {e.value ?? "—"}
+                                </div>
+                              ))
+                            : "—"}
+                        </td>
+                        <td style={{ fontSize: "9px" }}>{locText || "—"}</td>
+                        <td style={{ fontSize: "9px" }}>{vtText || "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              {result.findings.length > 50 && (
+                <p style={{ fontSize: "9px", color: "#888", marginTop: "4px" }}>
+                  Se muestran los primeros 50 hallazgos de {result.findings.length}.
+                </p>
+              )}
             </>
           ) : (
             <p style={{ fontSize: "10px", color: "#888" }}>No se detectaron hallazgos.</p>

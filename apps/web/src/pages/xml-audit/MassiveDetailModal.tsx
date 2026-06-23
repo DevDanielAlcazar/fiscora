@@ -1,6 +1,8 @@
 import type { ZipFullAnalysisFileResult } from "../../api/xml-audit";
+import FindingExplorer from "./FindingExplorer";
 import FindingGlossary from "./FindingGlossary";
 import RemediationPlan from "./RemediationPlan";
+import RiskScorePanel from "./RiskScorePanel";
 
 interface MassiveDetailModalProps {
   selectedMassiveDetail: ZipFullAnalysisFileResult | null;
@@ -32,14 +34,6 @@ export default function MassiveDetailModal({
     OK: "Sin riesgo",
     WARNING: "Revisión recomendada",
     CRITICAL: "Incidencia crítica",
-  };
-  const badge: Record<string, { label: string; style: string }> = {
-    INFO: { label: "Informativo", style: "text-blue-700 bg-blue-50 border-blue-200" },
-    WARNING: {
-      label: "Advertencia",
-      style: "text-yellow-700 bg-yellow-50 border-yellow-200",
-    },
-    CRITICAL: { label: "Crítico", style: "text-red-700 bg-red-50 border-red-200" },
   };
   const rs = riskStyles[es?.riskLevel ?? "OK"] ?? riskStyles.WARNING;
   return (
@@ -143,56 +137,9 @@ export default function MassiveDetailModal({
                     Total: {findings.length}
                   </span>
                 </div>
+                <RiskScorePanel findings={findings} compact />
                 {findings.length > 0 ? (
-                  <div className="space-y-2 max-h-80 overflow-y-auto">
-                    {findings.map((f, fi) => {
-                      const b = badge[f.severity] ?? badge.INFO;
-                      return (
-                        <div key={fi} className={`p-3 rounded-lg border ${b.style} space-y-1.5`}>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}
-                            >
-                              {b.label}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {f.category}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {f.code}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium">{f.title}</p>
-                          <p className="text-sm text-muted-foreground">{f.message}</p>
-                          {f.recommendedAction && (
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-semibold">Acción recomendada:</span>{" "}
-                              {f.recommendedAction}
-                            </p>
-                          )}
-                          {f.evidence && f.evidence.length > 0 && (
-                            <div className="space-y-0.5 pt-1.5 border-t border-border/40 mt-1.5">
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                Evidencia
-                              </p>
-                              <div className="space-y-0.5 text-xs">
-                                {f.evidence.map((e, ei) => (
-                                  <div key={ei} className="flex gap-2">
-                                    <span className="text-muted-foreground whitespace-nowrap shrink-0">
-                                      {e.label}:
-                                    </span>
-                                    <span className="font-mono text-foreground/80 break-all">
-                                      {e.value ?? "—"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <FindingExplorer findings={findings} compact />
                 ) : (
                   <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-4 py-3">
                     No se detectaron hallazgos estructurados para este XML.
