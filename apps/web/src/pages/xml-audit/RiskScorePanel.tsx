@@ -29,6 +29,8 @@ interface RiskScorePanelProps {
   showDrivers?: boolean;
 }
 
+const MODULES_VISUAL_LIMIT = 5;
+
 export default function RiskScorePanel({
   findings,
   approximateCounts,
@@ -105,17 +107,23 @@ export default function RiskScorePanel({
               Fallidos: {zipResult.failedCount}
             </span>
           )}
-          <span className="px-2.5 py-1 rounded-full bg-muted border border-border text-muted-foreground">
+<span className="px-2.5 py-1 rounded-full bg-muted border border-border text-muted-foreground">
             Analizados: {zipResult.analyzedCount}
           </span>
         </div>
-        {zipResult.topRiskFiles.length > 0 && (
+
+        {zipResult && zipResult.topRiskFiles.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Archivos de mayor riesgo
             </p>
+            {zipResult.topRiskFiles.length > 5 && (
+              <p className="text-[10px] text-muted-foreground">
+                Top {zipResult.topRiskFiles.length} archivos (se muestran 5)
+              </p>
+            )}
             <div className="space-y-1">
-              {zipResult.topRiskFiles.map((f) => (
+              {zipResult.topRiskFiles.slice(0, 5).map((f) => (
                 <div
                   key={f.index}
                   className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/30"
@@ -225,13 +233,18 @@ export default function RiskScorePanel({
             </div>
           )}
 
-          {modules.length > 0 && showModules && (
+{modules.length > 0 && showModules && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Riesgo por módulo
               </p>
+              {modules.length > MODULES_VISUAL_LIMIT && (
+                <p className="text-[10px] text-muted-foreground">
+                  Se muestran los primeros {MODULES_VISUAL_LIMIT} de {modules.length} módulos
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {modules.map((m) => (
+                {modules.slice(0, MODULES_VISUAL_LIMIT).map((m) => (
                   <div
                     key={m.module}
                     className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded bg-muted/20 border border-border/40"

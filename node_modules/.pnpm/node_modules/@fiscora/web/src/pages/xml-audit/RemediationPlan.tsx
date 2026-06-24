@@ -8,6 +8,8 @@ interface Props {
   title?: string;
 }
 
+const ITEMS_VISUAL_LIMIT = 10;
+
 export default function RemediationPlan({ findings, compact, title }: Props) {
   const plan = useMemo(() => buildRemediationPlan(findings), [findings]);
   const [checkedItems, setCheckedCodes] = useState<Record<string, Set<number>>>({});
@@ -163,14 +165,20 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
         </select>
       </div>
 
-      {/* Items */}
-      <div className="space-y-4">
-        {filteredItems.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic text-center py-8">
-            No hay acciones que coincidan con los filtros.
-          </p>
-        ) : (
-          filteredItems.map((item) => (
+{/* Items */}
+       <div className="space-y-4">
+         {filteredItems.length === 0 ? (
+           <p className="text-sm text-muted-foreground italic text-center py-8">
+             No hay acciones que coincidan con los filtros.
+           </p>
+         ) : (
+           <>
+             {filteredItems.length > ITEMS_VISUAL_LIMIT && (
+               <p className="text-xs text-muted-foreground">
+                 Se muestran los primeros {ITEMS_VISUAL_LIMIT} de {filteredItems.length} acciones
+               </p>
+             )}
+             {filteredItems.slice(0, ITEMS_VISUAL_LIMIT).map((item) => (
             <div
               key={item.code}
               className="rounded-xl border border-border overflow-hidden bg-muted/10"
@@ -302,9 +310,10 @@ export default function RemediationPlan({ findings, compact, title }: Props) {
                 </div>
               </div>
             </div>
-          ))
+            ))}
+          </>
         )}
       </div>
-    </div>
-  );
+     </div>
+   );
 }

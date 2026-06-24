@@ -21,6 +21,8 @@ interface CoverageConfidencePanelProps {
   showModuleTable?: boolean;
 }
 
+const MODULES_VISUAL_LIMIT = 5;
+
 const BAND_STYLES: Record<string, string> = {
   high: "text-emerald-700 bg-emerald-50 border-emerald-200",
   good: "text-blue-700 bg-blue-50 border-blue-200",
@@ -136,11 +138,16 @@ export default function CoverageConfidencePanel({
             )}
           </div>
 
-          {showModuleTable && rows.length > 0 && (
+{showModuleTable && rows.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Cobertura por módulo
               </p>
+              {rows.length > MODULES_VISUAL_LIMIT && (
+                <p className="text-[10px] text-muted-foreground">
+                  Se muestran los primeros {MODULES_VISUAL_LIMIT} de {rows.length} módulos
+                </p>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
@@ -153,7 +160,7 @@ export default function CoverageConfidencePanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {rows.slice(0, MODULES_VISUAL_LIMIT).map((r) => (
                       <tr key={r.module} className="border-b border-border/30">
                         <td className="py-1 pr-1 font-medium">{r.label}</td>
                         <td className="py-1 pr-1">{r.detected ? "Sí" : "No"}</td>

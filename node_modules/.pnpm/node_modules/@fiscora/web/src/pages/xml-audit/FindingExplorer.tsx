@@ -19,6 +19,9 @@ interface Props {
   compact?: boolean;
 }
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
 const BADGE: Record<string, { label: string; style: string }> = {
   CRITICAL: { label: "Crítico", style: "text-red-700 bg-red-50 border-red-200" },
   WARNING: { label: "Advertencia", style: "text-yellow-700 bg-yellow-50 border-yellow-200" },
@@ -53,6 +56,8 @@ export default function FindingExplorer({ findings, compact }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>("priority");
   const [groupView, setGroupView] = useState<"list" | "module">("list");
   const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(50);
 
   const toggleExpand = useCallback((idx: number) => {
     setExpandedIdx((prev) => {
@@ -63,12 +68,32 @@ export default function FindingExplorer({ findings, compact }: Props) {
     });
   }, []);
 
+  const handleFiltersChange = useCallback((newFilters: SmartFilters) => {
+    setFilters(newFilters);
+    setPage(1);
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize: PageSize) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  }, []);
+
   const filtered = useMemo(
     () => sortFindingsSmart(filterFindingsSmart(findings, filters), sortMode),
     [findings, filters, sortMode],
   );
 
   const byModule = useMemo(() => aggregateFindingsByModule(findings), [findings]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      items: filtered.slice(start, end),
+      total: filtered.length,
+      totalPages: Math.ceil(filtered.length / pageSize),
+    };
+  }, [filtered, page, pageSize]);
 
   const totalCrit = useMemo(
     () => findings.filter((f) => f.severity === "CRITICAL").length,
@@ -95,10 +120,10 @@ export default function FindingExplorer({ findings, compact }: Props) {
 
   if (findings.length === 0) return null;
 
-  const summaryCards = [
+  const summaryCards = useMemo(() => [
     { label: "Total", count: findings.length, style: "bg-muted/50 text-foreground" },
-    { label: "Bloqueantes", count: totalBlocker, style: "bg-red-50 text-red-700 border-red-200" },
-    { label: "Críticos", count: totalCrit, style: "bg-red-50 text-red-700 border-red-200" },
+    { label: "Bloqueantes", count: totalCrit, style: "bg-red-50 text-red-700 border-red-200" },
+    { label: "Críticos", count: totalBlocker, style: "bg-red-50 text-red-700 border-red-200" },
     {
       label: "Advertencias",
       count: totalWarn,
@@ -108,7 +133,7 @@ export default function FindingExplorer({ findings, compact }: Props) {
     { label: "Con ubicación", count: totalWithLoc, style: "bg-muted/30 text-muted-foreground" },
     { label: "Con diferencia", count: totalWithVT, style: "bg-muted/30 text-muted-foreground" },
     { label: "Módulos", count: affModules, style: "bg-muted/30 text-muted-foreground" },
-  ];
+  ], [findings.length, totalCrit, totalBlocker, totalWarn, totalInfo, totalWithLoc, totalWithVT, affModules]);
 
   const chipStyle = (active: boolean) =>
     active
@@ -161,7 +186,7 @@ export default function FindingExplorer({ findings, compact }: Props) {
           filteredFindings={filtered}
           rawFilteredCount={findings.length}
           filters={filters}
-          onFiltersChange={setFilters}
+          onFiltersChange={handleFiltersChange}
           sortMode={sortMode}
           onSortModeChange={setSortMode}
           compact={compact}
@@ -205,7 +230,7 @@ export default function FindingExplorer({ findings, compact }: Props) {
 
       {groupView === "list" && (
         <div className="space-y-2">
-          {filtered.length === 0 ? (
+          {paginated.items.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-8">
               <p className="text-sm text-muted-foreground italic">
                 No hay hallazgos con estos filtros.
@@ -219,12 +244,13 @@ export default function FindingExplorer({ findings, compact }: Props) {
               </button>
             </div>
           ) : (
-            filtered.map((f, idx) => {
+            paginated.items.map((f, idx) => {
               const b = BADGE[f.severity] ?? BADGE.INFO;
               const pb = f.priority ? PRIORITY_BADGE[f.priority] : null;
               const locText = getFindingLocationText(f);
               const vtText = getFindingValueTraceText(f);
-              const isExpanded = expandedIdx.has(idx);
+              const pageStartIdx = (page - 1) * pageSize;
+              const isExpanded = expandedIdx.has(pageStartIdx + idx);
               const modLabel = f.location ? getFindingModuleLabel(f.location.module) : null;
               return (
                 <div key={f.id ?? idx} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
@@ -268,16 +294,16 @@ export default function FindingExplorer({ findings, compact }: Props) {
                   {f.evidence && f.evidence.length > 0 && (
                     <>
                       <button
-                        onClick={() => toggleExpand(idx)}
+                        onClick={() => toggleExpand(pageStartIdx + idx)}
                         className="text-xs font-semibold text-primary hover:underline"
                         aria-expanded={isExpanded}
-                        aria-controls={`evidence-content-${f.id ?? idx}`}
+                        aria-controls={`evidence-content-${f.id ?? (pageStartIdx + idx)}`}
                       >
                         {isExpanded ? "Ocultar evidencia" : "Ver evidencia"}
                       </button>
                       {isExpanded && (
                         <div
-                          id={`evidence-content-${f.id ?? idx}`}
+                          id={`evidence-content-${f.id ?? (pageStartIdx + idx)}`}
                           className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs pt-1"
                         >
                           {f.evidence.map((e, ei) => (
@@ -297,6 +323,61 @@ export default function FindingExplorer({ findings, compact }: Props) {
                 </div>
               );
             })
+          )}
+
+          {filtered.length > pageSize && (
+            <div className="flex items-center justify-between pt-3 border-t border-border/50">
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filtered.length)} de {filtered.length} hallazgos
+                </p>
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-muted-foreground">Ver:</span>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handlePageSizeChange(size)}
+                      className={`px-1.5 py-0.5 rounded border ${pageSize === size ? "bg-foreground text-background" : "hover:bg-muted"}`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="px-2 py-1 rounded border border-border text-xs font-semibold disabled:opacity-50 hover:bg-muted transition-all"
+                >
+                  ««
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-2 py-1 rounded border border-border text-xs font-semibold disabled:opacity-50 hover:bg-muted transition-all"
+                >
+                  ‹
+                </button>
+                <span className="px-2 py-1 text-xs font-medium text-foreground">
+                  {page} / {paginated.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(paginated.totalPages, p + 1))}
+                  disabled={page >= paginated.totalPages}
+                  className="px-2 py-1 rounded border border-border text-xs font-semibold disabled:opacity-50 hover:bg-muted transition-all"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => setPage(paginated.totalPages)}
+                  disabled={page === paginated.totalPages}
+                  className="px-2 py-1 rounded border border-border text-xs font-semibold disabled:opacity-50 hover:bg-muted transition-all"
+                >
+                  »»
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}

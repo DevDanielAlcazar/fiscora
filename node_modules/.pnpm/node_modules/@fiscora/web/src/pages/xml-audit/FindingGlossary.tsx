@@ -14,6 +14,8 @@ interface Props {
   compact?: boolean;
 }
 
+const GLOSSARY_VISUAL_LIMIT = 10;
+
 export default function FindingGlossary({ findings, compact }: Props) {
   const glossary = useMemo(() => buildFindingGlossary(findings), [findings]);
   const [search, setSearch] = useState("");
@@ -79,7 +81,7 @@ export default function FindingGlossary({ findings, compact }: Props) {
         </div>
       )}
 
-      {compact && <h3 className="font-semibold text-sm">Glosario de hallazgos del archivo</h3>}
+{compact && <h3 className="font-semibold text-sm">Glosario de hallazgos del archivo</h3>}
 
       {!compact && (
         <div className="space-y-3">
@@ -137,112 +139,119 @@ export default function FindingGlossary({ findings, compact }: Props) {
             No se encontraron entradas en el glosario.
           </p>
         ) : (
-          filtered.map((entry) => (
-            <div
-              key={entry.code}
-              className="p-4 rounded-lg border border-border bg-muted/20 space-y-3"
-            >
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-bold font-mono text-primary">{entry.code}</span>
-                  <span className="text-sm font-semibold">{entry.title}</span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyle[entry.severity]}`}
-                  >
-                    {getSeverityLabel(entry.severity)}
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyle[entry.priority]}`}
-                  >
-                    {getPriorityLabel(entry.priority)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                    {getCategoryLabel(entry.category)}
-                  </span>
-                </div>
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase">
-                  {entry.occurrences} {entry.occurrences === 1 ? "aparición" : "apariciones"}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Qué significa
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">{entry.message}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Impacto
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {getFindingImpactLabel(entry.severity)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-2 border-t border-border/50">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Acción recomendada
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {entry.recommendedAction || "Revisar el contexto y confirmar validez."}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Guía general
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed italic text-xs">
-                    {getFindingRemediationHint(entry.actionGroup)}
-                  </p>
-                </div>
-              </div>
-
-              {entry.sampleEvidence && entry.sampleEvidence.length > 0 && (
-                <div className="pt-2">
-                  <button
-                    onClick={() => toggleExpand(entry.code)}
-                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                  >
-                    {expandedCodes.has(entry.code) ? "Ocultar ejemplo" : "Ver ejemplo de evidencia"}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className={`w-3 h-3 transition-transform ${expandedCodes.has(entry.code) ? "rotate-180" : ""}`}
+          <>
+            {filtered.length > GLOSSARY_VISUAL_LIMIT && (
+              <p className="text-xs text-muted-foreground">
+                Se muestran los primeros {GLOSSARY_VISUAL_LIMIT} de {filtered.length} códigos
+              </p>
+            )}
+{filtered.slice(0, GLOSSARY_VISUAL_LIMIT).map((entry) => (
+              <div
+                key={entry.code}
+                className="p-4 rounded-lg border border-border bg-muted/20 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold font-mono text-primary">{entry.code}</span>
+                    <span className="text-sm font-semibold">{entry.title}</span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyle[entry.severity]}`}
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  {expandedCodes.has(entry.code) && (
-                    <div className="mt-2 p-3 rounded bg-muted/50 border border-border/50 space-y-2 text-xs">
-                      {entry.sampleEvidence.length > 0 && (
-                        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-                          {entry.sampleEvidence.map((e, idx) => (
-                            <div key={idx} className="contents">
-                              <span className="text-muted-foreground whitespace-nowrap">
-                                {e.label}:
-                              </span>
-                              <span className="font-mono text-foreground/80 break-all">
-                                {e.value ?? "—"}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                      {getSeverityLabel(entry.severity)}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyle[entry.priority]}`}
+                    >
+                      {getPriorityLabel(entry.priority)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      {getCategoryLabel(entry.category)}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    {entry.occurrences} {entry.occurrences === 1 ? "aparición" : "apariciones"}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Qué significa
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">{entry.message}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Impacto
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {getFindingImpactLabel(entry.severity)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-2 border-t border-border/50">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Acción recomendada
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {entry.recommendedAction || "Revisar el contexto y confirmar validez."}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Guía general
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed italic text-xs">
+                      {getFindingRemediationHint(entry.actionGroup)}
+                    </p>
+                  </div>
+                </div>
+
+                {entry.sampleEvidence && entry.sampleEvidence.length > 0 && (
+                  <div className="pt-2">
+                    <button
+                      onClick={() => toggleExpand(entry.code)}
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      {expandedCodes.has(entry.code) ? "Ocultar ejemplo" : "Ver ejemplo de evidencia"}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`w-3 h-3 transition-transform ${expandedCodes.has(entry.code) ? "rotate-180" : ""}`}
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    {expandedCodes.has(entry.code) && (
+                      <div className="mt-2 p-3 rounded bg-muted/50 border border-border/50 space-y-2 text-xs">
+                        {entry.sampleEvidence.length > 0 && (
+                          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
+                            {entry.sampleEvidence.map((e, idx) => (
+                              <div key={idx} className="contents">
+                                <span className="text-muted-foreground whitespace-nowrap">
+                                  {e.label}:
+                                </span>
+                                <span className="font-mono text-foreground/80 break-all">
+                                  {e.value ?? "—"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>
