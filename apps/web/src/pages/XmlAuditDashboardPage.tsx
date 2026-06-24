@@ -10,6 +10,7 @@ import ActionableSummary from "./xml-audit/ActionableSummary";
 import FindingExplorer from "./xml-audit/FindingExplorer";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
+import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
 import { exportXmlAuditDashboardCsv } from "./xml-audit-dashboard/dashboardCsvExport";
 import PrintableXmlAuditDashboardReport from "./xml-audit-dashboard/PrintableXmlAuditDashboardReport";
 
@@ -959,6 +960,7 @@ export default function XmlAuditDashboardPage() {
                       <>
                         <ActionableSummary findings={recordDetail.analysisJson.findings} />
                         <RiskScorePanel findings={recordDetail.analysisJson.findings} />
+                        <CoverageConfidencePanel result={recordDetail.analysisJson} />
                         <FindingExplorer findings={recordDetail.analysisJson.findings} compact />
                         <FindingGlossary findings={recordDetail.analysisJson.findings} compact />
                       </>

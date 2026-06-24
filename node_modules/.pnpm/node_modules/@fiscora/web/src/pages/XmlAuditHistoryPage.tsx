@@ -12,6 +12,7 @@ import FindingExplorer from "./xml-audit/FindingExplorer";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
+import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
 import { exportXmlAuditHistoryCsv } from "./xml-audit-history/historyCsvExport";
 import PrintableHistoryDetailReport from "./xml-audit-history/PrintableHistoryDetailReport";
 
@@ -585,6 +586,7 @@ export default function XmlAuditHistoryPage() {
                     <>
                       <ActionableSummary findings={detail.analysisJson.findings} />
                       <RiskScorePanel findings={detail.analysisJson.findings} />
+                      <CoverageConfidencePanel result={detail.analysisJson} />
                       <FindingExplorer findings={detail.analysisJson.findings} compact />
                       <RemediationPlan findings={detail.analysisJson.findings} compact />
                       <FindingGlossary findings={detail.analysisJson.findings} compact />

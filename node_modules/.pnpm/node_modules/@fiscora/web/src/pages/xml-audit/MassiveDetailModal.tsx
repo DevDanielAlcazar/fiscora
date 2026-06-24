@@ -4,6 +4,7 @@ import FindingExplorer from "./FindingExplorer";
 import FindingGlossary from "./FindingGlossary";
 import RemediationPlan from "./RemediationPlan";
 import RiskScorePanel from "./RiskScorePanel";
+import CoverageConfidencePanel from "./CoverageConfidencePanel";
 
 interface MassiveDetailModalProps {
   selectedMassiveDetail: ZipFullAnalysisFileResult | null;
@@ -170,6 +171,7 @@ export default function MassiveDetailModal({
                   </span>
                 </div>
                 <RiskScorePanel findings={findings} compact />
+                <CoverageConfidencePanel result={sd.analysis} compact />
                 {findings.length > 0 ? (
                   <FindingExplorer findings={findings} compact />
                 ) : (

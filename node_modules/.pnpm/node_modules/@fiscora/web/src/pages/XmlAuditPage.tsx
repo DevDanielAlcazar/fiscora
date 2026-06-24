@@ -26,6 +26,7 @@ import PrintableIndividualReport from "./xml-audit/PrintableIndividualReport";
 import FindingGlossary from "./xml-audit/FindingGlossary";
 import FindingExplorer from "./xml-audit/FindingExplorer";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
+import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import CopySummaryActions from "./xml-audit/CopySummaryActions";
 import {
@@ -984,6 +985,7 @@ export default function XmlAuditPage() {
                       <FindingGlossary findings={result.findings!} />
                     )}
                     <RiskScorePanel findings={result.findings ?? []} />
+                    <CoverageConfidencePanel result={result} />
                     <FindingExplorer findings={result.findings!} />
                   </>
                 ) : (

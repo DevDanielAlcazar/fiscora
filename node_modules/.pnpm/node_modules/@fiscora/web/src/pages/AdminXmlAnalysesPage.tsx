@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Finding } from "../api/xml-audit";
 import FindingExplorer from "./xml-audit/FindingExplorer";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
+import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
 import {
   getXmlAnalyses,
   getXmlAnalysisDetail,
@@ -606,6 +607,7 @@ export default function AdminXmlAnalysesPage() {
                       (detail.analysisJson.findings as Finding[]).length > 0 && (
                         <>
                           <RiskScorePanel findings={detail.analysisJson.findings as Finding[]} />
+                          <CoverageConfidencePanel result={detail.analysisJson as any} />
                           <FindingExplorer
                             findings={detail.analysisJson.findings as Finding[]}
                             compact

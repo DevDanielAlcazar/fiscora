@@ -1825,6 +1825,47 @@ export default function PrintableIndividualReport({ result }: Props) {
           </div>
         )}
 
+        <div className="avoid-break">
+          <h2>Cobertura y confianza del análisis</h2>
+          <p style={{ fontSize: "10px", color: "#666", marginBottom: "8px" }}>
+            Evaluación de cobertura del motor y nivel de confianza del análisis.
+          </p>
+          <table>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: 600, width: "240px" }}>Módulos detectados</td>
+                <td>
+                  {result.analysisMeta
+                    ? result.analysisMeta.coverage.modules.filter((m) => m.detected).length
+                    : (result.findings?.length ?? 0)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Módulos analizados</td>
+                <td>
+                  {result.analysisMeta
+                    ? result.analysisMeta.coverage.modules.filter((m) => m.analyzed).length
+                    : "—"}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Complementos no clasificados</td>
+                <td>
+                  {result.analysisMeta
+                    ? result.analysisMeta.coverage.complementsUnknown.length > 0
+                      ? result.analysisMeta.coverage.complementsUnknown.join(", ")
+                      : "—"
+                    : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={{ fontSize: "9px", color: "#888", marginTop: "8px", fontStyle: "italic" }}>
+            El reporte no incluye XML fuente, sellos completos, certificados completos ni Addenda
+            raw.
+          </p>
+        </div>
+
         <div className="footer">
           <p style={{ margin: 0 }}>Generado por Fiscora / ConSafeDev</p>
           <p style={{ margin: "4px 0 0" }}>No se almacena el XML fuente en este reporte.</p>
