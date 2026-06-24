@@ -13,6 +13,7 @@ import FindingGlossary from "./xml-audit/FindingGlossary";
 import RemediationPlan from "./xml-audit/RemediationPlan";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
+import ExecutiveSummaryActions from "./xml-audit/ExecutiveSummaryActions";
 import { exportXmlAuditHistoryCsv } from "./xml-audit-history/historyCsvExport";
 import PrintableHistoryDetailReport from "./xml-audit-history/PrintableHistoryDetailReport";
 
@@ -582,16 +583,24 @@ export default function XmlAuditHistoryPage() {
                     </div>
                   )}
 
-                  {detail.analysisJson?.findings && detail.analysisJson.findings.length > 0 && (
-                    <>
-                      <ActionableSummary findings={detail.analysisJson.findings} />
-                      <RiskScorePanel findings={detail.analysisJson.findings} />
-                      <CoverageConfidencePanel result={detail.analysisJson} />
-                      <FindingExplorer findings={detail.analysisJson.findings} compact />
-                      <RemediationPlan findings={detail.analysisJson.findings} compact />
-                      <FindingGlossary findings={detail.analysisJson.findings} compact />
-                    </>
-                  )}
+{detail.analysisJson?.findings && detail.analysisJson.findings.length > 0 && (
+                     <>
+                       <ActionableSummary findings={detail.analysisJson.findings} />
+                       <RiskScorePanel findings={detail.analysisJson.findings} />
+                       <CoverageConfidencePanel result={detail.analysisJson} />
+                       <FindingExplorer findings={detail.analysisJson.findings} compact />
+                       <RemediationPlan findings={detail.analysisJson.findings} compact />
+                       {detail.analysisJson && (
+                         <div className="flex justify-end">
+                           <ExecutiveSummaryActions
+                             mode="history-detail"
+                             result={detail.analysisJson}
+                           />
+                         </div>
+                       )}
+                       <FindingGlossary findings={detail.analysisJson.findings} compact />
+                     </>
+                   )}
 
                   {!detail.analysisJson?.findings?.length &&
                     detail.analysisStatus === "ANALYZED" && (

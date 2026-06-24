@@ -5,6 +5,7 @@ import FindingGlossary from "./FindingGlossary";
 import RemediationPlan from "./RemediationPlan";
 import RiskScorePanel from "./RiskScorePanel";
 import CoverageConfidencePanel from "./CoverageConfidencePanel";
+import ExecutiveSummaryActions from "./ExecutiveSummaryActions";
 
 interface MassiveDetailModalProps {
   selectedMassiveDetail: ZipFullAnalysisFileResult | null;
@@ -172,15 +173,18 @@ export default function MassiveDetailModal({
                 </div>
                 <RiskScorePanel findings={findings} compact />
                 <CoverageConfidencePanel result={sd.analysis} compact />
-                {findings.length > 0 ? (
-                  <FindingExplorer findings={findings} compact />
-                ) : (
-                  <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-4 py-3">
-                    No se detectaron hallazgos estructurados para este XML.
-                  </p>
-                )}
-                {findings.length > 0 && <RemediationPlan findings={findings} compact />}
-                {findings.length > 0 && <FindingGlossary findings={findings} compact />}
+{findings.length > 0 ? (
+                   <FindingExplorer findings={findings} compact />
+                 ) : (
+                   <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-4 py-3">
+                     No se detectaron hallazgos estructurados para este XML.
+                   </p>
+                 )}
+                 {findings.length > 0 && <RemediationPlan findings={findings} compact />}
+                 {findings.length > 0 && a && (
+                   <ExecutiveSummaryActions mode="individual" result={a} compact />
+                 )}
+                 {findings.length > 0 && <FindingGlossary findings={findings} compact />}
               </div>
 
               <div className="space-y-2">

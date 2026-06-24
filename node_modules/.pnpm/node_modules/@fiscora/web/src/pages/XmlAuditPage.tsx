@@ -28,11 +28,7 @@ import FindingExplorer from "./xml-audit/FindingExplorer";
 import RiskScorePanel from "./xml-audit/RiskScorePanel";
 import CoverageConfidencePanel from "./xml-audit/CoverageConfidencePanel";
 import RemediationPlan from "./xml-audit/RemediationPlan";
-import CopySummaryActions from "./xml-audit/CopySummaryActions";
-import {
-  buildIndividualExecutiveText,
-  buildSupportMessageFromAnalysis,
-} from "./xml-audit/shareSummary.helpers";
+import ExecutiveSummaryActions from "./xml-audit/ExecutiveSummaryActions";
 
 /* Todos los textos visibles deben guardarse en UTF-8. No pegar texto mojibake. */
 export default function XmlAuditPage() {
@@ -968,10 +964,9 @@ export default function XmlAuditPage() {
                     </div>
                     {result.findings && result.findings.length > 0 && (
                       <div className="flex justify-end mb-4">
-                        <CopySummaryActions
+                        <ExecutiveSummaryActions
                           mode="individual"
-                          generateSummaryText={() => buildIndividualExecutiveText(result)}
-                          generateSupportText={() => buildSupportMessageFromAnalysis(result)}
+                          result={result}
                         />
                       </div>
                     )}

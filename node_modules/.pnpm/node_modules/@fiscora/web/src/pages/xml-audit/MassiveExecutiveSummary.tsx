@@ -11,6 +11,7 @@ import {
   type PriorityCounts,
 } from "./massiveAggregates";
 import AggregateRemediationPlan from "./AggregateRemediationPlan";
+import ExecutiveSummaryActions from "./ExecutiveSummaryActions";
 
 interface MassiveExecutiveSummaryProps {
   fullAnalysisResult: ZipFullAnalysisResult;
@@ -163,17 +164,22 @@ export default function MassiveExecutiveSummary({
         </div>
       )}
 
-      {/* NEW SECTION: Remediation Plan */}
-      {remediationSources.length > 0 && (
-        <AggregateRemediationPlan
-          sources={remediationSources}
-          title="Plan de acción del ZIP"
-          onOpenSource={(fileId) => {
-            const file = fullAnalysisResult.results[parseInt(fileId, 10)];
-            if (file) onOpenDetail(file);
-          }}
-        />
-      )}
+{/* NEW SECTION: Remediation Plan */}
+       {remediationSources.length > 0 && (
+         <AggregateRemediationPlan
+           sources={remediationSources}
+           title="Plan de acción del ZIP"
+           onOpenSource={(fileId) => {
+             const file = fullAnalysisResult.results[parseInt(fileId, 10)];
+             if (file) onOpenDetail(file);
+           }}
+         />
+       )}
+
+       {/* Executive Summary Actions */}
+       <div className="flex justify-end">
+         <ExecutiveSummaryActions mode="zip" zipResult={fullAnalysisResult} />
+       </div>
 
       {topFindings.length > 0 && (
         <div className="p-4 rounded-xl border border-border bg-card space-y-3">
