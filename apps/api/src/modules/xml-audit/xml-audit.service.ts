@@ -2314,8 +2314,18 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
               (get(d, "pago20:ImpuestosDR") as Record<string, unknown>) ??
               (get(d, "ImpuestosDR") as Record<string, unknown>) ??
               {};
-            const trasladosDR = extractDrTaxEntries(rawImpuestosDR, "pago20:", "TrasladosDR", "TrasladoDR");
-            const retencionesDR = extractDrTaxEntries(rawImpuestosDR, "pago20:", "RetencionesDR", "RetencionDR");
+            const trasladosDR = extractDrTaxEntries(
+              rawImpuestosDR,
+              "pago20:",
+              "TrasladosDR",
+              "TrasladoDR",
+            );
+            const retencionesDR = extractDrTaxEntries(
+              rawImpuestosDR,
+              "pago20:",
+              "RetencionesDR",
+              "RetencionDR",
+            );
             const impuestosDR =
               trasladosDR.length > 0 || retencionesDR.length > 0
                 ? { trasladosDR, retencionesDR }
@@ -2357,12 +2367,16 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         totales = {
           montoTotalPagos: str(get(rawTotales, "@_MontoTotalPagos")) ?? undefined,
           totalTrasladosBaseIVA16: str(get(rawTotales, "@_TotalTrasladosBaseIVA16")) ?? undefined,
-          totalTrasladosImpuestoIVA16: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA16")) ?? undefined,
+          totalTrasladosImpuestoIVA16:
+            str(get(rawTotales, "@_TotalTrasladosImpuestoIVA16")) ?? undefined,
           totalTrasladosBaseIVA8: str(get(rawTotales, "@_TotalTrasladosBaseIVA8")) ?? undefined,
-          totalTrasladosImpuestoIVA8: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA8")) ?? undefined,
+          totalTrasladosImpuestoIVA8:
+            str(get(rawTotales, "@_TotalTrasladosImpuestoIVA8")) ?? undefined,
           totalTrasladosBaseIVA0: str(get(rawTotales, "@_TotalTrasladosBaseIVA0")) ?? undefined,
-          totalTrasladosImpuestoIVA0: str(get(rawTotales, "@_TotalTrasladosImpuestoIVA0")) ?? undefined,
-          totalTrasladosBaseIVAExento: str(get(rawTotales, "@_TotalTrasladosBaseIVAExento")) ?? undefined,
+          totalTrasladosImpuestoIVA0:
+            str(get(rawTotales, "@_TotalTrasladosImpuestoIVA0")) ?? undefined,
+          totalTrasladosBaseIVAExento:
+            str(get(rawTotales, "@_TotalTrasladosBaseIVAExento")) ?? undefined,
           totalRetencionesIVA: str(get(rawTotales, "@_TotalRetencionesIVA")) ?? undefined,
           totalRetencionesISR: str(get(rawTotales, "@_TotalRetencionesISR")) ?? undefined,
           totalRetencionesIEPS: str(get(rawTotales, "@_TotalRetencionesIEPS")) ?? undefined,
@@ -2742,7 +2756,13 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       const rawPercHeaderTotalJub = str(get(rawPercepcionesNode, "@_TotalJubilacionPensionRetiro"));
       const rawPercHeaderTotalGravado = str(get(rawPercepcionesNode, "@_TotalGravado"));
       const rawPercHeaderTotalExento = str(get(rawPercepcionesNode, "@_TotalExento"));
-      if (rawPercHeaderTotalSueldos || rawPercHeaderTotalSep || rawPercHeaderTotalJub || rawPercHeaderTotalGravado || rawPercHeaderTotalExento) {
+      if (
+        rawPercHeaderTotalSueldos ||
+        rawPercHeaderTotalSep ||
+        rawPercHeaderTotalJub ||
+        rawPercHeaderTotalGravado ||
+        rawPercHeaderTotalExento
+      ) {
         percepcionesHeader = {
           totalSueldos: rawPercHeaderTotalSueldos ?? null,
           totalSeparacionIndemnizacion: rawPercHeaderTotalSep ?? null,
@@ -2814,7 +2834,11 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             (get(o, "SubsidioAlEmpleo") as Record<string, unknown>) ??
             null;
           let subsidioAlEmpleo: { subsidioCausado?: string | null } | null = null;
-          if (subsidioNode && typeof subsidioNode === "object" && Object.keys(subsidioNode).length > 0) {
+          if (
+            subsidioNode &&
+            typeof subsidioNode === "object" &&
+            Object.keys(subsidioNode).length > 0
+          ) {
             subsidioAlEmpleo = {
               subsidioCausado: str(get(subsidioNode, "@_SubsidioCausado")) ?? null,
             };
@@ -2933,21 +2957,19 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
         (get(rawMercsNode, "Mercancia") as unknown);
       mercanciasNodes = Array.isArray(rawMer) ? rawMer : rawMer ? [rawMer] : [];
     }
-    const mercancias: CceMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map(
-      (m) => ({
-        noIdentificacion: str(get(m, "@_NoIdentificacion")) ?? null,
-        fraccionArancelaria: str(get(m, "@_FraccionArancelaria")) ?? null,
-        cantidadAduana: str(get(m, "@_CantidadAduana")) ?? null,
-        unidadAduana: str(get(m, "@_UnidadAduana")) ?? null,
-        valorUnitarioAduana: str(get(m, "@_ValorUnitarioAduana")) ?? null,
-        valorDolares: str(get(m, "@_ValorDolares")) ?? null,
-        marca: str(get(m, "@_Marca")) ?? null,
-        modelo: str(get(m, "@_Modelo")) ?? null,
-        subModelo: str(get(m, "@_SubModelo")) ?? null,
-        numeroSerie: str(get(m, "@_NumeroSerie")) ?? null,
-        descripcionesEspecificas: str(get(m, "@_DescripcionesEspecificas")) ?? null,
-      }),
-    );
+    const mercancias: CceMercancia[] = (mercanciasNodes as Record<string, unknown>[]).map((m) => ({
+      noIdentificacion: str(get(m, "@_NoIdentificacion")) ?? null,
+      fraccionArancelaria: str(get(m, "@_FraccionArancelaria")) ?? null,
+      cantidadAduana: str(get(m, "@_CantidadAduana")) ?? null,
+      unidadAduana: str(get(m, "@_UnidadAduana")) ?? null,
+      valorUnitarioAduana: str(get(m, "@_ValorUnitarioAduana")) ?? null,
+      valorDolares: str(get(m, "@_ValorDolares")) ?? null,
+      marca: str(get(m, "@_Marca")) ?? null,
+      modelo: str(get(m, "@_Modelo")) ?? null,
+      subModelo: str(get(m, "@_SubModelo")) ?? null,
+      numeroSerie: str(get(m, "@_NumeroSerie")) ?? null,
+      descripcionesEspecificas: str(get(m, "@_DescripcionesEspecificas")) ?? null,
+    }));
 
     comercioExterior = {
       version: str(get(comercioExteriorNode, "@_Version")) ?? null,
@@ -4603,7 +4625,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     certificado,
     diag,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
-      addFindingOnce({ severity, category: "TECHNICAL", code, title, message, recommendedAction, evidence });
+      addFindingOnce({
+        severity,
+        category: "TECHNICAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
     },
   });
 
@@ -5294,7 +5324,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     cfdiRelations: cfdiRelations ?? null,
     paymentComplement,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
-      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+      addFindingOnce({
+        severity,
+        category: "FISCAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
     },
   });
 
@@ -5315,7 +5353,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     lugarExpedicion,
     exportacion,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
-      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+      addFindingOnce({
+        severity,
+        category: "FISCAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
     },
   });
 
@@ -8473,7 +8519,9 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
             ? "TAX"
             : code.startsWith("CONCEPTS_TOTAL_") || code.startsWith("CFDI_WITHOUT_")
               ? "TOTALS"
-              : code.startsWith("CONCEPT_IMPORT_") || code.startsWith("CONCEPT_ZERO_IMPORT_") || code.startsWith("CONCEPT_ROUNDING_")
+              : code.startsWith("CONCEPT_IMPORT_") ||
+                  code.startsWith("CONCEPT_ZERO_IMPORT_") ||
+                  code.startsWith("CONCEPT_ROUNDING_")
                 ? "TAX"
                 : "FISCAL";
         addFindingOnce({
@@ -9524,7 +9572,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   // ── Cross-Module Consistency Validations ──
   const anyConceptHasTaxes = concepts ? concepts.some((c) => hasConceptTaxes(c)) : false;
-  const anyGlobalTaxes = !!(globalTaxes && (globalTaxes.transferred.length > 0 || globalTaxes.withheld.length > 0));
+  const anyGlobalTaxes = !!(
+    globalTaxes &&
+    (globalTaxes.transferred.length > 0 || globalTaxes.withheld.length > 0)
+  );
   const hasCriticalFindings = findings.some((f) => f.severity === "CRITICAL");
   const hasPaymentComplement = !!paymentComplement || knownComplements.includes("Pagos");
   const paymentDocumentsCount = paymentComplement
@@ -9555,11 +9606,21 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     knownComplements,
     unknownComplements,
     concepts: concepts ? concepts.map((c) => ({ objetoImp: c.objetoImp })) : null,
-    cartaPorteMercancias: cartaPorte?.mercancias?.map((m) => ({ bienesTransp: m.bienesTransp })) ?? null,
-    comercioExteriorMercancias: comercioExterior?.mercancias?.map((m) => ({ noIdentificacion: m.noIdentificacion })) ?? null,
+    cartaPorteMercancias:
+      cartaPorte?.mercancias?.map((m) => ({ bienesTransp: m.bienesTransp })) ?? null,
+    comercioExteriorMercancias:
+      comercioExterior?.mercancias?.map((m) => ({ noIdentificacion: m.noIdentificacion })) ?? null,
     hasCriticalFindings,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
-      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+      addFindingOnce({
+        severity,
+        category: "FISCAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
     },
   });
 
@@ -9584,7 +9645,15 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
     },
     concepts: concepts ? concepts.map((c) => ({ objetoImp: c.objetoImp })) : null,
     addFinding: (code, severity, title, message, recommendedAction, evidence) => {
-      addFindingOnce({ severity, category: "FISCAL", code, title, message, recommendedAction, evidence });
+      addFindingOnce({
+        severity,
+        category: "FISCAL",
+        code,
+        title,
+        message,
+        recommendedAction,
+        evidence,
+      });
     },
   });
 

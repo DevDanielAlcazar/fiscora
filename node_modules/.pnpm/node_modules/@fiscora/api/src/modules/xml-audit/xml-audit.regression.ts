@@ -11,8 +11,23 @@
  */
 
 import assert from "node:assert";
-import { analyzeCfdi, toAnalysisResponse, type CfdiAnalysisResult, type Finding, type NormalizedXml, getFindingPriority, getFindingActionGroup, sanitizeEvidenceValue, sanitizeFindingEvidence, sanitizeFinding, limitFindings } from "./xml-audit.service.js";
-import { type FindingLocation, type FindingValueTrace } from "./finding-evidence-location.helper.js";
+import {
+  analyzeCfdi,
+  toAnalysisResponse,
+  type CfdiAnalysisResult,
+  type Finding,
+  type NormalizedXml,
+  getFindingPriority,
+  getFindingActionGroup,
+  sanitizeEvidenceValue,
+  sanitizeFindingEvidence,
+  sanitizeFinding,
+  limitFindings,
+} from "./xml-audit.service.js";
+import {
+  type FindingLocation,
+  type FindingValueTrace,
+} from "./finding-evidence-location.helper.js";
 import { analyzeZipFull, generateNormalizedZip } from "./xml-zip-audit.service.js";
 import {
   getMetodoPagoLabel,
@@ -320,9 +335,7 @@ async function testNominaTotalGravadoMismatch(): Promise<void> {
 async function testNominaPercepcionSinTipoClave(): Promise<void> {
   const xml = buildNominaXml({
     totalPercepciones: "100.00",
-    percepciones: [
-      { tipo: "", clave: "", concepto: "Test", gravado: "100.00", exento: "0.00" },
-    ],
+    percepciones: [{ tipo: "", clave: "", concepto: "Test", gravado: "100.00", exento: "0.00" }],
   });
   const result = analyzeCfdi(xml, "nomina-percepcion-sin-tipo-clave.xml");
   assertIncludesFinding(result.findings, "NOMINA_PERCEPCION_MISSING_TIPO", "WARNING");
@@ -355,12 +368,14 @@ async function testNominaIsrSinTotalRetenidos(): Promise<void> {
     totalPercepciones: "1000.00",
     totalOtrosPagos: "0.00",
     deduccionesHeaderOtras: "30.00",
-    deducciones: [
-      { tipo: "001", clave: "D001", concepto: "ISR", importe: "30.00" },
-    ],
+    deducciones: [{ tipo: "001", clave: "D001", concepto: "ISR", importe: "30.00" }],
   });
   const result = analyzeCfdi(xml, "nomina-isr-sin-total-retenidos.xml");
-  assertIncludesFinding(result.findings, "NOMINA_ISR_WITHOUT_TOTAL_IMPUESTOS_RETENIDOS_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "NOMINA_ISR_WITHOUT_TOTAL_IMPUESTOS_RETENIDOS_REVIEW",
+    "WARNING",
+  );
 }
 
 // ET) OtrosPagos total mismatch
@@ -386,11 +401,21 @@ async function testNominaSubsidioSinTipo002(): Promise<void> {
     totalDeducciones: "0.00",
     totalOtrosPagos: "100.00",
     otrosPagos: [
-      { tipo: "001", clave: "OP001", concepto: "Subsidio", importe: "100.00", subsidioCausado: "50.00" },
+      {
+        tipo: "001",
+        clave: "OP001",
+        concepto: "Subsidio",
+        importe: "100.00",
+        subsidioCausado: "50.00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "nomina-subsidio-sin-002.xml");
-  assertIncludesFinding(result.findings, "NOMINA_SUBSIDIO_CAUSADO_WITHOUT_OTRO_PAGO_002_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "NOMINA_SUBSIDIO_CAUSADO_WITHOUT_OTRO_PAGO_002_REVIEW",
+    "WARNING",
+  );
 }
 
 // EV) CFDI Total nómina mismatch
@@ -515,7 +540,11 @@ async function testRepDocFieldsMissing(): Promise<void> {
   const result = analyzeCfdi(xml, "rep-doc-fields-missing.xml");
   assertIncludesFinding(result.findings, "RELATED_DOCUMENT_MISSING_UUID", "WARNING");
   assertIncludesFinding(result.findings, "RELATED_DOCUMENT_MISSING_MONEDA", "WARNING");
-  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_NUM_PARCIALIDAD_MISSING_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "RELATED_DOCUMENT_NUM_PARCIALIDAD_MISSING_REVIEW",
+    "WARNING",
+  );
   assertIncludesFinding(result.findings, "RELATED_DOCUMENT_PREVIOUS_BALANCE_MISSING", "WARNING");
   assertIncludesFinding(result.findings, "RELATED_DOCUMENT_PAID_AMOUNT_MISSING", "WARNING");
   assertIncludesFinding(result.findings, "RELATED_DOCUMENT_REMAINING_BALANCE_MISSING", "WARNING");
@@ -538,7 +567,11 @@ async function testRepNumParcialidadNonPositive(): Promise<void> {
     ],
   });
   const result = analyzeCfdi(xml, "rep-parcialidad-no-positivo.xml");
-  assertIncludesFinding(result.findings, "RELATED_DOCUMENT_NUM_PARCIALIDAD_NON_POSITIVE", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "RELATED_DOCUMENT_NUM_PARCIALIDAD_NON_POSITIVE",
+    "WARNING",
+  );
 }
 
 // EI) ObjetoImpDR and ImpuestosDR consistency
@@ -555,12 +588,24 @@ async function testRepObjetoImpDRConsistency(): Promise<void> {
         impPagado: "400.00",
         impSaldoInsoluto: "600.00",
         objetoImpDR: "01",
-        trasladosDR: [{ baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
+        trasladosDR: [
+          {
+            baseDR: "400.00",
+            impuestoDR: "002",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.160000",
+            importeDR: "64.00",
+          },
+        ],
       },
     ],
   });
   const result01 = analyzeCfdi(xml01, "rep-objimp-01-con-impuestos.xml");
-  assertIncludesFinding(result01.findings, "RELATED_DOCUMENT_OBJECT_IMP_01_WITH_TAXES_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result01.findings,
+    "RELATED_DOCUMENT_OBJECT_IMP_01_WITH_TAXES_REVIEW",
+    "WARNING",
+  );
 
   // 02 without DR taxes
   const xml02 = buildRepXml({
@@ -578,7 +623,11 @@ async function testRepObjetoImpDRConsistency(): Promise<void> {
     ],
   });
   const result02 = analyzeCfdi(xml02, "rep-objimp-02-sin-impuestos.xml");
-  assertIncludesFinding(result02.findings, "RELATED_DOCUMENT_OBJECT_IMP_02_WITHOUT_TAXES_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result02.findings,
+    "RELATED_DOCUMENT_OBJECT_IMP_02_WITHOUT_TAXES_REVIEW",
+    "WARNING",
+  );
 
   // 03 with tax importe > 0
   const xml03 = buildRepXml({
@@ -592,12 +641,24 @@ async function testRepObjetoImpDRConsistency(): Promise<void> {
         impPagado: "400.00",
         impSaldoInsoluto: "600.00",
         objetoImpDR: "03",
-        trasladosDR: [{ baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
+        trasladosDR: [
+          {
+            baseDR: "400.00",
+            impuestoDR: "002",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.160000",
+            importeDR: "64.00",
+          },
+        ],
       },
     ],
   });
   const result03 = analyzeCfdi(xml03, "rep-objimp-03-con-importe.xml");
-  assertIncludesFinding(result03.findings, "RELATED_DOCUMENT_OBJECT_IMP_03_WITH_TAX_AMOUNT_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result03.findings,
+    "RELATED_DOCUMENT_OBJECT_IMP_03_WITH_TAX_AMOUNT_REVIEW",
+    "WARNING",
+  );
 }
 
 // EJ) DR Tax base/rate/amount checks
@@ -617,15 +678,39 @@ async function testRepDrTaxChecks(): Promise<void> {
         // D2: rate mismatch (400*0.16=64 but importe is 60)
         // D6: exento with importe > 0
         trasladosDR: [
-          { baseDR: "0.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "10.00" },
-          { baseDR: "400.00", impuestoDR: "002", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "60.00" },
+          {
+            baseDR: "0.00",
+            impuestoDR: "002",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.160000",
+            importeDR: "10.00",
+          },
+          {
+            baseDR: "400.00",
+            impuestoDR: "002",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.160000",
+            importeDR: "60.00",
+          },
           { baseDR: "100.00", impuestoDR: "002", tipoFactorDR: "Exento", importeDR: "5.00" },
         ],
         // D3: missing impuesto, D4: missing factor, D5: tasa without rate
         retencionesDR: [
-          { baseDR: "400.00", impuestoDR: "", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.100000", importeDR: "40.00" },
+          {
+            baseDR: "400.00",
+            impuestoDR: "",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.100000",
+            importeDR: "40.00",
+          },
           { baseDR: "400.00", impuestoDR: "001", tipoFactorDR: "", importeDR: "40.00" },
-          { baseDR: "400.00", impuestoDR: "001", tipoFactorDR: "Tasa", tasaOCuotaDR: "", importeDR: "40.00" },
+          {
+            baseDR: "400.00",
+            impuestoDR: "001",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "",
+            importeDR: "40.00",
+          },
         ],
       },
     ],
@@ -656,7 +741,11 @@ async function testRepTotalesSinDrTaxes(): Promise<void> {
     ],
   });
   const result = analyzeCfdi(xml, "rep-totales-sin-dr-taxes.xml");
-  assertIncludesFinding(result.findings, "PAYMENT_TOTAL_TAXES_PRESENT_WITHOUT_RELATED_TAXES_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "PAYMENT_TOTAL_TAXES_PRESENT_WITHOUT_RELATED_TAXES_REVIEW",
+    "INFO",
+  );
 }
 
 // EL) Multiple pago-level validations
@@ -1293,7 +1382,9 @@ function buildRepXml(opts?: {
     .map((d) => {
       const objImpDR = d.objetoImpDR ?? "01";
       const docOpen = `        <pago20:DoctoRelacionado${d.idDocumento ? ` IdDocumento="${d.idDocumento}"` : ""} Serie="A" Folio="1"${d.monedaDR ? ` MonedaDR="${d.monedaDR}"` : ""}${d.equivalenciaDR ? ` EquivalenciaDR="${d.equivalenciaDR}"` : ""}${d.numParcialidad ? ` NumParcialidad="${d.numParcialidad}"` : ""}${d.impSaldoAnt ? ` ImpSaldoAnt="${d.impSaldoAnt}"` : ""}${d.impPagado ? ` ImpPagado="${d.impPagado}"` : ""}${d.impSaldoInsoluto ? ` ImpSaldoInsoluto="${d.impSaldoInsoluto}"` : ""} ObjetoImpDR="${objImpDR}"`;
-      const hasDrTaxes = (d.trasladosDR && d.trasladosDR.length > 0) || (d.retencionesDR && d.retencionesDR.length > 0);
+      const hasDrTaxes =
+        (d.trasladosDR && d.trasladosDR.length > 0) ||
+        (d.retencionesDR && d.retencionesDR.length > 0);
       if (hasDrTaxes) {
         const taxXml = buildDrTaxesXml(d.trasladosDR, d.retencionesDR);
         return `${docOpen}>\n${taxXml}\n        </pago20:DoctoRelacionado>`;
@@ -1784,9 +1875,13 @@ function buildCartaPorteXml(opts?: {
 
   const figurasXml = figurasTransporte
     ? `        <${cpNs}:FiguraTransporte>
-${figurasTransporte.map((fig) => `          <${cpNs}:TiposFigura TipoFigura="${fig.tipoFigura ?? "01"}">
+${figurasTransporte
+  .map(
+    (fig) => `          <${cpNs}:TiposFigura TipoFigura="${fig.tipoFigura ?? "01"}">
             <${cpNs}:PartesTransporte${fig.rfcFigura ? ` RFCFigura="${fig.rfcFigura}"` : ""}${fig.nombreFigura ? ` NombreFigura="${fig.nombreFigura}"` : ""}${fig.numLicencia ? ` NumLicencia="${fig.numLicencia}"` : ""}/>
-          </${cpNs}:TiposFigura>`).join("\n")}
+          </${cpNs}:TiposFigura>`,
+  )
+  .join("\n")}
         </${cpNs}:FiguraTransporte>`
     : "";
 
@@ -1894,7 +1989,15 @@ async function testCartaPorteMercanciaInvalida(): Promise<void> {
 // EW) Carta Porte single location (missing destino/origen)
 async function testCartaPorteSingleLocation(): Promise<void> {
   const xml = buildCartaPorteXml({
-    ubicaciones: [{ tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00" }],
+    ubicaciones: [
+      {
+        tipo: "Origen",
+        id: "OR001",
+        rfc: "EKU9003173C9",
+        nombre: "ORIGEN SA",
+        fecha: "2024-06-01T08:00:00",
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "carta-porte-single-location.xml");
 
@@ -1908,15 +2011,32 @@ async function testCartaPorteSingleLocation(): Promise<void> {
 async function testCartaPorteDestinoSinDistancia(): Promise<void> {
   const xml = buildCartaPorteXml({
     ubicaciones: [
-      { tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00", distancia: "0" },
-      { tipo: "Destino", id: "DE001", rfc: "EKU9003173C9", nombre: "DESTINO SA", fecha: "2024-06-01T18:00:00" },
+      {
+        tipo: "Origen",
+        id: "OR001",
+        rfc: "EKU9003173C9",
+        nombre: "ORIGEN SA",
+        fecha: "2024-06-01T08:00:00",
+        distancia: "0",
+      },
+      {
+        tipo: "Destino",
+        id: "DE001",
+        rfc: "EKU9003173C9",
+        nombre: "DESTINO SA",
+        fecha: "2024-06-01T18:00:00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "carta-porte-destino-sin-distancia.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA");
   const finding = result.findings.find((f) => f.code === "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA debe ser WARNING");
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA debe ser WARNING",
+  );
 }
 
 // EY) Carta Porte TotalDistRec mismatch
@@ -1924,8 +2044,21 @@ async function testCartaPorteTotalDistRecMismatch(): Promise<void> {
   const xml = buildCartaPorteXml({
     totalDistRec: "500.00",
     ubicaciones: [
-      { tipo: "Origen", id: "OR001", rfc: "EKU9003173C9", nombre: "ORIGEN SA", fecha: "2024-06-01T08:00:00" },
-      { tipo: "Destino", id: "DE001", rfc: "EKU9003173C9", nombre: "DESTINO SA", fecha: "2024-06-01T18:00:00", distancia: "300.00" },
+      {
+        tipo: "Origen",
+        id: "OR001",
+        rfc: "EKU9003173C9",
+        nombre: "ORIGEN SA",
+        fecha: "2024-06-01T08:00:00",
+      },
+      {
+        tipo: "Destino",
+        id: "DE001",
+        rfc: "EKU9003173C9",
+        nombre: "DESTINO SA",
+        fecha: "2024-06-01T18:00:00",
+        distancia: "300.00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "carta-porte-total-dist-mismatch.xml");
@@ -1940,15 +2073,33 @@ async function testCartaPorteNumTotalMercanciasMismatch(): Promise<void> {
   const xml = buildCartaPorteXml({
     numTotalMercancias: "3",
     mercancias: [
-      { bienesTransp: "12101500", descripcion: "Material", cantidad: "10", claveUnidad: "KGM", pesoEnKg: "100.00" },
-      { bienesTransp: "12101600", descripcion: "Otro", cantidad: "5", claveUnidad: "KGM", pesoEnKg: "50.00" },
+      {
+        bienesTransp: "12101500",
+        descripcion: "Material",
+        cantidad: "10",
+        claveUnidad: "KGM",
+        pesoEnKg: "100.00",
+      },
+      {
+        bienesTransp: "12101600",
+        descripcion: "Otro",
+        cantidad: "5",
+        claveUnidad: "KGM",
+        pesoEnKg: "50.00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "carta-porte-num-total-merc-mismatch.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH");
-  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_NUM_TOTAL_MERCANCIAS_MISMATCH debe ser WARNING",
+  );
 }
 
 // FA) Carta Porte PesoBrutoTotal mismatch
@@ -1956,15 +2107,31 @@ async function testCartaPortePesoBrutoTotalMismatch(): Promise<void> {
   const xml = buildCartaPorteXml({
     pesoBrutoTotal: "100.00",
     mercancias: [
-      { bienesTransp: "12101500", descripcion: "Material", cantidad: "1", claveUnidad: "KGM", pesoEnKg: "30.00" },
-      { bienesTransp: "12101600", descripcion: "Otro", cantidad: "1", claveUnidad: "KGM", pesoEnKg: "20.00" },
+      {
+        bienesTransp: "12101500",
+        descripcion: "Material",
+        cantidad: "1",
+        claveUnidad: "KGM",
+        pesoEnKg: "30.00",
+      },
+      {
+        bienesTransp: "12101600",
+        descripcion: "Otro",
+        cantidad: "1",
+        claveUnidad: "KGM",
+        pesoEnKg: "20.00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "carta-porte-peso-bruto-mismatch.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH");
   const finding = result.findings.find((f) => f.code === "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH debe ser WARNING");
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_PESO_BRUTO_TOTAL_MISMATCH debe ser WARNING",
+  );
 }
 
 // FB) Carta Porte mercancía sin ClaveUnidad
@@ -1977,25 +2144,50 @@ async function testCartaPorteMercanciaSinClaveUnidad(): Promise<void> {
   const result = analyzeCfdi(xml, "carta-porte-merc-sin-clave-unidad.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD");
-  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_MERCANCIA_MISSING_CLAVE_UNIDAD debe ser WARNING",
+  );
 }
 
 // FC) Carta Porte material peligroso sin clave/embalaje
 async function testCartaPorteMaterialPeligrosoSinClaveEmbalaje(): Promise<void> {
   const xml = buildCartaPorteXml({
     mercancias: [
-      { bienesTransp: "12101500", descripcion: "Material", cantidad: "10", claveUnidad: "KGM", pesoEnKg: "100.00", materialPeligroso: "Sí" },
+      {
+        bienesTransp: "12101500",
+        descripcion: "Material",
+        cantidad: "10",
+        claveUnidad: "KGM",
+        pesoEnKg: "100.00",
+        materialPeligroso: "Sí",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "carta-porte-mat-peligroso-sin-clave-embalaje.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE");
   assertIncludesFinding(result.findings, "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE");
-  const cFinding = result.findings.find((f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE")!;
-  assertEqual(cFinding.severity, "WARNING", "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE debe ser WARNING");
-  const eFinding = result.findings.find((f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE")!;
-  assertEqual(eFinding.severity, "WARNING", "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE debe ser WARNING");
+  const cFinding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE",
+  )!;
+  assertEqual(
+    cFinding.severity,
+    "WARNING",
+    "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_CLAVE debe ser WARNING",
+  );
+  const eFinding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE",
+  )!;
+  assertEqual(
+    eFinding.severity,
+    "WARNING",
+    "CARTA_PORTE_MATERIAL_PELIGROSO_WITHOUT_EMBALAJE debe ser WARNING",
+  );
 }
 
 // FD) Carta Porte autotransporte sin permiso/vehículo/seguro
@@ -2006,12 +2198,30 @@ async function testCartaPorteAutotransporteSinPermisoVehiculoSeguro(): Promise<v
   assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO");
   assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO");
   assertIncludesFinding(result.findings, "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC");
-  const pFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO")!;
-  assertEqual(pFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO debe ser WARNING");
-  const vFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO")!;
-  assertEqual(vFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO debe ser WARNING");
-  const sFinding = result.findings.find((f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC")!;
-  assertEqual(sFinding.severity, "WARNING", "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC debe ser WARNING");
+  const pFinding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO",
+  )!;
+  assertEqual(
+    pFinding.severity,
+    "WARNING",
+    "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO debe ser WARNING",
+  );
+  const vFinding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO",
+  )!;
+  assertEqual(
+    vFinding.severity,
+    "WARNING",
+    "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_VEHICULO debe ser WARNING",
+  );
+  const sFinding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC",
+  )!;
+  assertEqual(
+    sFinding.severity,
+    "WARNING",
+    "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_SEGURO_RC debe ser WARNING",
+  );
 }
 
 // FE) Carta Porte operador sin licencia
@@ -2025,7 +2235,11 @@ async function testCartaPorteOperadorSinLicencia(): Promise<void> {
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA");
   const finding = result.findings.find((f) => f.code === "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA debe ser WARNING");
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_OPERADOR_WITHOUT_LICENCIA debe ser WARNING",
+  );
 }
 
 // FF) Carta Porte internacional sin país/vía
@@ -2037,8 +2251,14 @@ async function testCartaPorteInternacionalSinPaisVia(): Promise<void> {
   const result = analyzeCfdi(xml, "carta-porte-internacional-sin-pais-via.xml");
 
   assertIncludesFinding(result.findings, "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA");
-  const finding = result.findings.find((f) => f.code === "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA")!;
-  assertEqual(finding.severity, "WARNING", "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA debe ser WARNING",
+  );
 }
 
 // ─── Nomina fixtures ───────────────────────────────────────────────────────────
@@ -2099,7 +2319,8 @@ function buildNominaXml(opts?: {
   const version = opts?.version ?? "1.2";
   const tipoNomina = opts?.tipoNomina ?? "O";
   const fechaPago = opts?.fechaPago !== undefined ? opts.fechaPago : "2024-07-15";
-  const fechaInicialPago = opts?.fechaInicialPago !== undefined ? opts.fechaInicialPago : "2024-07-01";
+  const fechaInicialPago =
+    opts?.fechaInicialPago !== undefined ? opts.fechaInicialPago : "2024-07-01";
   const fechaFinalPago = opts?.fechaFinalPago !== undefined ? opts.fechaFinalPago : "2024-07-15";
   const numDiasPagados = opts?.numDiasPagados !== undefined ? opts.numDiasPagados : "15";
   const totalPercepciones = opts?.totalPercepciones ?? "15000.00";
@@ -2112,12 +2333,15 @@ function buildNominaXml(opts?: {
   const puesto = opts?.receptorPuesto !== undefined ? opts.receptorPuesto : "ANALISTA";
   const tipoContrato = opts?.receptorTipoContrato !== undefined ? opts.receptorTipoContrato : "01";
   const tipoRegimen = opts?.receptorTipoRegimen !== undefined ? opts.receptorTipoRegimen : "02";
-  const periodicidad = opts?.receptorPeriodicidadPago !== undefined ? opts.receptorPeriodicidadPago : "02";
+  const periodicidad =
+    opts?.receptorPeriodicidadPago !== undefined ? opts.receptorPeriodicidadPago : "02";
   const salBase = opts?.receptorSalarioBase !== undefined ? opts.receptorSalarioBase : "500.00";
-  const salDiario = opts?.receptorSalarioDiario !== undefined ? opts.receptorSalarioDiario : "520.00";
+  const salDiario =
+    opts?.receptorSalarioDiario !== undefined ? opts.receptorSalarioDiario : "520.00";
   const claveEdofed = opts?.receptorClaveEntFed !== undefined ? opts.receptorClaveEntFed : "CDMX";
   const banco = opts?.receptorBanco !== undefined ? opts.receptorBanco : "";
-  const cuentaBancaria = opts?.receptorCuentaBancaria !== undefined ? opts.receptorCuentaBancaria : "";
+  const cuentaBancaria =
+    opts?.receptorCuentaBancaria !== undefined ? opts.receptorCuentaBancaria : "";
   const percHeaderGravado = opts?.percepcionesHeaderGravado;
   const percHeaderExento = opts?.percepcionesHeaderExento;
   const dedHeaderOtras = opts?.deduccionesHeaderOtras;
@@ -2163,12 +2387,14 @@ ${dedList.map((d) => `          <nomina12:Deduccion${d.tipo ? ` TipoDeduccion="$
   const otrosPagosXml =
     opList.length > 0
       ? `        <nomina12:OtrosPagos>
-${opList.map((o) => {
-  const subsidioXml = o.subsidioCausado
-    ? `\n            <nomina12:SubsidioAlEmpleo SubsidioCausado="${o.subsidioCausado}"/>`
-    : "";
-  return `          <nomina12:OtroPago${o.tipo ? ` TipoOtroPago="${o.tipo}"` : ""}${o.clave ? ` Clave="${o.clave}"` : ""}${o.concepto ? ` Concepto="${o.concepto}"` : ""}${o.importe ? ` Importe="${o.importe}"` : ""}>${subsidioXml}\n          </nomina12:OtroPago>`;
-}).join("\n")}
+${opList
+  .map((o) => {
+    const subsidioXml = o.subsidioCausado
+      ? `\n            <nomina12:SubsidioAlEmpleo SubsidioCausado="${o.subsidioCausado}"/>`
+      : "";
+    return `          <nomina12:OtroPago${o.tipo ? ` TipoOtroPago="${o.tipo}"` : ""}${o.clave ? ` Clave="${o.clave}"` : ""}${o.concepto ? ` Concepto="${o.concepto}"` : ""}${o.importe ? ` Importe="${o.importe}"` : ""}>${subsidioXml}\n          </nomina12:OtroPago>`;
+  })
+  .join("\n")}
         </nomina12:OtrosPagos>`
       : "";
 
@@ -3624,27 +3850,38 @@ function buildComercioExteriorXml(opts?: {
   const conceptNoIdentificacion = opts?.conceptNoIdentificacion ?? "001";
 
   // Mercancias XML
-  const mercanciasData = opts?.mercancias ?? (omitirMercancias ? [] : [
-    {
-      noIdentificacion: "001",
-      fraccionArancelaria: "01010101",
-      cantidadAduana: "1",
-      unidadAduana: "PZA",
-      valorUnitarioAduana: "1000.00",
-      valorDolares: "1000.00",
-    },
-  ]);
-  const mercanciasXml = mercanciasData.length > 0
-    ? `\n        <cce11:Mercancias>\n${mercanciasData.map((m) => {
-        const ni = m.noIdentificacion ? ` NoIdentificacion="${m.noIdentificacion}"` : "";
-        const fa = m.fraccionArancelaria ? ` FraccionArancelaria="${m.fraccionArancelaria}"` : "";
-        const ca = m.cantidadAduana ? ` CantidadAduana="${m.cantidadAduana}"` : "";
-        const ua = m.unidadAduana ? ` UnidadAduana="${m.unidadAduana}"` : "";
-        const vua = m.valorUnitarioAduana ? ` ValorUnitarioAduana="${m.valorUnitarioAduana}"` : "";
-        const vd = m.valorDolares ? ` ValorDolares="${m.valorDolares}"` : "";
-        return `          <cce11:Mercancia${ni}${fa}${ca}${ua}${vua}${vd}/>`;
-      }).join("\n")}\n        </cce11:Mercancias>`
-    : "";
+  const mercanciasData =
+    opts?.mercancias ??
+    (omitirMercancias
+      ? []
+      : [
+          {
+            noIdentificacion: "001",
+            fraccionArancelaria: "01010101",
+            cantidadAduana: "1",
+            unidadAduana: "PZA",
+            valorUnitarioAduana: "1000.00",
+            valorDolares: "1000.00",
+          },
+        ]);
+  const mercanciasXml =
+    mercanciasData.length > 0
+      ? `\n        <cce11:Mercancias>\n${mercanciasData
+          .map((m) => {
+            const ni = m.noIdentificacion ? ` NoIdentificacion="${m.noIdentificacion}"` : "";
+            const fa = m.fraccionArancelaria
+              ? ` FraccionArancelaria="${m.fraccionArancelaria}"`
+              : "";
+            const ca = m.cantidadAduana ? ` CantidadAduana="${m.cantidadAduana}"` : "";
+            const ua = m.unidadAduana ? ` UnidadAduana="${m.unidadAduana}"` : "";
+            const vua = m.valorUnitarioAduana
+              ? ` ValorUnitarioAduana="${m.valorUnitarioAduana}"`
+              : "";
+            const vd = m.valorDolares ? ` ValorDolares="${m.valorDolares}"` : "";
+            return `          <cce11:Mercancia${ni}${fa}${ca}${ua}${vua}${vd}/>`;
+          })
+          .join("\n")}\n        </cce11:Mercancias>`
+      : "";
 
   // Receptor CCE XML
   const receptorCceXml = omitirReceptorCce
@@ -3751,9 +3988,19 @@ async function testCceSinTipoCambioTotalUsd(): Promise<void> {
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_MISSING");
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING");
   const tuFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_MISSING")!;
-  assertEqual(tuFinding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_MISSING debe ser WARNING");
-  const tcFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING")!;
-  assertEqual(tcFinding.severity, "WARNING", "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING debe ser WARNING");
+  assertEqual(
+    tuFinding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_TOTAL_USD_MISSING debe ser WARNING",
+  );
+  const tcFinding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING",
+  )!;
+  assertEqual(
+    tcFinding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_TIPO_CAMBIO_USD_MISSING debe ser WARNING",
+  );
 }
 
 // FH) CertificadoOrigen 1 sin NumCertificadoOrigen
@@ -3762,8 +4009,14 @@ async function testCceCertOrigen1SinNumCert(): Promise<void> {
   const result = analyzeCfdi(xml, "cce-cert-origen-1-sin-num.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT")!;
-  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_CERT_ORIGEN_1_WITHOUT_NUM_CERT debe ser WARNING",
+  );
 }
 
 // FI) Receptor sin ResidenciaFiscal/NumRegIdTrib
@@ -3773,10 +4026,22 @@ async function testCceReceptorSinResidenciaNumReg(): Promise<void> {
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL");
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB");
-  const rfFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL")!;
-  assertEqual(rfFinding.severity, "WARNING", "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL debe ser WARNING");
-  const nrFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB")!;
-  assertEqual(nrFinding.severity, "WARNING", "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB debe ser WARNING");
+  const rfFinding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL",
+  )!;
+  assertEqual(
+    rfFinding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_RECEPTOR_MISSING_RESIDENCIA_FISCAL debe ser WARNING",
+  );
+  const nrFinding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB",
+  )!;
+  assertEqual(
+    nrFinding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_RECEPTOR_MISSING_NUM_REG_ID_TRIB debe ser WARNING",
+  );
 }
 
 // FJ) Sin mercancías
@@ -3797,48 +4062,73 @@ async function testCceMercanciaSinCamposRequeridos(): Promise<void> {
   const result = analyzeCfdi(xml, "cce-mercancia-sin-campos.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION");
-  assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_FRACCION_ARANCELARIA");
+  assertIncludesFinding(
+    result.findings,
+    "COMERCIO_EXTERIOR_MERCANCIA_MISSING_FRACCION_ARANCELARIA",
+  );
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_MISSING_UNIDAD_ADUANA");
-  const niFinding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION")!;
-  assertEqual(niFinding.severity, "WARNING", "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION debe ser WARNING");
+  const niFinding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION",
+  )!;
+  assertEqual(
+    niFinding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_MERCANCIA_MISSING_NO_IDENTIFICACION debe ser WARNING",
+  );
 }
 
 // FL) Fracción arancelaria formato inválido
 async function testCceFraccionFormatoInvalido(): Promise<void> {
   const xml = buildComercioExteriorXml({
-    mercancias: [{
-      noIdentificacion: "001",
-      fraccionArancelaria: "ABC123",
-      cantidadAduana: "1",
-      unidadAduana: "PZA",
-      valorUnitarioAduana: "100.00",
-      valorDolares: "100.00",
-    }],
+    mercancias: [
+      {
+        noIdentificacion: "001",
+        fraccionArancelaria: "ABC123",
+        cantidadAduana: "1",
+        unidadAduana: "PZA",
+        valorUnitarioAduana: "100.00",
+        valorDolares: "100.00",
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "cce-fraccion-formato-invalido.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW")!;
-  assertEqual(finding.severity, "INFO", "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW debe ser INFO");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW",
+  )!;
+  assertEqual(
+    finding.severity,
+    "INFO",
+    "COMERCIO_EXTERIOR_MERCANCIA_FRACCION_FORMAT_REVIEW debe ser INFO",
+  );
 }
 
 // FM) ValorDolares mismatch
 async function testCceValorDolaresMismatch(): Promise<void> {
   const xml = buildComercioExteriorXml({
-    mercancias: [{
-      noIdentificacion: "001",
-      fraccionArancelaria: "01010101",
-      cantidadAduana: "10",
-      unidadAduana: "PZA",
-      valorUnitarioAduana: "5.00",
-      valorDolares: "30.00",
-    }],
+    mercancias: [
+      {
+        noIdentificacion: "001",
+        fraccionArancelaria: "01010101",
+        cantidadAduana: "10",
+        unidadAduana: "PZA",
+        valorUnitarioAduana: "5.00",
+        valorDolares: "30.00",
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "cce-valor-dolares-mismatch.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH")!;
-  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_MERCANCIA_VALOR_DOLARES_MISMATCH debe ser WARNING",
+  );
 }
 
 // FN) TotalUSD vs suma mercancías mismatch
@@ -3846,15 +4136,35 @@ async function testCceTotalUsdMercanciasMismatch(): Promise<void> {
   const xml = buildComercioExteriorXml({
     totalUSD: "100.00",
     mercancias: [
-      { noIdentificacion: "001", fraccionArancelaria: "01010101", cantidadAduana: "1", unidadAduana: "PZA", valorUnitarioAduana: "50.00", valorDolares: "50.00" },
-      { noIdentificacion: "002", fraccionArancelaria: "01010102", cantidadAduana: "1", unidadAduana: "PZA", valorUnitarioAduana: "30.00", valorDolares: "30.00" },
+      {
+        noIdentificacion: "001",
+        fraccionArancelaria: "01010101",
+        cantidadAduana: "1",
+        unidadAduana: "PZA",
+        valorUnitarioAduana: "50.00",
+        valorDolares: "50.00",
+      },
+      {
+        noIdentificacion: "002",
+        fraccionArancelaria: "01010102",
+        cantidadAduana: "1",
+        unidadAduana: "PZA",
+        valorUnitarioAduana: "30.00",
+        valorDolares: "30.00",
+      },
     ],
   });
   const result = analyzeCfdi(xml, "cce-total-usd-merc-mismatch.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH")!;
-  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH debe ser WARNING",
+  );
 }
 
 // FO) CCE con Exportacion distinta de 02
@@ -3863,8 +4173,14 @@ async function testCceSinExportacion02(): Promise<void> {
   const result = analyzeCfdi(xml, "cce-sin-exportacion-02.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW")!;
-  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_WITHOUT_EXPORTACION_02_REVIEW debe ser WARNING",
+  );
 }
 
 // FP) Moneda USD TotalUSD vs Total CFDI mismatch
@@ -3878,8 +4194,14 @@ async function testCceTotalUsdVsCfdiTotalMismatch(): Promise<void> {
   const result = analyzeCfdi(xml, "cce-total-usd-vs-cfdi-total-mismatch.xml");
 
   assertIncludesFinding(result.findings, "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW");
-  const finding = result.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW")!;
-  assertEqual(finding.severity, "WARNING", "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW debe ser WARNING");
+  const finding = result.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW",
+  )!;
+  assertEqual(
+    finding.severity,
+    "WARNING",
+    "COMERCIO_EXTERIOR_TOTAL_USD_VS_CFDI_TOTAL_REVIEW debe ser WARNING",
+  );
 }
 
 // FQ) Retenciones lugarExpRetenc faltante
@@ -4831,7 +5153,10 @@ async function testAnalysisMetaNoContenidoSensible(): Promise<void> {
 
 // GA) TipoComprobante desconocido
 async function testCatTipoComprobanteUnknown(): Promise<void> {
-  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('TipoDeComprobante="I"', 'TipoDeComprobante="X"');
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace(
+    'TipoDeComprobante="I"',
+    'TipoDeComprobante="X"',
+  );
   const result = analyzeCfdi(xml, "cat-tipo-comprobante-unknown.xml");
   assertIncludesFinding(result.findings, "CATALOG_TIPO_COMPROBANTE_UNKNOWN_REVIEW");
   const f = result.findings.find((x) => x.code === "CATALOG_TIPO_COMPROBANTE_UNKNOWN_REVIEW")!;
@@ -4840,7 +5165,10 @@ async function testCatTipoComprobanteUnknown(): Promise<void> {
 
 // GB) Exportacion desconocida
 async function testCatExportacionUnknown(): Promise<void> {
-  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('Exportacion="01"', 'Exportacion="99"');
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace(
+    'Exportacion="01"',
+    'Exportacion="99"',
+  );
   const result = analyzeCfdi(xml, "cat-exportacion-unknown.xml");
   assertIncludesFinding(result.findings, "CATALOG_EXPORTACION_UNKNOWN_REVIEW");
   const f = result.findings.find((x) => x.code === "CATALOG_EXPORTACION_UNKNOWN_REVIEW")!;
@@ -4849,7 +5177,10 @@ async function testCatExportacionUnknown(): Promise<void> {
 
 // GC) MetodoPago desconocido
 async function testCatMetodoPagoUnknown(): Promise<void> {
-  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace('MetodoPago="PPD"', 'MetodoPago="ABC"');
+  const xml = buildCfdi40Ingreso({ total: "1160.00", subtotal: "1000.00" }).replace(
+    'MetodoPago="PPD"',
+    'MetodoPago="ABC"',
+  );
   const result = analyzeCfdi(xml, "cat-metodo-pago-unknown.xml");
   assertIncludesFinding(result.findings, "CATALOG_METODO_PAGO_UNKNOWN_REVIEW");
   const f = result.findings.find((x) => x.code === "CATALOG_METODO_PAGO_UNKNOWN_REVIEW")!;
@@ -4870,7 +5201,15 @@ async function testCatConceptTaxUnknown(): Promise<void> {
   const xml = buildConceptTaxXml({
     objetoImp: "02",
     importe: "1000.00",
-    traslados: [{ base: "1000.00", impuesto: "999", tipoFactor: "Raro", tasaOCuota: "0.160000", importe: "160.00" }],
+    traslados: [
+      {
+        base: "1000.00",
+        impuesto: "999",
+        tipoFactor: "Raro",
+        tasaOCuota: "0.160000",
+        importe: "160.00",
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "cat-concept-tax-unknown.xml");
   assertIncludesFinding(result.findings, "CATALOG_CONCEPT_TAX_IMPUESTO_UNKNOWN_REVIEW");
@@ -4897,16 +5236,26 @@ async function testCatPagoFormaMonedaUnknown(): Promise<void> {
 // GH) DR ObjetoImpDR/ImpuestoDR desconocidos
 async function testCatDrObjetoImpImpuestoUnknown(): Promise<void> {
   const xml = buildRepXml({
-    docs: [{
-      monedaDR: "MXN",
-      equivalenciaDR: "1",
-      numParcialidad: "1",
-      impSaldoAnt: "1000.00",
-      impPagado: "400.00",
-      impSaldoInsoluto: "600.00",
-      objetoImpDR: "99",
-      trasladosDR: [{ baseDR: "400.00", impuestoDR: "999", tipoFactorDR: "Tasa", tasaOCuotaDR: "0.160000", importeDR: "64.00" }],
-    }],
+    docs: [
+      {
+        monedaDR: "MXN",
+        equivalenciaDR: "1",
+        numParcialidad: "1",
+        impSaldoAnt: "1000.00",
+        impPagado: "400.00",
+        impSaldoInsoluto: "600.00",
+        objetoImpDR: "99",
+        trasladosDR: [
+          {
+            baseDR: "400.00",
+            impuestoDR: "999",
+            tipoFactorDR: "Tasa",
+            tasaOCuotaDR: "0.160000",
+            importeDR: "64.00",
+          },
+        ],
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "cat-dr-objeto-imp-impuesto-unknown.xml");
   assertIncludesFinding(result.findings, "CATALOG_RELATED_DOCUMENT_OBJETO_IMP_UNKNOWN_REVIEW");
@@ -5447,7 +5796,11 @@ async function testDiscountNegative(): Promise<void> {
 async function testDiscountWithoutGlobal(): Promise<void> {
   const xml = buildDiscountWithoutGlobalXml();
   const result = analyzeCfdi(xml, "discount-without-global.xml");
-  assertIncludesFinding(result.findings, "CONCEPT_DISCOUNT_WITHOUT_GLOBAL_DISCOUNT_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "CONCEPT_DISCOUNT_WITHOUT_GLOBAL_DISCOUNT_REVIEW",
+    "WARNING",
+  );
 }
 
 async function testGlobalDiscountMismatch(): Promise<void> {
@@ -5600,7 +5953,11 @@ function buildHhFechaTimbradoFarAfterXml(): string {
 async function testHhFechaTimbradoFarAfter(): Promise<void> {
   const xml = buildHhFechaTimbradoFarAfterXml();
   const result = analyzeCfdi(xml, "hh-fecha-timbrado-far-after.xml");
-  assertIncludesFinding(result.findings, "TFD_FECHA_TIMBRADO_TOO_FAR_AFTER_FECHA_CFDI_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "TFD_FECHA_TIMBRADO_TOO_FAR_AFTER_FECHA_CFDI_REVIEW",
+    "INFO",
+  );
 }
 
 function buildHiRfcProvCertifInvalidXml(): string {
@@ -5662,7 +6019,11 @@ function buildHjSelloCfdDiffersXml(): string {
 async function testHjSelloCfdDiffers(): Promise<void> {
   const xml = buildHjSelloCfdDiffersXml();
   const result = analyzeCfdi(xml, "hj-sello-cfd-differs.xml");
-  assertIncludesFinding(result.findings, "TFD_SELLO_CFD_DIFFERS_FROM_COMPROBANTE_SELLO_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "TFD_SELLO_CFD_DIFFERS_FROM_COMPROBANTE_SELLO_REVIEW",
+    "WARNING",
+  );
 }
 
 function buildHkSelloTooShortXml(): string {
@@ -5810,7 +6171,9 @@ function buildRelBase(opts: {
   const tipo = opts.tipo ?? "I";
   const uuid = opts.uuid ?? "ho-00000000-0000-0000-0000-000000000000";
   const relaciones = opts.relaciones ?? "";
-  const complemento = opts.complemento ?? `<tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="${uuid}" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>`;
+  const complemento =
+    opts.complemento ??
+    `<tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="1.1" UUID="${uuid}" FechaTimbrado="2024-01-15T12:30:00" RfcProvCertif="SAT970701NN3" SelloCFD="abc" SelloSAT="def" NoCertificadoSAT="00001000000500000000"/>`;
   const sello = opts.sello ?? "";
   const certificado = opts.certificado ?? "certificadoBase64Placeholder";
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -5901,7 +6264,11 @@ async function testHtTipo04MultipleUuids(): Promise<void> {
     </cfdi:CfdiRelacionados>`,
   });
   const result = analyzeCfdi(xml, "ht-tipo04-multiple-uuids.xml");
-  assertIncludesFinding(result.findings, "SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "SUBSTITUTION_RELATION_WITH_MULTIPLE_UUIDS_REVIEW",
+    "INFO",
+  );
 }
 
 // HU) Pago sin DoctoRelacionado pero con CfdiRelacionados
@@ -5929,7 +6296,11 @@ function buildHuPagoSinDocConRelXml(): string {
 async function testHuPagoSinDocConRel(): Promise<void> {
   const xml = buildHuPagoSinDocConRelXml();
   const result = analyzeCfdi(xml, "hu-pago-sin-doc-con-rel.xml");
-  assertIncludesFinding(result.findings, "PAYMENT_WITHOUT_RELATED_DOCUMENTS_BUT_CFDI_RELACIONADOS_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "PAYMENT_WITHOUT_RELATED_DOCUMENTS_BUT_CFDI_RELACIONADOS_REVIEW",
+    "WARNING",
+  );
 }
 
 // HV) Pago con DoctoRelacionado repetido en CfdiRelacionados
@@ -5960,7 +6331,11 @@ function buildHvPagoDocDuplicadoEnRelXml(): string {
 async function testHvPagoDocDuplicadoEnRel(): Promise<void> {
   const xml = buildHvPagoDocDuplicadoEnRelXml();
   const result = analyzeCfdi(xml, "hv-pago-doc-duplicado-en-rel.xml");
-  assertIncludesFinding(result.findings, "PAYMENT_DOC_RELATED_UUID_DUPLICATED_IN_CFDI_RELACIONADOS_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "PAYMENT_DOC_RELATED_UUID_DUPLICATED_IN_CFDI_RELACIONADOS_REVIEW",
+    "INFO",
+  );
 }
 
 // HW) Más de 20 UUIDs en un grupo
@@ -5968,7 +6343,9 @@ function buildHwTooManyUuidsXml(): string {
   const items: string[] = [];
   for (let i = 1; i <= 21; i++) {
     const hex = i.toString(16).padStart(2, "0");
-    items.push(`      <cfdi:CfdiRelacionado UUID="hw-${hex}000000-0000-0000-0000-${hex}0000000000${hex}"/>`);
+    items.push(
+      `      <cfdi:CfdiRelacionado UUID="hw-${hex}000000-0000-0000-0000-${hex}0000000000${hex}"/>`,
+    );
   }
   return buildRelBase({
     relaciones: `<cfdi:CfdiRelacionados TipoRelacion="01">
@@ -6177,14 +6554,26 @@ async function testIaReceptorRfcInvalid(): Promise<void> {
 async function testIbGenericForeignSinResidenciaNumReg(): Promise<void> {
   const xml = buildIbGenericForeignSinResidenciaXml();
   const result = analyzeCfdi(xml, "ib-generic-foreign-sin-residencia-numreg.xml");
-  assertIncludesFinding(result.findings, "RECEPTOR_GENERIC_FOREIGN_WITHOUT_RESIDENCIA_FISCAL", "WARNING");
-  assertIncludesFinding(result.findings, "RECEPTOR_GENERIC_FOREIGN_WITHOUT_NUM_REG_ID_TRIB_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "RECEPTOR_GENERIC_FOREIGN_WITHOUT_RESIDENCIA_FISCAL",
+    "WARNING",
+  );
+  assertIncludesFinding(
+    result.findings,
+    "RECEPTOR_GENERIC_FOREIGN_WITHOUT_NUM_REG_ID_TRIB_REVIEW",
+    "WARNING",
+  );
 }
 
 async function testIcNumRegIdTribSinResidencia(): Promise<void> {
   const xml = buildIcNumRegIdTribSinResidenciaXml();
   const result = analyzeCfdi(xml, "ic-numregidtrib-sin-residencia.xml");
-  assertIncludesFinding(result.findings, "RECEPTOR_NUM_REG_ID_TRIB_WITHOUT_RESIDENCIA_FISCAL_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "RECEPTOR_NUM_REG_ID_TRIB_WITHOUT_RESIDENCIA_FISCAL_REVIEW",
+    "WARNING",
+  );
 }
 
 async function testIdEmisorReceptorAmbosGenericos(): Promise<void> {
@@ -6514,7 +6903,11 @@ function buildIrAddendaConCriticalXml(): string {
 async function testIiPaymentOnNonPayment(): Promise<void> {
   const xml = buildIiPaymentOnNonPaymentXml();
   const result = analyzeCfdi(xml, "ii-payment-on-non-payment.xml");
-  assertIncludesFinding(result.findings, "CROSS_PAYMENT_COMPLEMENT_ON_NON_PAYMENT_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "CROSS_PAYMENT_COMPLEMENT_ON_NON_PAYMENT_REVIEW",
+    "WARNING",
+  );
 }
 
 async function testIjNominaOnNonNomina(): Promise<void> {
@@ -6529,7 +6922,11 @@ async function testIjNominaOnNonNomina(): Promise<void> {
 async function testIkCartaPorteInternacionalSinCce(): Promise<void> {
   const xml = buildIkCartaPorteInternacionalSinCceXml();
   const result = analyzeCfdi(xml, "ik-cartaporte-internacional-sin-cce.xml");
-  assertIncludesFinding(result.findings, "CROSS_CARTA_PORTE_INTERNACIONAL_WITHOUT_CCE_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "CROSS_CARTA_PORTE_INTERNACIONAL_WITHOUT_CCE_REVIEW",
+    "WARNING",
+  );
 }
 
 async function testIlPagoConImpuestos(): Promise<void> {
@@ -6559,13 +6956,21 @@ async function testIoNominaConCartaPorte(): Promise<void> {
 async function testIpPagoConRelYDoc(): Promise<void> {
   const xml = buildIpPagoConRelYDocXml();
   const result = analyzeCfdi(xml, "ip-pago-con-rel-y-doc.xml");
-  assertIncludesFinding(result.findings, "CROSS_PAYMENT_WITH_CFDI_RELACIONADOS_AND_DOCTOS_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "CROSS_PAYMENT_WITH_CFDI_RELACIONADOS_AND_DOCTOS_REVIEW",
+    "INFO",
+  );
 }
 
 async function testIqMultipleComplements(): Promise<void> {
   const xml = buildIqMultipleComplementsXml();
   const result = analyzeCfdi(xml, "iq-multiple-complements.xml");
-  assertIncludesFinding(result.findings, "CROSS_MULTIPLE_HIGH_COMPLEXITY_COMPLEMENTS_REVIEW", "INFO");
+  assertIncludesFinding(
+    result.findings,
+    "CROSS_MULTIPLE_HIGH_COMPLEXITY_COMPLEMENTS_REVIEW",
+    "INFO",
+  );
 }
 
 async function testIrAddendaConCritical(): Promise<void> {
@@ -6828,7 +7233,11 @@ async function testJbPago40ConExportacionNo01(): Promise<void> {
   </cfdi:Complemento>
 </cfdi:Comprobante>`;
   const result = analyzeCfdi(xml, "jb-pago40-exportacion-no01.xml");
-  assertIncludesFinding(result.findings, "CFDI40_PAYMENT_WITH_EXPORTACION_NOT_01_REVIEW", "WARNING");
+  assertIncludesFinding(
+    result.findings,
+    "CFDI40_PAYMENT_WITH_EXPORTACION_NOT_01_REVIEW",
+    "WARNING",
+  );
 }
 
 // ── JC–JJ: Evidence Location & ValueTrace ────────────────────────────────────
@@ -6886,7 +7295,9 @@ async function testJfComercioExteriorLocation(): Promise<void> {
   const xml = buildComercioExteriorXml({ tipoOperacion: "99" });
   const result = analyzeCfdi(xml, "jf-comercio-exterior-location.xml");
   const response = toAnalysisResponse(result);
-  const finding = response.findings.find((f) => f.code === "COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW")!;
+  const finding = response.findings.find(
+    (f) => f.code === "COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW",
+  )!;
   assertTruthy(finding, "Finding COMERCIO_EXTERIOR_TIPO_OPERACION_REVIEW debe existir");
   assertTruthy(
     finding.location && finding.location.module === "comercio-exterior",
@@ -6904,7 +7315,7 @@ async function testJgTfdNoSelloCertificado(): Promise<void> {
     finding.location && finding.location.module === "tfd",
     `location.module debe ser tfd, obtenido: ${JSON.stringify(finding.location)}`,
   );
-  for (const e of (finding.evidence ?? [])) {
+  for (const e of finding.evidence ?? []) {
     if (e.value) {
       assertTruthy(
         e.value.length <= 250,
@@ -6916,10 +7327,15 @@ async function testJgTfdNoSelloCertificado(): Promise<void> {
 
 async function testJhValueTraceNumerico(): Promise<void> {
   const xml = buildConceptTaxXml({
-    traslados: [{
-      base: "1000.00", impuesto: "002", tipoFactor: "Tasa",
-      tasaOCuota: "0.160000", importe: "150.00",
-    }],
+    traslados: [
+      {
+        base: "1000.00",
+        impuesto: "002",
+        tipoFactor: "Tasa",
+        tasaOCuota: "0.160000",
+        importe: "150.00",
+      },
+    ],
   });
   const result = analyzeCfdi(xml, "jh-value-trace.xml");
   const response = toAnalysisResponse(result);
@@ -6930,8 +7346,12 @@ async function testJhValueTraceNumerico(): Promise<void> {
     `valueTrace debe estar presente, obtenido: ${JSON.stringify(finding.valueTrace)}`,
   );
   const vt = finding.valueTrace!;
-  const hasSomething = vt.calculated !== undefined || vt.difference !== undefined
-    || vt.expected !== undefined || vt.observed !== undefined || vt.tolerance !== undefined;
+  const hasSomething =
+    vt.calculated !== undefined ||
+    vt.difference !== undefined ||
+    vt.expected !== undefined ||
+    vt.observed !== undefined ||
+    vt.tolerance !== undefined;
   assertTruthy(hasSomething, "valueTrace debe contener al menos un campo");
   assertTruthy(
     vt.calculated !== undefined || vt.difference !== undefined,
@@ -6972,10 +7392,21 @@ async function testJjNoBreakNoEvidence(): Promise<void> {
     title: "Test",
     message: "Test without evidence",
   };
-  const enriched = { ...findingWithNoEv, priority: getFindingPriority(findingWithNoEv.severity, findingWithNoEv.category) as Finding["priority"], actionGroup: getFindingActionGroup(findingWithNoEv) };
+  const enriched = {
+    ...findingWithNoEv,
+    priority: getFindingPriority(
+      findingWithNoEv.severity,
+      findingWithNoEv.category,
+    ) as Finding["priority"],
+    actionGroup: getFindingActionGroup(findingWithNoEv),
+  };
   const sanitized = sanitizeFinding(enriched);
   assertEqual(sanitized.code, "TEST_NO_EVIDENCE", "Finding sin evidence debe procesarse sin error");
-  assertEqual(sanitized.evidence, undefined, "Finding sin evidence debe mantener evidence undefined");
+  assertEqual(
+    sanitized.evidence,
+    undefined,
+    "Finding sin evidence debe mantener evidence undefined",
+  );
 }
 
 async function main() {
@@ -7021,13 +7452,25 @@ async function main() {
   await runCase("EW) Carta Porte single location", testCartaPorteSingleLocation);
   await runCase("EX) Carta Porte destino sin distancia", testCartaPorteDestinoSinDistancia);
   await runCase("EY) Carta Porte TotalDistRec mismatch", testCartaPorteTotalDistRecMismatch);
-  await runCase("EZ) Carta Porte NumTotalMercancias mismatch", testCartaPorteNumTotalMercanciasMismatch);
+  await runCase(
+    "EZ) Carta Porte NumTotalMercancias mismatch",
+    testCartaPorteNumTotalMercanciasMismatch,
+  );
   await runCase("FA) Carta Porte PesoBrutoTotal mismatch", testCartaPortePesoBrutoTotalMismatch);
   await runCase("FB) Carta Porte mercancía sin ClaveUnidad", testCartaPorteMercanciaSinClaveUnidad);
-  await runCase("FC) Carta Porte material peligroso sin clave/embalaje", testCartaPorteMaterialPeligrosoSinClaveEmbalaje);
-  await runCase("FD) Carta Porte autotransporte sin permiso/vehículo/seguro", testCartaPorteAutotransporteSinPermisoVehiculoSeguro);
+  await runCase(
+    "FC) Carta Porte material peligroso sin clave/embalaje",
+    testCartaPorteMaterialPeligrosoSinClaveEmbalaje,
+  );
+  await runCase(
+    "FD) Carta Porte autotransporte sin permiso/vehículo/seguro",
+    testCartaPorteAutotransporteSinPermisoVehiculoSeguro,
+  );
   await runCase("FE) Carta Porte operador sin licencia", testCartaPorteOperadorSinLicencia);
-  await runCase("FF) Carta Porte internacional sin país/vía", testCartaPorteInternacionalSinPaisVia);
+  await runCase(
+    "FF) Carta Porte internacional sin país/vía",
+    testCartaPorteInternacionalSinPaisVia,
+  );
   await runCase("AF) Nómina válida base", testNominaValidaBase);
   await runCase("AG) Nómina sin percepciones", testNominaSinPercepciones);
   await runCase("AH) Nómina receptor incompleto", testNominaReceptorIncompleto);
@@ -7093,24 +7536,45 @@ async function main() {
   await runCase("CG) Comercio Exterior versión faltante", testComercioExteriorVersionFaltante);
   await runCase("CH) Comercio Exterior complemento vacío", testComercioExteriorComplementoVacio);
   await runCase("FG) CCE sin TipoCambioUSD/TotalUSD", testCceSinTipoCambioTotalUsd);
-  await runCase("FH) CCE CertificadoOrigen 1 sin NumCertificadoOrigen", testCceCertOrigen1SinNumCert);
-  await runCase("FI) CCE Receptor sin ResidenciaFiscal/NumRegIdTrib", testCceReceptorSinResidenciaNumReg);
+  await runCase(
+    "FH) CCE CertificadoOrigen 1 sin NumCertificadoOrigen",
+    testCceCertOrigen1SinNumCert,
+  );
+  await runCase(
+    "FI) CCE Receptor sin ResidenciaFiscal/NumRegIdTrib",
+    testCceReceptorSinResidenciaNumReg,
+  );
   await runCase("FJ) CCE sin mercancías", testCceSinMercancias);
   await runCase("FK) CCE mercancía sin campos requeridos", testCceMercanciaSinCamposRequeridos);
   await runCase("FL) CCE fracción arancelaria formato inválido", testCceFraccionFormatoInvalido);
   await runCase("FM) CCE ValorDolares mismatch", testCceValorDolaresMismatch);
   await runCase("FN) CCE TotalUSD vs suma mercancías mismatch", testCceTotalUsdMercanciasMismatch);
   await runCase("FO) CCE con Exportacion distinta de 02", testCceSinExportacion02);
-  await runCase("FP) CCE moneda USD TotalUSD vs Total CFDI mismatch", testCceTotalUsdVsCfdiTotalMismatch);
+  await runCase(
+    "FP) CCE moneda USD TotalUSD vs Total CFDI mismatch",
+    testCceTotalUsdVsCfdiTotalMismatch,
+  );
   await runCase("FQ) Retenciones lugarExpRetenc faltante", testRetLugarExpFaltante);
   await runCase("FR) Retenciones emisor sin nombre y régimen", testRetEmisorSinNombreRegimen);
-  await runCase("FS) Retenciones receptor sin nacionalidad ni domicilio", testRetReceptorSinNacionalidadDomicilio);
-  await runCase("FT) Retenciones receptor nacional con RFC genérico y sin nombre", testRetReceptorRfcGenericoSinNombre);
+  await runCase(
+    "FS) Retenciones receptor sin nacionalidad ni domicilio",
+    testRetReceptorSinNacionalidadDomicilio,
+  );
+  await runCase(
+    "FT) Retenciones receptor nacional con RFC genérico y sin nombre",
+    testRetReceptorRfcGenericoSinNombre,
+  );
   await runCase("FU) Retenciones periodo incompleto", testRetPeriodoIncompleto);
   await runCase("FV) Retenciones total operación cero", testRetTotalOperacionCero);
   await runCase("FW) Retenciones total ret excede operación", testRetTotalRetExcedeOperacion);
-  await runCase("FX) Retenciones total ret 0 con impuestos > 0", testRetTotalRetCeroConImpuestosYTipoPagoFaltante);
-  await runCase("FY) Retenciones complemento dividendos faltante", testRetComplementoDividendosFaltante);
+  await runCase(
+    "FX) Retenciones total ret 0 con impuestos > 0",
+    testRetTotalRetCeroConImpuestosYTipoPagoFaltante,
+  );
+  await runCase(
+    "FY) Retenciones complemento dividendos faltante",
+    testRetComplementoDividendosFaltante,
+  );
   await runCase("FZ) Retenciones complemento desconocido", testRetComplementoDesconocido);
   await runCase("CI) Impuestos Locales válido base", testImpuestosLocalesValidoBase);
   await runCase(
@@ -7193,12 +7657,24 @@ async function main() {
   await runCase("GB) Catálogo Exportacion desconocida", testCatExportacionUnknown);
   await runCase("GC) Catálogo MetodoPago desconocido", testCatMetodoPagoUnknown);
   await runCase("GD) Catálogo ObjetoImp desconocido en concepto", testCatObjetoImpUnknown);
-  await runCase("GE) Catálogo Impuesto/TipoFactor desconocidos en concepto", testCatConceptTaxUnknown);
+  await runCase(
+    "GE) Catálogo Impuesto/TipoFactor desconocidos en concepto",
+    testCatConceptTaxUnknown,
+  );
   await runCase("GF) Catálogo TipoRelacion desconocido", testCatTipoRelacionUnknown);
-  await runCase("GG) Catálogo Pago FormaDePagoP/MonedaP desconocidos", testCatPagoFormaMonedaUnknown);
-  await runCase("GH) Catálogo DR ObjetoImpDR/ImpuestoDR desconocidos", testCatDrObjetoImpImpuestoUnknown);
+  await runCase(
+    "GG) Catálogo Pago FormaDePagoP/MonedaP desconocidos",
+    testCatPagoFormaMonedaUnknown,
+  );
+  await runCase(
+    "GH) Catálogo DR ObjetoImpDR/ImpuestoDR desconocidos",
+    testCatDrObjetoImpImpuestoUnknown,
+  );
   await runCase("GI) Catálogo Nómina TipoNomina desconocido", testCatNominaTipoNominaUnknown);
-  await runCase("GJ) Catálogo Retenciones Nacionalidad/CveRetenc/ImpuestoRet desconocidos", testCatRetencionesMultiUnknown);
+  await runCase(
+    "GJ) Catálogo Retenciones Nacionalidad/CveRetenc/ImpuestoRet desconocidos",
+    testCatRetencionesMultiUnknown,
+  );
 
   await runCase("GK) Base excede importe concepto", testTaxBaseExceedsConceptAmount);
   await runCase("GL) Importe impuesto negativo", testTaxAmountNegative);
@@ -7249,8 +7725,14 @@ async function main() {
   await runCase("HY) Emisor sin RFC/nombre/régimen", testHyEmisorSinRfcNombreRegimen);
   await runCase("HZ) Receptor sin RFC/nombre/régimen/domicilio/UsoCFDI", testHzReceptorSinDatos);
   await runCase("IA) Receptor RFC formato inválido", testIaReceptorRfcInvalid);
-  await runCase("IB) Receptor genérico extranjero sin ResidenciaFiscal/NumRegIdTrib", testIbGenericForeignSinResidenciaNumReg);
-  await runCase("IC) Receptor con NumRegIdTrib sin ResidenciaFiscal", testIcNumRegIdTribSinResidencia);
+  await runCase(
+    "IB) Receptor genérico extranjero sin ResidenciaFiscal/NumRegIdTrib",
+    testIbGenericForeignSinResidenciaNumReg,
+  );
+  await runCase(
+    "IC) Receptor con NumRegIdTrib sin ResidenciaFiscal",
+    testIcNumRegIdTribSinResidencia,
+  );
   await runCase("ID) Emisor y receptor ambos genéricos", testIdEmisorReceptorAmbosGenericos);
   await runCase("IE) Nómina con receptor genérico", testIeNominaReceptorGenerico);
   await runCase("IF) UsoCFDI D para persona moral", testIfUsoCfdiDPersonaMoral);
@@ -7259,7 +7741,10 @@ async function main() {
 
   await runCase("II) Complemento Pago en Tipo I", testIiPaymentOnNonPayment);
   await runCase("IJ) Nómina en Tipo I", testIjNominaOnNonNomina);
-  await runCase("IK) Carta Porte internacional sin Comercio Exterior", testIkCartaPorteInternacionalSinCce);
+  await runCase(
+    "IK) Carta Porte internacional sin Comercio Exterior",
+    testIkCartaPorteInternacionalSinCce,
+  );
   await runCase("IL) Tipo P con impuestos globales o por concepto", testIlPagoConImpuestos);
   await runCase("IM) Tipo T con impuestos", testImTrasladoConImpuestos);
   await runCase("IN) Nómina con Comercio Exterior", testInNominaConCce);
@@ -7283,7 +7768,10 @@ async function main() {
   await runCase("JC) Finding de concepto incluye location inferida", testJcConceptLocation);
   await runCase("JD) Finding de pago incluye location inferida", testJdPaymentLocation);
   await runCase("JE) Finding de Carta Porte incluye location inferida", testJeCartaPorteLocation);
-  await runCase("JF) Finding de Comercio Exterior incluye location inferida", testJfComercioExteriorLocation);
+  await runCase(
+    "JF) Finding de Comercio Exterior incluye location inferida",
+    testJfComercioExteriorLocation,
+  );
   await runCase("JG) Finding de TFD no expone sello/certificado", testJgTfdNoSelloCertificado);
   await runCase("JH) valueTrace se genera para mismatch numérico", testJhValueTraceNumerico);
   await runCase("JI) Sanitización conserva location/valueTrace", testJiSanitizationPreserves);

@@ -21,7 +21,8 @@ export interface AuditSmartFiltersProps {
 }
 
 const ACTIVATED_CLASS = "bg-foreground text-background border-foreground";
-const IDLE_CLASS = "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground";
+const IDLE_CLASS =
+  "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground";
 
 function chipClass(active: boolean) {
   return `px-2.5 py-1 rounded-full border text-xs font-semibold transition-all ${active ? ACTIVATED_CLASS : IDLE_CLASS}`;
@@ -149,12 +150,17 @@ export default function AuditSmartFilters({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="toolbar"
+        aria-label="Filtros rápidos de hallazgos"
+      >
         {presets.map((p) => (
           <button
             key={p.key}
             onClick={() => handlePreset(p.key)}
             className={chipClass(activePreset === p.key)}
+            aria-pressed={activePreset === p.key}
           >
             {p.label}
           </button>
@@ -165,6 +171,7 @@ export default function AuditSmartFilters({
         <>
           <div className="flex flex-wrap gap-2 items-center">
             <select
+              aria-label="Filtrar por módulo"
               value={filters.modules.length === 1 ? filters.modules[0] : ""}
               onChange={(e) => {
                 const val = e.target.value;
@@ -175,10 +182,13 @@ export default function AuditSmartFilters({
             >
               <option value="">Todos módulos</option>
               {allModules.map((m) => (
-                <option key={m} value={m}>{getFindingModuleLabel(m)}</option>
+                <option key={m} value={m}>
+                  {getFindingModuleLabel(m)}
+                </option>
               ))}
             </select>
             <select
+              aria-label="Filtrar por severidad"
               value={filters.severities.length === 1 ? filters.severities[0] : ""}
               onChange={(e) => {
                 const val = e.target.value;
@@ -189,10 +199,13 @@ export default function AuditSmartFilters({
             >
               <option value="">Todas severidades</option>
               {options.severities.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
             <select
+              aria-label="Filtrar por prioridad"
               value={filters.priorities.length === 1 ? filters.priorities[0] : ""}
               onChange={(e) => {
                 const val = e.target.value;
@@ -203,16 +216,21 @@ export default function AuditSmartFilters({
             >
               <option value="">Todas prioridades</option>
               {options.priorities.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
             </select>
             <select
+              aria-label="Ordenar resultados"
               value={sortMode}
               onChange={(e) => onSortModeChange(e.target.value as SortMode)}
               className="px-2 py-1.5 rounded border border-border bg-background text-xs"
             >
               {Object.entries(SORT_LABELS).map(([k, l]) => (
-                <option key={k} value={k}>Orden: {l}</option>
+                <option key={k} value={k}>
+                  Orden: {l}
+                </option>
               ))}
             </select>
           </div>
@@ -221,10 +239,14 @@ export default function AuditSmartFilters({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Mostrar solo críticos y bloqueantes"
                 checked={filters.onlyCriticalOrBlocker}
                 onChange={() => {
                   setActivePreset("");
-                  onFiltersChange({ ...filters, onlyCriticalOrBlocker: !filters.onlyCriticalOrBlocker });
+                  onFiltersChange({
+                    ...filters,
+                    onlyCriticalOrBlocker: !filters.onlyCriticalOrBlocker,
+                  });
                 }}
                 className="rounded border-border"
               />
@@ -233,6 +255,7 @@ export default function AuditSmartFilters({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Mostrar solo hallazgos con diferencia"
                 checked={filters.onlyWithDifference}
                 onChange={() => {
                   setActivePreset("");
@@ -245,6 +268,7 @@ export default function AuditSmartFilters({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Mostrar solo impacto fiscal"
                 checked={filters.onlyTaxImpact}
                 onChange={() => {
                   setActivePreset("");
@@ -257,10 +281,14 @@ export default function AuditSmartFilters({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Mostrar solo hallazgos técnicos"
                 checked={filters.onlyTechnicalImpact}
                 onChange={() => {
                   setActivePreset("");
-                  onFiltersChange({ ...filters, onlyTechnicalImpact: !filters.onlyTechnicalImpact });
+                  onFiltersChange({
+                    ...filters,
+                    onlyTechnicalImpact: !filters.onlyTechnicalImpact,
+                  });
                 }}
                 className="rounded border-border"
               />
@@ -269,6 +297,7 @@ export default function AuditSmartFilters({
             <button
               onClick={() => setShowMore(!showMore)}
               className="text-primary font-semibold hover:underline"
+              aria-expanded={showMore}
             >
               {showMore ? "Menos filtros" : "Más filtros"}
             </button>
@@ -279,6 +308,7 @@ export default function AuditSmartFilters({
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label="Mostrar solo hallazgos con ubicación"
                   checked={filters.hasLocation === true}
                   onChange={() => {
                     setActivePreset("");
@@ -294,6 +324,7 @@ export default function AuditSmartFilters({
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label="Mostrar solo hallazgos sin ubicación"
                   checked={filters.hasLocation === false}
                   onChange={() => {
                     setActivePreset("");
@@ -309,6 +340,7 @@ export default function AuditSmartFilters({
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label="Mostrar solo hallazgos con valor"
                   checked={filters.hasValueTrace === true}
                   onChange={() => {
                     setActivePreset("");
@@ -324,6 +356,7 @@ export default function AuditSmartFilters({
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label="Mostrar solo hallazgos con acción recomendada"
                   checked={filters.onlySupportMessageRelevant}
                   onChange={() => {
                     setActivePreset("");
@@ -345,7 +378,9 @@ export default function AuditSmartFilters({
         <span>
           Mostrando <strong>{filteredFindings.length}</strong> de{" "}
           <strong>{rawFilteredCount}</strong> hallazgo{rawFilteredCount !== 1 ? "s" : ""}
-          {activePreset !== "all" && activePreset ? ` · ${presets.find((p) => p.key === activePreset)?.label ?? activePreset}` : ""}
+          {activePreset !== "all" && activePreset
+            ? ` · ${presets.find((p) => p.key === activePreset)?.label ?? activePreset}`
+            : ""}
           {filterSummary && !activePreset ? ` · ${filterSummary}` : ""}
         </span>
         {hasActiveFilters && (

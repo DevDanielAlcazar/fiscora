@@ -39,7 +39,10 @@ function isTipo(tipo: string | null | undefined, expected: string): boolean {
   return tipo.trim().toUpperCase() === expected;
 }
 
-function ev(label: string, value?: string | null | number | boolean): { label: string; value?: string } {
+function ev(
+  label: string,
+  value?: string | null | number | boolean,
+): { label: string; value?: string } {
   return { label, value: value != null ? String(value) : "—" };
 }
 
@@ -59,14 +62,46 @@ function buildEvidence(ctx: CrossModuleConsistencyContext): { label: string; val
     ev("Conceptos", ctx.conceptsCount),
     ev("Documentos relacionados en Pagos", ctx.paymentDocumentsCount),
     ev("Grupos de relación", ctx.relationGroupsCount),
-    ev("Complementos conocidos", ctx.knownComplements.length > 0 ? ctx.knownComplements.join(", ") : "—"),
-    ev("Complementos no clasificados", ctx.unknownComplements.length > 0 ? String(ctx.unknownComplements.length) : "—"),
+    ev(
+      "Complementos conocidos",
+      ctx.knownComplements.length > 0 ? ctx.knownComplements.join(", ") : "—",
+    ),
+    ev(
+      "Complementos no clasificados",
+      ctx.unknownComplements.length > 0 ? String(ctx.unknownComplements.length) : "—",
+    ),
     ev("Hallazgos CRITICAL", ctx.hasCriticalFindings ? "Sí" : "No"),
   ];
 }
 
 export function validateCrossModuleConsistency(ctx: CrossModuleConsistencyContext): void {
-  const { tipoComprobante, version, exportacion, hasPaymentComplement, hasNomina, hasCartaPorte, cartaPorteTranspInternac, hasComercioExterior, hasCfdiRelations, hasDonatarias, hasLeyendasFiscales, hasImpuestosLocales, hasAddenda, hasConceptTaxes, hasGlobalTaxes, conceptsCount, paymentDocumentsCount, relationGroupsCount, knownComplements, unknownComplements, concepts, cartaPorteMercancias, comercioExteriorMercancias, hasCriticalFindings, addFinding } = ctx;
+  const {
+    tipoComprobante,
+    version,
+    exportacion,
+    hasPaymentComplement,
+    hasNomina,
+    hasCartaPorte,
+    cartaPorteTranspInternac,
+    hasComercioExterior,
+    hasCfdiRelations,
+    hasDonatarias,
+    hasLeyendasFiscales,
+    hasImpuestosLocales,
+    hasAddenda,
+    hasConceptTaxes,
+    hasGlobalTaxes,
+    conceptsCount,
+    paymentDocumentsCount,
+    relationGroupsCount,
+    knownComplements,
+    unknownComplements,
+    concepts,
+    cartaPorteMercancias,
+    comercioExteriorMercancias,
+    hasCriticalFindings,
+    addFinding,
+  } = ctx;
 
   const tipo = tipoComprobante?.trim() ?? null;
 
@@ -261,7 +296,12 @@ export function validateCrossModuleConsistency(ctx: CrossModuleConsistencyContex
   // ── E) Carta Porte / mercancías / conceptos / CCE ──
 
   // E2) CROSS_CARTA_PORTE_MERCANCIAS_WITHOUT_CONCEPTS_REVIEW
-  if (hasCartaPorte && cartaPorteMercancias && cartaPorteMercancias.length > 0 && (!concepts || concepts.length === 0)) {
+  if (
+    hasCartaPorte &&
+    cartaPorteMercancias &&
+    cartaPorteMercancias.length > 0 &&
+    (!concepts || concepts.length === 0)
+  ) {
     addFinding(
       "CROSS_CARTA_PORTE_MERCANCIAS_WITHOUT_CONCEPTS_REVIEW",
       "WARNING",
@@ -273,9 +313,20 @@ export function validateCrossModuleConsistency(ctx: CrossModuleConsistencyContex
   }
 
   // E3) CROSS_CARTA_PORTE_CCE_MERCANCIA_IDENTIFIER_MISMATCH_REVIEW
-  if (hasCartaPorte && hasComercioExterior && cartaPorteMercancias && cartaPorteMercancias.length > 0 && comercioExteriorMercancias && comercioExteriorMercancias.length > 0) {
-    const cpIds = cartaPorteMercancias.map((m) => m.bienesTransp?.trim().toUpperCase()).filter(Boolean);
-    const cceIds = comercioExteriorMercancias.map((m) => m.noIdentificacion?.trim().toUpperCase()).filter(Boolean);
+  if (
+    hasCartaPorte &&
+    hasComercioExterior &&
+    cartaPorteMercancias &&
+    cartaPorteMercancias.length > 0 &&
+    comercioExteriorMercancias &&
+    comercioExteriorMercancias.length > 0
+  ) {
+    const cpIds = cartaPorteMercancias
+      .map((m) => m.bienesTransp?.trim().toUpperCase())
+      .filter(Boolean);
+    const cceIds = comercioExteriorMercancias
+      .map((m) => m.noIdentificacion?.trim().toUpperCase())
+      .filter(Boolean);
     if (cpIds.length > 0 && cceIds.length > 0 && !cpIds.some((id) => cceIds.includes(id))) {
       addFinding(
         "CROSS_CARTA_PORTE_CCE_MERCANCIA_IDENTIFIER_MISMATCH_REVIEW",
@@ -332,7 +383,14 @@ export function validateCrossModuleConsistency(ctx: CrossModuleConsistencyContex
   // ── G) Complementos múltiples / no clasificados ──
 
   // G1) CROSS_MULTIPLE_HIGH_COMPLEXITY_COMPLEMENTS_REVIEW
-  const highComplexity = ["Pagos", "Nomina", "CartaPorte", "ComercioExterior", "ImpuestosLocales", "Donatarias"];
+  const highComplexity = [
+    "Pagos",
+    "Nomina",
+    "CartaPorte",
+    "ComercioExterior",
+    "ImpuestosLocales",
+    "Donatarias",
+  ];
   const detectedHigh = knownComplements.filter((c) => highComplexity.includes(c));
   if (detectedHigh.length >= 3) {
     addFinding(

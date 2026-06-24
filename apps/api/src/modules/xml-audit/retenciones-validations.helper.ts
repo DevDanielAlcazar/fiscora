@@ -1,6 +1,4 @@
-import type {
-  RetencionesInfo,
-} from "./xml-audit.service.js";
+import type { RetencionesInfo } from "./xml-audit.service.js";
 
 function isNonEmptyString(val: unknown): val is string {
   return typeof val === "string" && val.trim().length > 0;
@@ -70,8 +68,7 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
 
   const isVersion20 = isNonEmptyString(version) && version.startsWith("2.");
   const isNacional =
-    !receptor?.nacionalidad ||
-    normalizeText(receptor.nacionalidad).toUpperCase() !== "EXTRANJERO";
+    !receptor?.nacionalidad || normalizeText(receptor.nacionalidad).toUpperCase() !== "EXTRANJERO";
 
   // ── A) Version, Fecha, Lugar, Claves ──
   // A1-DETECTED → exists in service
@@ -173,7 +170,12 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
   // C2-RECEPTOR_NACIONAL_MISSING_RFC → exists in service
 
   // C3) RETENCIONES_RECEPTOR_NACIONAL_WITH_GENERIC_RFC_REVIEW
-  if (receptor && isNacional && isNonEmptyString(receptor.rfcReceptor) && GENERIC_RFCS.has(receptor.rfcReceptor)) {
+  if (
+    receptor &&
+    isNacional &&
+    isNonEmptyString(receptor.rfcReceptor) &&
+    GENERIC_RFCS.has(receptor.rfcReceptor)
+  ) {
     addFinding(
       "RETENCIONES_RECEPTOR_NACIONAL_WITH_GENERIC_RFC_REVIEW",
       "INFO",
@@ -189,7 +191,12 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
   }
 
   // C4) RETENCIONES_RECEPTOR_NACIONAL_WITHOUT_NAME
-  if (receptor && isNacional && isNonEmptyString(receptor.rfcReceptor) && !isNonEmptyString(receptor.nombre)) {
+  if (
+    receptor &&
+    isNacional &&
+    isNonEmptyString(receptor.rfcReceptor) &&
+    !isNonEmptyString(receptor.nombre)
+  ) {
     addFinding(
       "RETENCIONES_RECEPTOR_NACIONAL_WITHOUT_NAME",
       "WARNING",
@@ -264,7 +271,11 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
   // E1-MISSING_TOTALES → exists in service
 
   // E2) RETENCIONES_TOTAL_OPERATION_ZERO_REVIEW
-  if (totales && isNonEmptyString(totales.montoTotOperacion) && toMoneyNumber(totales.montoTotOperacion) === 0) {
+  if (
+    totales &&
+    isNonEmptyString(totales.montoTotOperacion) &&
+    toMoneyNumber(totales.montoTotOperacion) === 0
+  ) {
     addFinding(
       "RETENCIONES_TOTAL_OPERATION_ZERO_REVIEW",
       "INFO",
@@ -311,7 +322,9 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
     if (
       montoRet === 0 &&
       totales.impuestosRetenidos.length > 0 &&
-      totales.impuestosRetenidos.some((ir) => isNonEmptyString(ir.montoRet) && toMoneyNumber(ir.montoRet) > 0)
+      totales.impuestosRetenidos.some(
+        (ir) => isNonEmptyString(ir.montoRet) && toMoneyNumber(ir.montoRet) > 0,
+      )
     ) {
       addFinding(
         "RETENCIONES_TOTAL_RET_ZERO_WITH_IMPUESTOS",
@@ -322,7 +335,12 @@ export function validateRetencionesAdvanced(ctx: RetencionesAdvancedContext): vo
         [
           { label: "MontoTotRet", value: totales.montoTotRet },
           { label: "Total impuestos retenidos", value: String(totales.impuestosRetenidos.length) },
-          { label: "Suma MontoRet", value: totales.impuestosRetenidos.reduce((acc, ir) => acc + toMoneyNumber(ir.montoRet), 0).toFixed(2) },
+          {
+            label: "Suma MontoRet",
+            value: totales.impuestosRetenidos
+              .reduce((acc, ir) => acc + toMoneyNumber(ir.montoRet), 0)
+              .toFixed(2),
+          },
           { label: "UUID", value: uuid ?? "—" },
         ],
       );

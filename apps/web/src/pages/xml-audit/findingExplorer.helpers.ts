@@ -53,9 +53,12 @@ export function getFindingValueTraceText(finding: Finding): string | null {
   const parts: string[] = [];
   if (vt.observed !== undefined && vt.observed !== null) parts.push(`Observado: ${vt.observed}`);
   if (vt.expected !== undefined && vt.expected !== null) parts.push(`Esperado: ${vt.expected}`);
-  if (vt.calculated !== undefined && vt.calculated !== null) parts.push(`Calculado: ${vt.calculated}`);
-  if (vt.difference !== undefined && vt.difference !== null) parts.push(`Diferencia: ${vt.difference}`);
-  if (vt.tolerance !== undefined && vt.tolerance !== null) parts.push(`Tolerancia: ${vt.tolerance}`);
+  if (vt.calculated !== undefined && vt.calculated !== null)
+    parts.push(`Calculado: ${vt.calculated}`);
+  if (vt.difference !== undefined && vt.difference !== null)
+    parts.push(`Diferencia: ${vt.difference}`);
+  if (vt.tolerance !== undefined && vt.tolerance !== null)
+    parts.push(`Tolerancia: ${vt.tolerance}`);
   return parts.length > 0 ? parts.join(" | ") : null;
 }
 
@@ -129,7 +132,8 @@ export function aggregateFindingsByModule(findings: Finding[]): ModuleAggregate[
     if (f.priority === "HIGH") agg.high++;
     if (f.priority === "MEDIUM") agg.medium++;
     if (f.priority === "LOW") agg.low++;
-    if (f.actionGroup && !agg.actionGroups.includes(f.actionGroup)) agg.actionGroups.push(f.actionGroup);
+    if (f.actionGroup && !agg.actionGroups.includes(f.actionGroup))
+      agg.actionGroups.push(f.actionGroup);
     if (!agg.topCodes.includes(f.code)) agg.topCodes.push(f.code);
   }
   return Array.from(map.values()).sort((a, b) => b.total - a.total);
@@ -212,8 +216,10 @@ export interface FindingFilters {
 
 export function filterFindings(findings: Finding[], filters: FindingFilters): Finding[] {
   return findings.filter((f) => {
-    if (filters.severity && filters.severity !== "ALL" && f.severity !== filters.severity) return false;
-    if (filters.priority && filters.priority !== "ALL" && f.priority !== filters.priority) return false;
+    if (filters.severity && filters.severity !== "ALL" && f.severity !== filters.severity)
+      return false;
+    if (filters.priority && filters.priority !== "ALL" && f.priority !== filters.priority)
+      return false;
     if (filters.actionGroup && f.actionGroup !== filters.actionGroup) return false;
     if (filters.module) {
       const fMod = f.location?.module ?? "unknown";
@@ -221,7 +227,8 @@ export function filterFindings(findings: Finding[], filters: FindingFilters): Fi
     }
     if (filters.hasValueTrace && !f.valueTrace) return false;
     if (filters.hasLocation && !f.location) return false;
-    if (filters.onlyCriticalOrBlocker && f.severity !== "CRITICAL" && f.priority !== "BLOCKER") return false;
+    if (filters.onlyCriticalOrBlocker && f.severity !== "CRITICAL" && f.priority !== "BLOCKER")
+      return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const modLabel = f.location ? getFindingModuleLabel(f.location.module).toLowerCase() : "";

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ZipFullAnalysisFileResult } from "../../api/xml-audit";
 import FindingExplorer from "./FindingExplorer";
 import FindingGlossary from "./FindingGlossary";
@@ -13,6 +14,31 @@ export default function MassiveDetailModal({
   selectedMassiveDetail,
   onClose,
 }: MassiveDetailModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (selectedMassiveDetail) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      const focusable = modalRef.current?.querySelector(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      ) as HTMLElement;
+      focusable?.focus();
+    }
+    return () => {
+      previousFocusRef.current?.focus();
+    };
+  }, [selectedMassiveDetail]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (selectedMassiveDetail) {
+      document.addEventListener("keydown", handleEscape);
+    }
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [selectedMassiveDetail, onClose]);
   if (!selectedMassiveDetail) return null;
 
   const sd = selectedMassiveDetail;
@@ -40,14 +66,20 @@ export default function MassiveDetailModal({
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 bg-black/60 overflow-y-auto"
       onClick={() => onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="massive-detail-title"
     >
       <div
+        ref={modalRef}
         className="relative w-full max-w-3xl mx-4 rounded-xl border border-border bg-card shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-card rounded-t-xl">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold truncate">{sd.name}</h2>
+            <h2 id="massive-detail-title" className="text-base font-bold truncate">
+              {sd.name}
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               #{sd.index + 1} &middot; {(sd.sizeBytes ?? 0).toLocaleString()} bytes &middot;{" "}
               {isAnalyzed ? (

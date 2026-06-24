@@ -43,7 +43,10 @@ export function validateConceptsAdvanced(ctx: ConceptValidationsContext): void {
   if (!concepts) return;
 
   const isIngresoEgreso =
-    tipoComprobante === "I" || tipoComprobante === "E" || tipoComprobante === "N" || tipoComprobante === "T";
+    tipoComprobante === "I" ||
+    tipoComprobante === "E" ||
+    tipoComprobante === "N" ||
+    tipoComprobante === "T";
 
   // ── A) Campos mínimos del concepto ──
 
@@ -247,7 +250,10 @@ export function validateConceptsAdvanced(ctx: ConceptValidationsContext): void {
     }
 
     // F2) CONCEPT_CLAVE_UNIDAD_FORMAT_REVIEW
-    if (isSet(c.claveUnidad) && (c.claveUnidad.trim().length < 2 || c.claveUnidad.trim().length > 3)) {
+    if (
+      isSet(c.claveUnidad) &&
+      (c.claveUnidad.trim().length < 2 || c.claveUnidad.trim().length > 3)
+    ) {
       addFinding(
         "CONCEPT_CLAVE_UNIDAD_FORMAT_REVIEW",
         "INFO",
@@ -318,11 +324,7 @@ export function validateConceptsAdvanced(ctx: ConceptValidationsContext): void {
     }
 
     // G2) CONCEPT_ROUNDING_DIFFERENCE_REVIEW
-    if (
-      isSet(c.cantidad) &&
-      isSet(c.valorUnitario) &&
-      isSet(c.importe)
-    ) {
+    if (isSet(c.cantidad) && isSet(c.valorUnitario) && isSet(c.importe)) {
       const qty = toNum(c.cantidad);
       const unitVal = toNum(c.valorUnitario);
       const impNum = toMoney(c.importe);

@@ -628,10 +628,7 @@ export default function XmlAuditPage() {
                 )}
               </div>
 
-              <RiskScorePanel
-                files={fullAnalysisResult.results}
-                title="Score de salud del lote"
-              />
+              <RiskScorePanel files={fullAnalysisResult.results} title="Score de salud del lote" />
 
               {Object.keys(fullAnalysisResult.summary.byTipoComprobante).length > 0 && (
                 <div className="space-y-1">

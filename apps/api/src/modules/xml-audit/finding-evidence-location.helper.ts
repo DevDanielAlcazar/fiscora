@@ -48,9 +48,10 @@ export function buildFindingLocation(params: {
   const loc: FindingLocation = { module: params.module };
   if (params.section) loc.section = params.section;
   if (params.logicalPath) {
-    loc.logicalPath = params.logicalPath.length > 120
-      ? params.logicalPath.slice(0, 117) + "..."
-      : params.logicalPath;
+    loc.logicalPath =
+      params.logicalPath.length > 120
+        ? params.logicalPath.slice(0, 117) + "..."
+        : params.logicalPath;
   }
   if (params.field) loc.field = params.field;
   if (params.index !== undefined) loc.index = params.index;
@@ -134,7 +135,11 @@ export function inferFindingLocationFromEvidence(finding: {
       module = "payment";
     else if (
       labels.some(
-        (l) => l === "ubicacionIndex" || l === "mercanciaIndex" || l === "transpInternac" || l === "totalDistRec",
+        (l) =>
+          l === "ubicacionIndex" ||
+          l === "mercanciaIndex" ||
+          l === "transpInternac" ||
+          l === "totalDistRec",
       )
     )
       module = "carta-porte";
@@ -142,25 +147,47 @@ export function inferFindingLocationFromEvidence(finding: {
       labels.some((l) => l === "fraccionArancelaria" || l === "totalUSD" || l === "tipoCambioUSD")
     )
       module = "comercio-exterior";
-    else if (labels.some((l) => l === "curp" || l === "numEmpleado" || l === "tipoRegimen" || l === "periodicidadPago"))
+    else if (
+      labels.some(
+        (l) =>
+          l === "curp" || l === "numEmpleado" || l === "tipoRegimen" || l === "periodicidadPago",
+      )
+    )
       module = "nomina";
-    else if (labels.some((l) => l === "rfcProvCertif" || l === "selloCFD" || l === "selloSAT" || l === "noCertificadoSAT"))
+    else if (
+      labels.some(
+        (l) =>
+          l === "rfcProvCertif" || l === "selloCFD" || l === "selloSAT" || l === "noCertificadoSAT",
+      )
+    )
       module = "tfd";
     else if (labels.some((l) => l === "tipoRelacion" || l === "relatedUuid"))
       module = "cfdi-relations";
     else if (labels.some((l) => l === "conceptIndex" || l === "Concepto #")) module = "concepts";
     else if (labels.some((l) => l === "taxScope" || l === "taxType")) module = "concept-taxes";
     else if (labels.some((l) => l === "impRetenidoIndex")) module = "retenciones";
-    else if (labels.some((l) => l === "rfcEmisor" || l === "rfcReceptor" || l === "usoCFDI" || l === "domicilioFiscalReceptor"))
+    else if (
+      labels.some(
+        (l) =>
+          l === "rfcEmisor" ||
+          l === "rfcReceptor" ||
+          l === "usoCFDI" ||
+          l === "domicilioFiscalReceptor",
+      )
+    )
       module = "parties";
-    else if (labels.some((l) => l === "categoria" || l === "localTasa")) module = "impuestos-locales";
+    else if (labels.some((l) => l === "categoria" || l === "localTasa"))
+      module = "impuestos-locales";
     else if (labels.some((l) => l === "leyenda")) module = "leyendas-fiscales";
     else if (labels.some((l) => l === "cfdi40OnlyFieldsDetected" || l === "cfdi33FieldsDetected"))
       module = "version";
     else if (
       labels.some(
         (l) =>
-          l === "catálogo" || l === "catalogo" || l === "allowedValues" || l === "valoresPermitidos",
+          l === "catálogo" ||
+          l === "catalogo" ||
+          l === "allowedValues" ||
+          l === "valoresPermitidos",
       )
     )
       module = "catalogs";

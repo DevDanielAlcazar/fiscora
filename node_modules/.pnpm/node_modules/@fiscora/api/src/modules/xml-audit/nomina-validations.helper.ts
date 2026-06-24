@@ -62,7 +62,9 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
 
   if (!nomina) return;
 
-  const nominaEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+  const nominaEvidence = (
+    extra?: { label: string; value?: string }[],
+  ): { label: string; value?: string }[] => [
     { label: "tipoNomina", value: nomina.tipoNomina ?? "—" },
     { label: "fechaPago", value: nomina.fechaPago ?? "—" },
     { label: "fechaInicialPago", value: nomina.fechaInicialPago ?? "—" },
@@ -263,7 +265,10 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
         "El TotalGravado del nodo Percepciones no coincide con la suma de ImporteGravado de las percepciones individuales.",
         "Revisa los importes gravados de las percepciones.",
         nominaEvidence([
-          { label: "TotalGravado (Percepciones)", value: nomina.percepcionesHeader.totalGravado ?? "—" },
+          {
+            label: "TotalGravado (Percepciones)",
+            value: nomina.percepcionesHeader.totalGravado ?? "—",
+          },
           { label: "Suma ImporteGravado", value: formatMoney(sumGravado) },
           { label: "difference", value: formatMoney(moneyDiff(headerGravado, sumGravado)) },
         ]),
@@ -290,7 +295,10 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
         "El TotalExento del nodo Percepciones no coincide con la suma de ImporteExento de las percepciones individuales.",
         "Revisa los importes exentos de las percepciones.",
         nominaEvidence([
-          { label: "TotalExento (Percepciones)", value: nomina.percepcionesHeader.totalExento ?? "—" },
+          {
+            label: "TotalExento (Percepciones)",
+            value: nomina.percepcionesHeader.totalExento ?? "—",
+          },
           { label: "Suma ImporteExento", value: formatMoney(sumExento) },
           { label: "difference", value: formatMoney(moneyDiff(headerExento, sumExento)) },
         ]),
@@ -303,7 +311,9 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
   // C8) NOMINA_PERCEPCION_ZERO_TOTAL_REVIEW
   nomina.percepciones.forEach((p: NominaPercepcionInfo, idx: number) => {
     const percNum = idx + 1;
-    const percEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+    const percEvidence = (
+      extra?: { label: string; value?: string }[],
+    ): { label: string; value?: string }[] => [
       ...nominaEvidence(),
       { label: "perceptionIndex", value: String(percNum) },
       { label: "tipoPercepcion", value: p.tipoPercepcion ?? "—" },
@@ -371,7 +381,10 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
         "El TotalOtrasDeducciones no coincide con la suma de deducciones que no son ISR.",
         "Revisa los importes de deducciones distintas de ISR.",
         nominaEvidence([
-          { label: "TotalOtrasDeducciones (Deducciones)", value: nomina.deduccionesHeader.totalOtrasDeducciones ?? "—" },
+          {
+            label: "TotalOtrasDeducciones (Deducciones)",
+            value: nomina.deduccionesHeader.totalOtrasDeducciones ?? "—",
+          },
           { label: "Suma deducciones no ISR", value: formatMoney(sumNonIsr) },
           { label: "difference", value: formatMoney(moneyDiff(headerOtras, sumNonIsr)) },
         ]),
@@ -398,7 +411,10 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
         "El TotalImpuestosRetenidos no coincide con la suma de deducciones ISR (tipo 001).",
         "Revisa los importes de retenciones de ISR.",
         nominaEvidence([
-          { label: "TotalImpuestosRetenidos (Deducciones)", value: nomina.deduccionesHeader.totalImpuestosRetenidos ?? "—" },
+          {
+            label: "TotalImpuestosRetenidos (Deducciones)",
+            value: nomina.deduccionesHeader.totalImpuestosRetenidos ?? "—",
+          },
           { label: "Suma deducciones ISR", value: formatMoney(sumIsr) },
           { label: "difference", value: formatMoney(moneyDiff(headerIsr, sumIsr)) },
         ]),
@@ -412,7 +428,9 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
   let hasIsrDeduccion = false;
   nomina.deducciones.forEach((d: NominaDeduccionInfo, idx: number) => {
     const dedNum = idx + 1;
-    const dedEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+    const dedEvidence = (
+      extra?: { label: string; value?: string }[],
+    ): { label: string; value?: string }[] => [
       ...nominaEvidence(),
       { label: "deductionIndex", value: String(dedNum) },
       { label: "tipoDeduccion", value: d.tipoDeduccion ?? "—" },
@@ -457,9 +475,7 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
       "ISR sin TotalImpuestosRetenidos",
       "Se detectaron deducciones ISR pero no se encontró TotalImpuestosRetenidos en el nodo Deducciones.",
       "Agrega el TotalImpuestosRetenidos en el nodo Deducciones.",
-      nominaEvidence([
-        { label: "deducciones ISR detectadas", value: "Sí" },
-      ]),
+      nominaEvidence([{ label: "deducciones ISR detectadas", value: "Sí" }]),
     );
   }
 
@@ -472,7 +488,9 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
   // E6) NOMINA_OTRO_PAGO_002_WITHOUT_SUBSIDIO_REVIEW
   nomina.otrosPagos.forEach((o: NominaOtroPagoInfo, idx: number) => {
     const opNum = idx + 1;
-    const opEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+    const opEvidence = (
+      extra?: { label: string; value?: string }[],
+    ): { label: string; value?: string }[] => [
       ...nominaEvidence(),
       { label: "otroPagoIndex", value: String(opNum) },
       { label: "tipoOtroPago", value: o.tipoOtroPago ?? "—" },
@@ -517,7 +535,9 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
     }
 
     const tipoOp = o.tipoOtroPago ?? "";
-    const hasSubsidio = !!(o.subsidioAlEmpleo && isNonEmptyString(o.subsidioAlEmpleo.subsidioCausado));
+    const hasSubsidio = !!(
+      o.subsidioAlEmpleo && isNonEmptyString(o.subsidioAlEmpleo.subsidioCausado)
+    );
 
     // E5) Subsidio presente pero TipoOtroPago != 002
     if (hasSubsidio && tipoOp !== "002") {
@@ -608,9 +628,7 @@ export function validateNominaAdvanced(ctx: NominaAdvancedContext): void {
       "Deducciones sin TotalDeducciones",
       "Se detectaron deducciones pero no se encontró TotalDeducciones en el complemento Nómina.",
       "Agrega el TotalDeducciones en el complemento Nómina.",
-      nominaEvidence([
-        { label: "numDeducciones", value: String(nomina.deducciones.length) },
-      ]),
+      nominaEvidence([{ label: "numDeducciones", value: String(nomina.deducciones.length) }]),
     );
   }
 }

@@ -35,13 +35,22 @@ const ZIP_SORT_LABELS: Record<ZipSortMode, string> = {
   status: "Estado",
 };
 
-export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: ZipRiskNavigatorProps) {
+export default function ZipRiskNavigator({
+  fullAnalysisResult,
+  onOpenDetail,
+}: ZipRiskNavigatorProps) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortMode, setSortMode] = useState<ZipSortMode>("score-asc");
   const [search, setSearch] = useState("");
 
-  const zipScore = useMemo(() => calculateZipRiskScore(fullAnalysisResult.results), [fullAnalysisResult.results]);
-  const topModules = useMemo(() => getZipFileTopModules(fullAnalysisResult.results), [fullAnalysisResult.results]);
+  const zipScore = useMemo(
+    () => calculateZipRiskScore(fullAnalysisResult.results),
+    [fullAnalysisResult.results],
+  );
+  const topModules = useMemo(
+    () => getZipFileTopModules(fullAnalysisResult.results),
+    [fullAnalysisResult.results],
+  );
 
   const filters: ZipFilters = useMemo(
     () => ({
@@ -74,15 +83,24 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
   const quickFilters = useMemo(() => buildZipQuickFilters(), []);
 
   return (
-    <div className="space-y-4">
-      <RiskScorePanel zipSummary={zipScore} files={fullAnalysisResult.results} title="Score del lote" />
+    <div className="space-y-4" role="region" aria-label="Navegador de riesgo ZIP">
+      <RiskScorePanel
+        zipSummary={zipScore}
+        files={fullAnalysisResult.results}
+        title="Score del lote"
+      />
 
-      <div className="flex flex-wrap gap-1.5">
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="toolbar"
+        aria-label="Filtros rápidos por archivo"
+      >
         {quickFilters.map((qf) => (
           <button
             key={qf.key}
             onClick={() => handleQuickFilter(qf.key)}
             className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-all ${chipClass(statusFilter === qf.key)}`}
+            aria-pressed={statusFilter === qf.key}
           >
             {qf.label}
           </button>
@@ -93,17 +111,21 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
         <input
           type="text"
           placeholder="Buscar archivo..."
+          aria-label="Buscar archivo por nombre"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[200px] px-3 py-1.5 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <select
+          aria-label="Ordenar archivos"
           value={sortMode}
           onChange={(e) => setSortMode(e.target.value as ZipSortMode)}
           className="px-2 py-1.5 rounded border border-border bg-background text-xs"
         >
           {Object.entries(ZIP_SORT_LABELS).map(([k, l]) => (
-            <option key={k} value={k}>{l}</option>
+            <option key={k} value={k}>
+              {l}
+            </option>
           ))}
         </select>
       </div>
@@ -112,7 +134,9 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
         <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
           <span className="font-semibold">Módulos más afectados:</span>
           {topModules.map((m) => (
-            <span key={m} className="px-1.5 py-0.5 rounded bg-muted/30">{m}</span>
+            <span key={m} className="px-1.5 py-0.5 rounded bg-muted/30">
+              {m}
+            </span>
           ))}
         </div>
       )}
@@ -123,7 +147,16 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
       </p>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">No hay archivos para los filtros seleccionados.</p>
+        <div className="flex flex-col items-center gap-3 py-8">
+          <p className="text-sm text-muted-foreground italic">No hay archivos con estos filtros.</p>
+          <button
+            onClick={() => setStatusFilter("all")}
+            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all"
+            aria-label="Mostrar todos los archivos del lote"
+          >
+            Mostrar todos
+          </button>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
@@ -144,19 +177,20 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
             <tbody>
               {filtered.map((r, i) => {
                 const isAnalyzed = r.status === "ANALYZED";
-                const sr = isAnalyzed && r.analysis?.findings
-                  ? calculateRiskScore(r.analysis.findings)
-                  : null;
+                const sr =
+                  isAnalyzed && r.analysis?.findings
+                    ? calculateRiskScore(r.analysis.findings)
+                    : null;
                 const fnd = isAnalyzed && r.analysis?.findings ? r.analysis.findings : [];
                 const topDriver = sr
-                  ? [...fnd]
+                  ? ([...fnd]
                       .sort(
                         (a, b) =>
                           (b.priority === "BLOCKER" ? 100 : b.severity === "CRITICAL" ? 50 : 0) -
                           (a.priority === "BLOCKER" ? 100 : a.severity === "CRITICAL" ? 50 : 0),
                       )
                       .slice(0, 1)
-                      .map((x) => x.code)[0] ?? "—"
+                      .map((x) => x.code)[0] ?? "—")
                   : "—";
                 const modules = new Set<string>();
                 for (const fx of fnd) {
@@ -174,7 +208,9 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
                     </td>
                     <td className="py-1 pr-2">
                       {sr !== null ? (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${bandStyles}`}>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${bandStyles}`}
+                        >
                           {getRiskBandLabel(sr.band)}
                         </span>
                       ) : (
@@ -195,7 +231,9 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
                         ) : (
                           <span className="text-muted-foreground">0</span>
                         )
-                      ) : "—"}
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="py-1 pr-2">
                       {isAnalyzed ? (
@@ -204,18 +242,27 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
                         ) : (
                           <span className="text-muted-foreground">0</span>
                         )
-                      ) : "—"}
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="py-1 pr-2 font-mono max-w-[100px] truncate">{topDriver}</td>
                     <td className="py-1 pr-2 max-w-[120px]">
                       <div className="flex flex-wrap gap-0.5">
-                        {Array.from(modules).slice(0, 2).map((m) => (
-                          <span key={m} className="text-[10px] px-1 rounded bg-muted/30 text-muted-foreground">
-                            {m}
-                          </span>
-                        ))}
+                        {Array.from(modules)
+                          .slice(0, 2)
+                          .map((m) => (
+                            <span
+                              key={m}
+                              className="text-[10px] px-1 rounded bg-muted/30 text-muted-foreground"
+                            >
+                              {m}
+                            </span>
+                          ))}
                         {modules.size > 2 && (
-                          <span className="text-[10px] text-muted-foreground">+{modules.size - 2}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            +{modules.size - 2}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -242,13 +289,12 @@ export default function ZipRiskNavigator({ fullAnalysisResult, onOpenDetail }: Z
           </p>
           <div className="flex flex-col gap-1.5">
             {zipScore.topRiskFiles.map((tf) => (
-              <div
-                key={tf.index}
-                className="flex items-center justify-between text-xs"
-              >
+              <div key={tf.index} className="flex items-center justify-between text-xs">
                 <span className="font-mono truncate max-w-[300px]">{tf.name}</span>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getRiskBandStyles(tf.band)}`}>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getRiskBandStyles(tf.band)}`}
+                  >
                     {tf.score}/100 · {getRiskBandLabel(tf.band)}
                   </span>
                   <button

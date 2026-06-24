@@ -23,7 +23,9 @@ export interface StampValidationContext {
 
 function looksLikeRfc(v: string | null | undefined): boolean {
   if (!v) return false;
-  return /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{2,3}[0-9A-Z]$/.test(v.trim().toUpperCase());
+  return /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{2,3}[0-9A-Z]$/.test(
+    v.trim().toUpperCase(),
+  );
 }
 
 function isGenericRfc(v: string | null | undefined): boolean {
@@ -77,7 +79,11 @@ export function validateStamp(ctx: StampValidationContext): void {
       "UUID ausente en TimbreFiscalDigital",
       "El TimbreFiscalDigital existe pero no contiene UUID. Esto impide la identificación única del comprobante ante el SAT.",
       "Solicita el XML original timbrado al PAC o emisor.",
-      [ev("UUID", uuid), ev("Fecha timbrado", fechaTimbrado), ev("Complemento detectado", "TimbreFiscalDigital")],
+      [
+        ev("UUID", uuid),
+        ev("Fecha timbrado", fechaTimbrado),
+        ev("Complemento detectado", "TimbreFiscalDigital"),
+      ],
     );
   }
 
@@ -145,7 +151,12 @@ export function validateStamp(ctx: StampValidationContext): void {
         "Fecha de timbrado muy posterior a la fecha del CFDI",
         `La fecha de timbrado difiere de la fecha del CFDI por más de 72 horas (${Math.abs(diff).toFixed(0)}h). Esto puede indicar despacho tardío o inconsistencia.`,
         "Confirma que el XML haya sido timbrado dentro del plazo esperado.",
-        [ev("Fecha CFDI", fecha), ev("Fecha timbrado", fechaTimbrado), ev("Diferencia horas", `${Math.abs(diff).toFixed(0)}h`), ev("UUID", uuid)],
+        [
+          ev("Fecha CFDI", fecha),
+          ev("Fecha timbrado", fechaTimbrado),
+          ev("Diferencia horas", `${Math.abs(diff).toFixed(0)}h`),
+          ev("UUID", uuid),
+        ],
       );
     }
   }
@@ -182,7 +193,11 @@ export function validateStamp(ctx: StampValidationContext): void {
       "SelloCFD del timbre difiere del Sello del comprobante",
       "El SelloCFD dentro del TimbreFiscalDigital no coincide con el Sello del comprobante. Esto es una anomalía grave que invalida el CFDI.",
       "Solicita el XML original del PAC y verifica que no haya sido manipulado.",
-      [ev("UUID", uuid), ev("SelloCFD presente", selloCfd ? "Sí" : "No"), ev("Sello comprobante presente", sello ? "Sí" : "No")],
+      [
+        ev("UUID", uuid),
+        ev("SelloCFD presente", selloCfd ? "Sí" : "No"),
+        ev("Sello comprobante presente", sello ? "Sí" : "No"),
+      ],
     );
   }
 

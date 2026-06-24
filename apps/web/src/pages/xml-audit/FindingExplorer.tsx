@@ -70,10 +70,19 @@ export default function FindingExplorer({ findings, compact }: Props) {
 
   const byModule = useMemo(() => aggregateFindingsByModule(findings), [findings]);
 
-  const totalCrit = useMemo(() => findings.filter((f) => f.severity === "CRITICAL").length, [findings]);
-  const totalWarn = useMemo(() => findings.filter((f) => f.severity === "WARNING").length, [findings]);
+  const totalCrit = useMemo(
+    () => findings.filter((f) => f.severity === "CRITICAL").length,
+    [findings],
+  );
+  const totalWarn = useMemo(
+    () => findings.filter((f) => f.severity === "WARNING").length,
+    [findings],
+  );
   const totalInfo = useMemo(() => findings.filter((f) => f.severity === "INFO").length, [findings]);
-  const totalBlocker = useMemo(() => findings.filter((f) => f.priority === "BLOCKER").length, [findings]);
+  const totalBlocker = useMemo(
+    () => findings.filter((f) => f.priority === "BLOCKER").length,
+    [findings],
+  );
   const totalWithLoc = useMemo(() => findings.filter((f) => f.location).length, [findings]);
   const totalWithVT = useMemo(() => findings.filter((f) => f.valueTrace).length, [findings]);
   const affModules = useMemo(() => {
@@ -90,7 +99,11 @@ export default function FindingExplorer({ findings, compact }: Props) {
     { label: "Total", count: findings.length, style: "bg-muted/50 text-foreground" },
     { label: "Bloqueantes", count: totalBlocker, style: "bg-red-50 text-red-700 border-red-200" },
     { label: "Críticos", count: totalCrit, style: "bg-red-50 text-red-700 border-red-200" },
-    { label: "Advertencias", count: totalWarn, style: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+    {
+      label: "Advertencias",
+      count: totalWarn,
+      style: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    },
     { label: "Informativos", count: totalInfo, style: "bg-blue-50 text-blue-700 border-blue-200" },
     { label: "Con ubicación", count: totalWithLoc, style: "bg-muted/30 text-muted-foreground" },
     { label: "Con diferencia", count: totalWithVT, style: "bg-muted/30 text-muted-foreground" },
@@ -193,13 +206,14 @@ export default function FindingExplorer({ findings, compact }: Props) {
       {groupView === "list" && (
         <div className="space-y-2">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6">
+            <div className="flex flex-col items-center gap-3 py-8">
               <p className="text-sm text-muted-foreground italic">
-                No hay hallazgos para los filtros seleccionados.
+                No hay hallazgos con estos filtros.
               </p>
               <button
                 onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="text-xs text-primary font-semibold hover:underline"
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all"
+                aria-label="Limpiar todos los filtros y mostrar todos los hallazgos"
               >
                 Limpiar filtros
               </button>
@@ -213,16 +227,17 @@ export default function FindingExplorer({ findings, compact }: Props) {
               const isExpanded = expandedIdx.has(idx);
               const modLabel = f.location ? getFindingModuleLabel(f.location.module) : null;
               return (
-                <div
-                  key={f.id ?? idx}
-                  className={`p-4 rounded-lg border ${b.style} space-y-2`}
-                >
+                <div key={f.id ?? idx} className={`p-4 rounded-lg border ${b.style} space-y-2`}>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full border ${b.style}`}
+                    >
                       {b.label}
                     </span>
                     {pb && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${pb.style}`}>
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full border ${pb.style}`}
+                      >
                         {pb.label}
                       </span>
                     )}
@@ -255,14 +270,21 @@ export default function FindingExplorer({ findings, compact }: Props) {
                       <button
                         onClick={() => toggleExpand(idx)}
                         className="text-xs font-semibold text-primary hover:underline"
+                        aria-expanded={isExpanded}
+                        aria-controls={`evidence-content-${f.id ?? idx}`}
                       >
                         {isExpanded ? "Ocultar evidencia" : "Ver evidencia"}
                       </button>
                       {isExpanded && (
-                        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs pt-1">
+                        <div
+                          id={`evidence-content-${f.id ?? idx}`}
+                          className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs pt-1"
+                        >
                           {f.evidence.map((e, ei) => (
                             <div key={ei} className="contents">
-                              <span className="text-muted-foreground whitespace-nowrap">{e.label}:</span>
+                              <span className="text-muted-foreground whitespace-nowrap">
+                                {e.label}:
+                              </span>
                               <span className="font-mono text-foreground/80 break-all">
                                 {e.value ?? "—"}
                               </span>

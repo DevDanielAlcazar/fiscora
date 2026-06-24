@@ -601,16 +601,17 @@ export default function AdminXmlAnalysesPage() {
                       </div>
                     )}
 
-{detail.analysisJson?.findings &&
-                       Array.isArray(detail.analysisJson.findings) &&
-                       (detail.analysisJson.findings as Finding[]).length > 0 && (
-                         <>
-                           <RiskScorePanel
-                             findings={detail.analysisJson.findings as Finding[]}
-                           />
-                           <FindingExplorer findings={detail.analysisJson.findings as Finding[]} compact />
-                         </>
-                       )}
+                    {detail.analysisJson?.findings &&
+                      Array.isArray(detail.analysisJson.findings) &&
+                      (detail.analysisJson.findings as Finding[]).length > 0 && (
+                        <>
+                          <RiskScorePanel findings={detail.analysisJson.findings as Finding[]} />
+                          <FindingExplorer
+                            findings={detail.analysisJson.findings as Finding[]}
+                            compact
+                          />
+                        </>
+                      )}
 
                     {detail.analysisJson?.technicalDiagnostics && (
                       <div className="space-y-1 pt-2 border-t border-border/40">

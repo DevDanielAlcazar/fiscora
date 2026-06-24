@@ -69,7 +69,8 @@ const PRIORITY_BONUS: Record<string, number> = {
 function getActionGroupBonus(group: string | undefined): number {
   if (!group) return 0;
   const g = group.toUpperCase();
-  if (["TAX", "IMPUESTOS", "IMPORTES", "TOTAL", "PAGO", "RETENCIONES"].some((k) => g.includes(k))) return 5;
+  if (["TAX", "IMPUESTOS", "IMPORTES", "TOTAL", "PAGO", "RETENCIONES"].some((k) => g.includes(k)))
+    return 5;
   if (["CFDI_STRUCTURE", "TIMBRADO", "TFD", "CERTIFICADO"].some((k) => g.includes(k))) return 4;
   if (["CATALOGS", "REVIEW"].some((k) => g.includes(k))) return 1;
   return 0;
@@ -286,9 +287,7 @@ export function aggregateRiskByActionGroup(findings: Finding[]): ActionGroupRisk
   return Array.from(map.values()).sort((a, b) => b.totalRisk - a.totalRisk);
 }
 
-export function calculateZipRiskScore(
-  files: ZipFullAnalysisFileResult[],
-): ZipRiskScore {
+export function calculateZipRiskScore(files: ZipFullAnalysisFileResult[]): ZipRiskScore {
   const analyzed = files.filter((f) => f.status === "ANALYZED" && f.analysis?.findings);
   const failed = files.filter((f) => f.status === "FAILED");
 
@@ -304,9 +303,7 @@ export function calculateZipRiskScore(
       f.analysis!.findings!.some((fx) => fx.severity === "WARNING"),
   );
   const healthyFiles = analyzed.filter((f) =>
-    f.analysis!.findings!.every(
-      (fx) => fx.severity !== "CRITICAL" && fx.severity !== "WARNING",
-    ),
+    f.analysis!.findings!.every((fx) => fx.severity !== "CRITICAL" && fx.severity !== "WARNING"),
   );
 
   let totalScore = 0;

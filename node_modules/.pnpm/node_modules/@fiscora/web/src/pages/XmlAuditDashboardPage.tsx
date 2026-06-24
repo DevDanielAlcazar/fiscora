@@ -451,17 +451,17 @@ export default function XmlAuditDashboardPage() {
                         ? "Existen advertencias que requieren tu validación antes de procesar fiscalmente los comprobantes."
                         : "No se detectan riesgos altos en la ventana de retención seleccionada."}
                   </p>
-                    <div className="mt-2">
-                      <RiskScorePanel
-                        approximateCounts={{
-                          criticalCount: data.totals.criticalFindings ?? data.totals.critical,
-                          warningCount: data.totals.warningFindings ?? data.totals.warning,
-                          infoCount: data.totals.infoFindings ?? 0,
-                          priorityMax: data.priorities?.[0]?.priority ?? null,
-                        }}
-                        compact
-                      />
-                    </div>
+                  <div className="mt-2">
+                    <RiskScorePanel
+                      approximateCounts={{
+                        criticalCount: data.totals.criticalFindings ?? data.totals.critical,
+                        warningCount: data.totals.warningFindings ?? data.totals.warning,
+                        infoCount: data.totals.infoFindings ?? 0,
+                        priorityMax: data.priorities?.[0]?.priority ?? null,
+                      }}
+                      compact
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -783,27 +783,37 @@ export default function XmlAuditDashboardPage() {
                     className="p-3 bg-red-900/10 border border-red-900/30 rounded-xl hover:bg-red-900/20 transition-all text-left"
                   >
                     <span className="block text-xs font-bold text-red-400 uppercase">Críticos</span>
-                    <span className="block text-sm text-red-300">Ver análisis con riesgo crítico</span>
+                    <span className="block text-sm text-red-300">
+                      Ver análisis con riesgo crítico
+                    </span>
                   </button>
                   <button
                     onClick={() => navigate("/modules/xml-audit/history?riskLevel=CRITICAL")}
                     className="p-3 bg-orange-900/10 border border-orange-900/30 rounded-xl hover:bg-orange-900/20 transition-all text-left"
                   >
-                    <span className="block text-xs font-bold text-orange-400 uppercase">Alto riesgo</span>
+                    <span className="block text-xs font-bold text-orange-400 uppercase">
+                      Alto riesgo
+                    </span>
                     <span className="block text-sm text-orange-300">Ver CRITICAL/WARNING</span>
                   </button>
                   <button
                     onClick={() => navigate("/modules/xml-audit/history/batches")}
                     className="p-3 bg-purple-900/10 border border-purple-900/30 rounded-xl hover:bg-purple-900/20 transition-all text-left"
                   >
-                    <span className="block text-xs font-bold text-purple-400 uppercase">Lotes con fallidos</span>
-                    <span className="block text-sm text-purple-300">Lotes ZIP que requieren atención</span>
+                    <span className="block text-xs font-bold text-purple-400 uppercase">
+                      Lotes con fallidos
+                    </span>
+                    <span className="block text-sm text-purple-300">
+                      Lotes ZIP que requieren atención
+                    </span>
                   </button>
                   <button
                     onClick={() => navigate("/modules/xml-audit")}
                     className="p-3 bg-blue-900/10 border border-blue-900/30 rounded-xl hover:bg-blue-900/20 transition-all text-left"
                   >
-                    <span className="block text-xs font-bold text-blue-400 uppercase">Nuevo análisis</span>
+                    <span className="block text-xs font-bold text-blue-400 uppercase">
+                      Nuevo análisis
+                    </span>
                     <span className="block text-sm text-blue-300">Analizar XML o ZIP masivo</span>
                   </button>
                 </div>

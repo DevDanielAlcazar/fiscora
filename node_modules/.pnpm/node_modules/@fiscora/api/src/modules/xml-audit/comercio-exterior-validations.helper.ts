@@ -1,8 +1,4 @@
-import type {
-  ComercioExteriorInfo,
-  ConceptInfo,
-  CceMercancia,
-} from "./xml-audit.service.js";
+import type { ComercioExteriorInfo, ConceptInfo, CceMercancia } from "./xml-audit.service.js";
 
 function isNonEmptyString(val: unknown): val is string {
   return typeof val === "string" && val.trim().length > 0;
@@ -42,13 +38,14 @@ export interface ComercioExteriorAdvancedContext {
 
 const SUPPORTED_VERSIONS = ["1.1", "2.0"];
 
-export function validateComercioExteriorAdvanced(
-  ctx: ComercioExteriorAdvancedContext,
-): void {
-  const { comercioExterior, tipoComprobante, exportacion, moneda, total, concepts, addFinding } = ctx;
+export function validateComercioExteriorAdvanced(ctx: ComercioExteriorAdvancedContext): void {
+  const { comercioExterior, tipoComprobante, exportacion, moneda, total, concepts, addFinding } =
+    ctx;
   if (!comercioExterior) return;
 
-  const ceEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+  const ceEvidence = (
+    extra?: { label: string; value?: string }[],
+  ): { label: string; value?: string }[] => [
     { label: "version", value: comercioExterior.version ?? "—" },
     { label: "exportacion", value: exportacion ?? "—" },
     { label: "tipoComprobante", value: tipoComprobante ?? "—" },
@@ -193,7 +190,13 @@ export function validateComercioExteriorAdvanced(
   }
 
   // B7) Moneda MXN: Estimated USD from Total vs TotalUSD
-  if (moneda === "MXN" && tcUSDNum !== null && tcUSDNum > 0 && totalUSDNum !== null && isNonEmptyString(total)) {
+  if (
+    moneda === "MXN" &&
+    tcUSDNum !== null &&
+    tcUSDNum > 0 &&
+    totalUSDNum !== null &&
+    isNonEmptyString(total)
+  ) {
     const totalNum = toNum(total);
     if (totalNum !== null) {
       const estimatedUSD = totalNum / tcUSDNum;
@@ -278,9 +281,7 @@ export function validateComercioExteriorAdvanced(
         "Formato de exportador confiable a revisar",
         "El número de exportador confiable tiene un formato inusual (muy corto o espacios).",
         "Revisa que el número de exportador confiable sea correcto.",
-        ceEvidence([
-          { label: "numeroExportadorConfiable", value: nec },
-        ]),
+        ceEvidence([{ label: "numeroExportadorConfiable", value: nec }]),
       );
     }
   }
@@ -332,7 +333,10 @@ export function validateComercioExteriorAdvanced(
   }
 
   // D4) Receptor domicilio missing Pais
-  if (comercioExterior.receptor?.domicilio && !isNonEmptyString(comercioExterior.receptor.domicilio.pais)) {
+  if (
+    comercioExterior.receptor?.domicilio &&
+    !isNonEmptyString(comercioExterior.receptor.domicilio.pais)
+  ) {
     addFinding(
       "COMERCIO_EXTERIOR_RECEPTOR_DOMICILIO_MISSING_PAIS",
       "WARNING",
@@ -344,7 +348,10 @@ export function validateComercioExteriorAdvanced(
   }
 
   // D5) Receptor domicilio missing CodigoPostal
-  if (comercioExterior.receptor?.domicilio && !isNonEmptyString(comercioExterior.receptor.domicilio.codigoPostal)) {
+  if (
+    comercioExterior.receptor?.domicilio &&
+    !isNonEmptyString(comercioExterior.receptor.domicilio.codigoPostal)
+  ) {
     addFinding(
       "COMERCIO_EXTERIOR_RECEPTOR_DOMICILIO_MISSING_CP_REVIEW",
       "INFO",
@@ -373,7 +380,10 @@ export function validateComercioExteriorAdvanced(
   }
 
   // D7) Emisor domicilio missing Pais
-  if (comercioExterior.emisor?.domicilio && !isNonEmptyString(comercioExterior.emisor.domicilio.pais)) {
+  if (
+    comercioExterior.emisor?.domicilio &&
+    !isNonEmptyString(comercioExterior.emisor.domicilio.pais)
+  ) {
     addFinding(
       "COMERCIO_EXTERIOR_EMISOR_DOMICILIO_MISSING_PAIS_REVIEW",
       "INFO",
@@ -406,7 +416,9 @@ export function validateComercioExteriorAdvanced(
 
   comercioExterior.mercancias.forEach((mer, mIdx) => {
     const merNum = mIdx + 1;
-    const merEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+    const merEvidence = (
+      extra?: { label: string; value?: string }[],
+    ): { label: string; value?: string }[] => [
       { label: "mercanciaIndex", value: String(merNum) },
       { label: "noIdentificacion", value: mer.noIdentificacion ?? "—" },
       { label: "fraccionArancelaria", value: mer.fraccionArancelaria ?? "—" },
@@ -517,9 +529,7 @@ export function validateComercioExteriorAdvanced(
           "ValorDolares no coincide con CantidadAduana * ValorUnitarioAduana",
           "El valor en dólares de una mercancía difiere del cálculo esperado.",
           "Revisa que CantidadAduana, ValorUnitarioAduana y ValorDolares sean consistentes.",
-          ceEvidence(merEvidence([
-            { label: "calculated", value: String(calculatedVd) },
-          ])),
+          ceEvidence(merEvidence([{ label: "calculated", value: String(calculatedVd) }])),
         );
       }
     }
@@ -545,7 +555,11 @@ export function validateComercioExteriorAdvanced(
   });
 
   // E10) TotalUSD vs sum of ValorDolares
-  if (totalUSDNum !== null && sumValorDolares > 0 && moneyDiff(totalUSDNum, sumValorDolares) > 0.01) {
+  if (
+    totalUSDNum !== null &&
+    sumValorDolares > 0 &&
+    moneyDiff(totalUSDNum, sumValorDolares) > 0.01
+  ) {
     addFinding(
       "COMERCIO_EXTERIOR_TOTAL_USD_MERCANCIAS_MISMATCH",
       "WARNING",
@@ -561,7 +575,9 @@ export function validateComercioExteriorAdvanced(
 
   // E12) Concept with NoIdentificacion not in CCE mercancias
   if (comercioExterior.mercancias.length > 0 && conceptNoIds.size > 0) {
-    const merNoIds = new Set(comercioExterior.mercancias.map((m) => m.noIdentificacion).filter(Boolean));
+    const merNoIds = new Set(
+      comercioExterior.mercancias.map((m) => m.noIdentificacion).filter(Boolean),
+    );
     for (const cNoId of conceptNoIds) {
       if (cNoId && !merNoIds.has(cNoId)) {
         addFinding(

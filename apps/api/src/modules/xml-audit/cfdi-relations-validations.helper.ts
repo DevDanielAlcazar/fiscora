@@ -138,11 +138,7 @@ export function validateCfdiRelationsAdvanced(ctx: CfdiRelationsAdvancedContext)
         "Ingreso con TipoRelacion 01 (Nota de crédito)",
         "El comprobante es de tipo Ingreso pero tiene TipoRelacion 01 (Nota de crédito). Esto es inusual porque las notas de crédito suelen asociarse a egresos.",
         "Revisa si el TipoRelacion es correcto para el escenario fiscal del comprobante.",
-        [
-          ev("Tipo comprobante", tipo),
-          ev("TipoRelacion", "01"),
-          ev("UUID comprobante", uuid),
-        ],
+        [ev("Tipo comprobante", tipo), ev("TipoRelacion", "01"), ev("UUID comprobante", uuid)],
       );
     }
   }
@@ -173,20 +169,14 @@ export function validateCfdiRelationsAdvanced(ctx: CfdiRelationsAdvancedContext)
         "Traslado con TipoRelacion 01 (Nota de crédito)",
         "El comprobante de traslado tiene TipoRelacion 01. Esto puede ser válido, pero el uso más común en traslados es 03, 05 o 06.",
         "Revisa que el TipoRelacion sea correcto según el escenario del traslado.",
-        [
-          ev("Tipo comprobante", tipo),
-          ev("TipoRelacion", "01"),
-          ev("UUID comprobante", uuid),
-        ],
+        [ev("Tipo comprobante", tipo), ev("TipoRelacion", "01"), ev("UUID comprobante", uuid)],
       );
     }
   }
 
   // D1) PAYMENT_WITHOUT_RELATED_DOCUMENTS_BUT_CFDI_RELACIONADOS_REVIEW
   if (isTipoMatch(tipo, "P") && paymentComplement) {
-    const hasAnyDoc = paymentComplement.pagos.some(
-      (p) => p.documentosRelacionados.length > 0,
-    );
+    const hasAnyDoc = paymentComplement.pagos.some((p) => p.documentosRelacionados.length > 0);
     if (!hasAnyDoc && totalRelated > 0) {
       addFinding(
         "PAYMENT_WITHOUT_RELATED_DOCUMENTS_BUT_CFDI_RELACIONADOS_REVIEW",
@@ -225,10 +215,7 @@ export function validateCfdiRelationsAdvanced(ctx: CfdiRelationsAdvancedContext)
             "UUID de DoctoRelacionado duplicado en CfdiRelacionados",
             `El UUID "${entry.uuid}" aparece tanto en DoctoRelacionado del complemento Pago como en CfdiRelacionados. Puede ser redundante o un error operativo.`,
             "Revisa si la relación es necesaria en ambos lugares o si puede eliminarse de CfdiRelacionados.",
-            [
-              ev("UUID duplicado", entry.uuid),
-              ev("UUID comprobante", uuid),
-            ],
+            [ev("UUID duplicado", entry.uuid), ev("UUID comprobante", uuid)],
           );
         }
       }
@@ -279,10 +266,7 @@ export function validateCfdiRelationsAdvanced(ctx: CfdiRelationsAdvancedContext)
       "Demasiados UUIDs relacionados en total",
       `El CFDI tiene ${totalRelated} UUIDs relacionados en total. Una cantidad excesiva puede indicar un problema de generación o agrupación incorrecta.`,
       "Revisa la totalidad de los UUIDs relacionados y confirma que sean necesarios.",
-      [
-        ev("Total UUIDs relacionados", String(totalRelated)),
-        ev("UUID comprobante", uuid),
-      ],
+      [ev("Total UUIDs relacionados", String(totalRelated)), ev("UUID comprobante", uuid)],
     );
   }
 }

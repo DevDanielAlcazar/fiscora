@@ -75,7 +75,22 @@ function addEvidence(
 }
 
 export function validateCatalogConsistency(ctx: CatalogConsistencyContext): void {
-  const { addFinding, tipoComprobante, moneda, exportacion, metodoPago, formaPago, concepts, cfdiRelations, paymentComplement, nomina, cartaPorte, retencionesNacionalidad, retencionesCveRetenc, retencionesImpuestos } = ctx;
+  const {
+    addFinding,
+    tipoComprobante,
+    moneda,
+    exportacion,
+    metodoPago,
+    formaPago,
+    concepts,
+    cfdiRelations,
+    paymentComplement,
+    nomina,
+    cartaPorte,
+    retencionesNacionalidad,
+    retencionesCveRetenc,
+    retencionesImpuestos,
+  } = ctx;
 
   // ── A) CFDI base ──
 
@@ -154,10 +169,7 @@ export function validateCatalogConsistency(ctx: CatalogConsistencyContext): void
         );
       }
 
-      const taxEntries = [
-        ...(c.impuestos?.traslados ?? []),
-        ...(c.impuestos?.retenciones ?? []),
-      ];
+      const taxEntries = [...(c.impuestos?.traslados ?? []), ...(c.impuestos?.retenciones ?? [])];
       taxEntries.forEach((t, ti) => {
         // B2) CATALOG_CONCEPT_TAX_IMPUESTO_UNKNOWN_REVIEW
         if (isNonEmptyString(t.impuesto) && !isKnownImpuesto(t.impuesto)) {
@@ -343,7 +355,10 @@ export function validateCatalogConsistency(ctx: CatalogConsistencyContext): void
   // ── F) Carta Porte ──
   if (cartaPorte) {
     // F1) CATALOG_CARTA_PORTE_TRANSP_INTERNAC_UNKNOWN_REVIEW
-    if (isNonEmptyString(cartaPorte.transpInternac) && !isKnownCartaPorteTranspInternac(cartaPorte.transpInternac)) {
+    if (
+      isNonEmptyString(cartaPorte.transpInternac) &&
+      !isKnownCartaPorteTranspInternac(cartaPorte.transpInternac)
+    ) {
       addFinding(
         "CATALOG_CARTA_PORTE_TRANSP_INTERNAC_UNKNOWN_REVIEW",
         "WARNING",
@@ -357,7 +372,10 @@ export function validateCatalogConsistency(ctx: CatalogConsistencyContext): void
 
   // ── G) Retenciones ──
   // G1) CATALOG_RETENCIONES_NACIONALIDAD_UNKNOWN_REVIEW
-  if (isNonEmptyString(retencionesNacionalidad) && !isKnownRetencionesNacionalidad(retencionesNacionalidad)) {
+  if (
+    isNonEmptyString(retencionesNacionalidad) &&
+    !isKnownRetencionesNacionalidad(retencionesNacionalidad)
+  ) {
     addFinding(
       "CATALOG_RETENCIONES_NACIONALIDAD_UNKNOWN_REVIEW",
       "WARNING",
@@ -383,7 +401,11 @@ export function validateCatalogConsistency(ctx: CatalogConsistencyContext): void
   if (retencionesImpuestos) {
     retencionesImpuestos.forEach((ir, idx) => {
       // G3) CATALOG_RETENCIONES_IMPUESTO_RET_UNKNOWN_REVIEW
-      if (isNonEmptyString(ir.impuesto) && !isKnownImpuestoRet(ir.impuesto) && !isKnownImpuesto(ir.impuesto)) {
+      if (
+        isNonEmptyString(ir.impuesto) &&
+        !isKnownImpuestoRet(ir.impuesto) &&
+        !isKnownImpuesto(ir.impuesto)
+      ) {
         addFinding(
           "CATALOG_RETENCIONES_IMPUESTO_RET_UNKNOWN_REVIEW",
           "WARNING",

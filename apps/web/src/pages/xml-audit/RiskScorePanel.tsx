@@ -43,8 +43,7 @@ export default function RiskScorePanel({
     if (zipSummary) return null;
     if (findings && findings.length > 0) return calculateRiskScore(findings);
     if (approximateCounts) return calculateApproximateRiskScore(approximateCounts);
-    if (findings && findings.length === 0)
-      return calculateRiskScore(findings);
+    if (findings && findings.length === 0) return calculateRiskScore(findings);
     return null;
   }, [findings, approximateCounts, zipSummary]);
 
@@ -68,11 +67,15 @@ export default function RiskScorePanel({
 
   if (zipResult) {
     return (
-      <div className={`rounded-xl border border-border bg-card ${compact ? "p-4" : "p-6"} space-y-4`}>
+      <div
+        className={`rounded-xl border border-border bg-card ${compact ? "p-4" : "p-6"} space-y-4`}
+      >
         {title && <h3 className="font-semibold text-sm">{title}</h3>}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <span className={`text-3xl font-bold ${getRiskBandStyles(effectiveBand).split(" ")[0]}`}>
+            <span
+              className={`text-3xl font-bold ${getRiskBandStyles(effectiveBand).split(" ")[0]}`}
+            >
               {zipResult.score}
             </span>
             <div>
@@ -118,7 +121,9 @@ export default function RiskScorePanel({
                   className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/30"
                 >
                   <span className="truncate font-medium">{f.name}</span>
-                  <span className={`shrink-0 ml-2 font-bold ${getRiskBandStyles(f.band).split(" ")[0]}`}>
+                  <span
+                    className={`shrink-0 ml-2 font-bold ${getRiskBandStyles(f.band).split(" ")[0]}`}
+                  >
                     {f.score}
                   </span>
                 </div>
@@ -138,9 +143,7 @@ export default function RiskScorePanel({
 
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <span
-            className={`text-4xl font-bold ${getRiskBandStyles(effectiveBand).split(" ")[0]}`}
-          >
+          <span className={`text-4xl font-bold ${getRiskBandStyles(effectiveBand).split(" ")[0]}`}>
             {result.score}
           </span>
           <div>

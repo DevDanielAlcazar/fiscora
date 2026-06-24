@@ -1,7 +1,4 @@
-import {
-  type ConceptInfo,
-  type GlobalTaxesInfo,
-} from "./xml-audit.service.js";
+import { type ConceptInfo, type GlobalTaxesInfo } from "./xml-audit.service.js";
 
 export interface TaxAdvancedValidationContext {
   concepts: ConceptInfo[];
@@ -54,7 +51,11 @@ function normalizeTipoFactor(v: string | null | undefined): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-function key(impuesto?: string | null, tipoFactor?: string | null, tasaOCuota?: string | null): string {
+function key(
+  impuesto?: string | null,
+  tipoFactor?: string | null,
+  tasaOCuota?: string | null,
+): string {
   return `${impuesto ?? ""}|${normalizeTipoFactor(tipoFactor)}|${tasaOCuota ?? ""}`;
 }
 
@@ -121,7 +122,17 @@ export function validateTaxAdvanced(ctx: TaxAdvancedValidationContext): void {
   }
 
   // A4) TAX_AMOUNT_NEGATIVE_REVIEW
-  const allConceptTaxEntries: Array<{ conceptIndex: number; scope: string; entry: { base?: string; impuesto?: string; tipoFactor?: string; tasaOCuota?: string; importe?: string } }> = [];
+  const allConceptTaxEntries: Array<{
+    conceptIndex: number;
+    scope: string;
+    entry: {
+      base?: string;
+      impuesto?: string;
+      tipoFactor?: string;
+      tasaOCuota?: string;
+      importe?: string;
+    };
+  }> = [];
   for (let ci = 0; ci < concepts.length; ci++) {
     const c = concepts[ci];
     if (!c.impuestos) continue;
@@ -438,8 +449,14 @@ export function validateTaxAdvanced(ctx: TaxAdvancedValidationContext): void {
       `Se encontraron ${concepts.filter((c) => c.objetoImp === "01").length} concepto(s) con ObjetoImp=01 y ${concepts.filter((c) => c.objetoImp !== "01").length} con otro valor.`,
       "Revisa que el tratamiento de impuestos mixtos sea fiscalmente correcto.",
       [
-        { label: "Conceptos ObjetoImp 01", value: String(concepts.filter((c) => c.objetoImp === "01").length) },
-        { label: "Conceptos ObjetoImp ≠ 01", value: String(concepts.filter((c) => c.objetoImp !== "01").length) },
+        {
+          label: "Conceptos ObjetoImp 01",
+          value: String(concepts.filter((c) => c.objetoImp === "01").length),
+        },
+        {
+          label: "Conceptos ObjetoImp ≠ 01",
+          value: String(concepts.filter((c) => c.objetoImp !== "01").length),
+        },
       ],
     );
   }
@@ -454,12 +471,18 @@ function roundMoney(v: number): number {
 }
 
 const KNOWN_ISR_RATES = new Set([
-  "0.100000", "0.200000", "0.300000", "0.350000",
-  "0.1000", "0.2000", "0.3000", "0.3500",
-  "0.10", "0.20", "0.30", "0.35",
+  "0.100000",
+  "0.200000",
+  "0.300000",
+  "0.350000",
+  "0.1000",
+  "0.2000",
+  "0.3000",
+  "0.3500",
+  "0.10",
+  "0.20",
+  "0.30",
+  "0.35",
 ]);
 
-const KNOWN_IVA_RETENTION_RATES = new Set([
-  "0.106666", "0.053333",
-  "0.1067", "0.0533",
-]);
+const KNOWN_IVA_RETENTION_RATES = new Set(["0.106666", "0.053333", "0.1067", "0.0533"]);

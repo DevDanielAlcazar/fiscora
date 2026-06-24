@@ -95,7 +95,9 @@ function buildEvidence(ctx: PartyValidationsAdvancedContext): { label: string; v
   ];
 }
 
-function emisorShortEvidence(ctx: PartyValidationsAdvancedContext): { label: string; value?: string }[] {
+function emisorShortEvidence(
+  ctx: PartyValidationsAdvancedContext,
+): { label: string; value?: string }[] {
   return [
     ev("RFC emisor", ctx.emisor.rfc),
     ev("Nombre emisor", ctx.emisor.nombre),
@@ -105,7 +107,9 @@ function emisorShortEvidence(ctx: PartyValidationsAdvancedContext): { label: str
   ];
 }
 
-function receptorShortEvidence(ctx: PartyValidationsAdvancedContext): { label: string; value?: string }[] {
+function receptorShortEvidence(
+  ctx: PartyValidationsAdvancedContext,
+): { label: string; value?: string }[] {
   return [
     ev("RFC receptor", ctx.receptor.rfc),
     ev("Nombre receptor", ctx.receptor.nombre),
@@ -116,7 +120,17 @@ function receptorShortEvidence(ctx: PartyValidationsAdvancedContext): { label: s
 }
 
 export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): void {
-  const { tipoComprobante, version, emisor, receptor, comercioExteriorReceptor, hasComercioExterior, lugarExpedicion, exportacion, addFinding } = ctx;
+  const {
+    tipoComprobante,
+    version,
+    emisor,
+    receptor,
+    comercioExteriorReceptor,
+    hasComercioExterior,
+    lugarExpedicion,
+    exportacion,
+    addFinding,
+  } = ctx;
 
   const tipo = tipoComprobante?.trim() ?? null;
   const v40 = isCfdi40(version);
@@ -136,7 +150,12 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   }
 
   // A2) EMISOR_RFC_FORMAT_REVIEW
-  if (v40 && isNonEmptyString(emisor.rfc) && !isGenericRfc(emisor.rfc) && !looksLikeRfc(emisor.rfc)) {
+  if (
+    v40 &&
+    isNonEmptyString(emisor.rfc) &&
+    !isGenericRfc(emisor.rfc) &&
+    !looksLikeRfc(emisor.rfc)
+  ) {
     addFinding(
       "EMISOR_RFC_FORMAT_REVIEW",
       "WARNING",
@@ -160,7 +179,11 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   }
 
   // A7) EMISOR_REGIMEN_FISCAL_FORMAT_REVIEW
-  if (v40 && isNonEmptyString(emisor.regimenFiscal) && !REGIMEN_3DIGIT.test(emisor.regimenFiscal!.trim())) {
+  if (
+    v40 &&
+    isNonEmptyString(emisor.regimenFiscal) &&
+    !REGIMEN_3DIGIT.test(emisor.regimenFiscal!.trim())
+  ) {
     addFinding(
       "EMISOR_REGIMEN_FISCAL_FORMAT_REVIEW",
       "WARNING",
@@ -186,7 +209,12 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   }
 
   // B2) RECEPTOR_RFC_FORMAT_REVIEW
-  if (v40 && isNonEmptyString(receptor.rfc) && !isGenericRfc(receptor.rfc) && !looksLikeRfc(receptor.rfc)) {
+  if (
+    v40 &&
+    isNonEmptyString(receptor.rfc) &&
+    !isGenericRfc(receptor.rfc) &&
+    !looksLikeRfc(receptor.rfc)
+  ) {
     addFinding(
       "RECEPTOR_RFC_FORMAT_REVIEW",
       "WARNING",
@@ -210,7 +238,11 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   }
 
   // B6) RECEPTOR_REGIMEN_FISCAL_FORMAT_REVIEW
-  if (v40 && isNonEmptyString(receptor.regimenFiscalReceptor) && !REGIMEN_3DIGIT.test(receptor.regimenFiscalReceptor!.trim())) {
+  if (
+    v40 &&
+    isNonEmptyString(receptor.regimenFiscalReceptor) &&
+    !REGIMEN_3DIGIT.test(receptor.regimenFiscalReceptor!.trim())
+  ) {
     addFinding(
       "RECEPTOR_REGIMEN_FISCAL_FORMAT_REVIEW",
       "WARNING",
@@ -236,7 +268,11 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   // ── C) RFC genérico nacional / extranjero ──
 
   // C4) RECEPTOR_GENERIC_FOREIGN_WITHOUT_RESIDENCIA_FISCAL
-  if (isGenericForeignRfc(receptor.rfc) && comercioExteriorReceptor && !isNonEmptyString(comercioExteriorReceptor.residenciaFiscal)) {
+  if (
+    isGenericForeignRfc(receptor.rfc) &&
+    comercioExteriorReceptor &&
+    !isNonEmptyString(comercioExteriorReceptor.residenciaFiscal)
+  ) {
     addFinding(
       "RECEPTOR_GENERIC_FOREIGN_WITHOUT_RESIDENCIA_FISCAL",
       "WARNING",
@@ -248,7 +284,11 @@ export function validatePartiesAdvanced(ctx: PartyValidationsAdvancedContext): v
   }
 
   // C5) RECEPTOR_GENERIC_FOREIGN_WITHOUT_NUM_REG_ID_TRIB_REVIEW
-  if (isGenericForeignRfc(receptor.rfc) && comercioExteriorReceptor && !isNonEmptyString(comercioExteriorReceptor.numRegIdTrib)) {
+  if (
+    isGenericForeignRfc(receptor.rfc) &&
+    comercioExteriorReceptor &&
+    !isNonEmptyString(comercioExteriorReceptor.numRegIdTrib)
+  ) {
     addFinding(
       "RECEPTOR_GENERIC_FOREIGN_WITHOUT_NUM_REG_ID_TRIB_REVIEW",
       "WARNING",

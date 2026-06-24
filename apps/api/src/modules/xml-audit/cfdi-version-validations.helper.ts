@@ -27,7 +27,10 @@ export interface CfdiVersionConsistencyContext {
   ) => void;
 }
 
-function ev(label: string, value?: string | null | number | boolean): { label: string; value?: string } {
+function ev(
+  label: string,
+  value?: string | null | number | boolean,
+): { label: string; value?: string } {
   return { label, value: value != null ? String(value) : "—" };
 }
 
@@ -70,7 +73,22 @@ function toNum(s: string | null): number {
 }
 
 export function validateCfdiVersionConsistency(ctx: CfdiVersionConsistencyContext): void {
-  const { version, tipoComprobante, exportacion, moneda, tipoCambio, formaPago, metodoPago, lugarExpedicion, confirmacion, total, emisor, receptor, concepts, addFinding } = ctx;
+  const {
+    version,
+    tipoComprobante,
+    exportacion,
+    moneda,
+    tipoCambio,
+    formaPago,
+    metodoPago,
+    lugarExpedicion,
+    confirmacion,
+    total,
+    emisor,
+    receptor,
+    concepts,
+    addFinding,
+  } = ctx;
 
   const tipo = tipoComprobante?.trim() ?? null;
   const is33 = isVersion(version, "3.3");

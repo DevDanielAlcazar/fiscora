@@ -53,7 +53,9 @@ export function validateCartaPorteAdvanced(ctx: CartaPorteAdvancedContext): void
 
   const cpVersion = normalizeCpVersion(cartaPorte.version);
 
-  const cpEvidence = (extra?: { label: string; value?: string }[]): { label: string; value?: string }[] => [
+  const cpEvidence = (
+    extra?: { label: string; value?: string }[],
+  ): { label: string; value?: string }[] => [
     { label: "version", value: cartaPorte.version ?? "—" },
     { label: "transpInternac", value: cartaPorte.transpInternac ?? "—" },
     { label: "totalDistRec", value: cartaPorte.totalDistRec ?? "—" },
@@ -109,7 +111,10 @@ export function validateCartaPorteAdvanced(ctx: CartaPorteAdvancedContext): void
     isNonEmptyString(cartaPorte.transpInternac) &&
     cartaPorte.transpInternac!.toLowerCase() === "sí"
   ) {
-    if (!isNonEmptyString(cartaPorte.paisOrigenDestino) || !isNonEmptyString(cartaPorte.viaEntradaSalida)) {
+    if (
+      !isNonEmptyString(cartaPorte.paisOrigenDestino) ||
+      !isNonEmptyString(cartaPorte.viaEntradaSalida)
+    ) {
       addFinding(
         "CARTA_PORTE_INTERNACIONAL_MISSING_PAIS_OR_VIA",
         "WARNING",
@@ -128,7 +133,8 @@ export function validateCartaPorteAdvanced(ctx: CartaPorteAdvancedContext): void
   if (
     isNonEmptyString(cartaPorte.transpInternac) &&
     cartaPorte.transpInternac!.toLowerCase() === "no" &&
-    (isNonEmptyString(cartaPorte.paisOrigenDestino) || isNonEmptyString(cartaPorte.viaEntradaSalida))
+    (isNonEmptyString(cartaPorte.paisOrigenDestino) ||
+      isNonEmptyString(cartaPorte.viaEntradaSalida))
   ) {
     addFinding(
       "CARTA_PORTE_NACIONAL_WITH_PAIS_OR_VIA_REVIEW",
@@ -200,7 +206,10 @@ export function validateCartaPorteAdvanced(ctx: CartaPorteAdvancedContext): void
     }
 
     // B8) Destino without DistanciaRecorrida
-    if (ubi.tipoUbicacion?.toLowerCase() === "destino" && !isNonEmptyString(ubi.distanciaRecorrida)) {
+    if (
+      ubi.tipoUbicacion?.toLowerCase() === "destino" &&
+      !isNonEmptyString(ubi.distanciaRecorrida)
+    ) {
       addFinding(
         "CARTA_PORTE_DESTINO_WITHOUT_DISTANCIA",
         "WARNING",
@@ -362,7 +371,7 @@ export function validateCartaPorteAdvanced(ctx: CartaPorteAdvancedContext): void
     const auto = cartaPorte.autotransporte;
 
     // D1) Without PermSCT / NumPermisoSCT
-    if (!auto || (!isNonEmptyString(auto.permSCT) || !isNonEmptyString(auto.numPermisoSCT))) {
+    if (!auto || !isNonEmptyString(auto.permSCT) || !isNonEmptyString(auto.numPermisoSCT)) {
       addFinding(
         "CARTA_PORTE_AUTOTRANSPORTE_WITHOUT_PERMISO",
         "WARNING",

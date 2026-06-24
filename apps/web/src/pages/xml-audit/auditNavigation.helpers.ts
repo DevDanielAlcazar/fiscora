@@ -79,21 +79,64 @@ export function buildQuickFilterPresets(compact = false): QuickFilterPreset[] {
     { key: "all", label: "Todos", filter: () => true },
     { key: "blocker", label: "Bloqueantes", filter: (f) => f.priority === "BLOCKER" },
     { key: "critical", label: "Críticos", filter: (f) => f.severity === "CRITICAL" },
-    { key: "high-risk", label: "Alto riesgo", filter: (f) => f.severity === "CRITICAL" || f.priority === "BLOCKER" || f.priority === "HIGH" },
+    {
+      key: "high-risk",
+      label: "Alto riesgo",
+      filter: (f) => f.severity === "CRITICAL" || f.priority === "BLOCKER" || f.priority === "HIGH",
+    },
     { key: "with-diff", label: "Con diferencia", filter: (f) => !!f.valueTrace?.difference },
     { key: "no-location", label: "Sin ubicación", filter: (f) => !f.location },
-    { key: "tax", label: "Impuestos", filter: (f) => (f.actionGroup ?? "").toUpperCase().includes("TAX") || (f.actionGroup ?? "").toUpperCase().includes("IMPUESTO") },
-    { key: "payment", label: "Pagos", filter: (f) => f.location?.module === "payment" || (f.actionGroup ?? "").toUpperCase().includes("PAGO") },
-    { key: "tfd", label: "Timbre", filter: (f) => f.location?.module === "tfd" || (f.actionGroup ?? "").toUpperCase().includes("TFD") },
-    { key: "complements", label: "Complementos", filter: (f) => f.location?.module === "nomina" || f.location?.module === "carta-porte" || f.location?.module === "comercio-exterior" },
+    {
+      key: "tax",
+      label: "Impuestos",
+      filter: (f) =>
+        (f.actionGroup ?? "").toUpperCase().includes("TAX") ||
+        (f.actionGroup ?? "").toUpperCase().includes("IMPUESTO"),
+    },
+    {
+      key: "payment",
+      label: "Pagos",
+      filter: (f) =>
+        f.location?.module === "payment" || (f.actionGroup ?? "").toUpperCase().includes("PAGO"),
+    },
+    {
+      key: "tfd",
+      label: "Timbre",
+      filter: (f) =>
+        f.location?.module === "tfd" || (f.actionGroup ?? "").toUpperCase().includes("TFD"),
+    },
+    {
+      key: "complements",
+      label: "Complementos",
+      filter: (f) =>
+        f.location?.module === "nomina" ||
+        f.location?.module === "carta-porte" ||
+        f.location?.module === "comercio-exterior",
+    },
     { key: "parties", label: "Emisor/Receptor", filter: (f) => f.location?.module === "parties" },
-    { key: "cfdi-relations", label: "CFDI relacionados", filter: (f) => f.location?.module === "cfdi-relations" },
-    { key: "fiscal-action", label: "Requieren acción fiscal", filter: (f) => (f.actionGroup ?? "").toUpperCase().includes("TAX") || f.severity === "CRITICAL" },
-    { key: "technical-review", label: "Requieren revisión técnica", filter: (f) => f.category === "TECHNICAL" || (f.actionGroup ?? "").toUpperCase().includes("STRUCTURE") },
+    {
+      key: "cfdi-relations",
+      label: "CFDI relacionados",
+      filter: (f) => f.location?.module === "cfdi-relations",
+    },
+    {
+      key: "fiscal-action",
+      label: "Requieren acción fiscal",
+      filter: (f) =>
+        (f.actionGroup ?? "").toUpperCase().includes("TAX") || f.severity === "CRITICAL",
+    },
+    {
+      key: "technical-review",
+      label: "Requieren revisión técnica",
+      filter: (f) =>
+        f.category === "TECHNICAL" || (f.actionGroup ?? "").toUpperCase().includes("STRUCTURE"),
+    },
   ];
 
   if (compact) {
-    return all.filter((p) => ["all", "critical", "blocker", "high-risk", "with-diff"].includes(p.key));
+    return all.filter((p) =>
+      ["all", "critical", "blocker", "high-risk", "with-diff"].includes(p.key),
+    );
   }
 
   return all;
@@ -119,17 +162,36 @@ export function filterFindingsSmart(findings: Finding[], filters: SmartFilters):
       }
     }
     if (filters.severities.length > 0 && !filters.severities.includes(f.severity)) return false;
-    if (filters.priorities.length > 0 && (!f.priority || !filters.priorities.includes(f.priority))) return false;
-    if (filters.actionGroups.length > 0 && (!f.actionGroup || !filters.actionGroups.includes(f.actionGroup))) return false;
-    if (filters.modules.length > 0 && (!f.location?.module || !filters.modules.includes(f.location.module))) return false;
-    if (filters.fields.length > 0 && (!f.location?.field || !filters.fields.includes(f.location.field))) return false;
+    if (filters.priorities.length > 0 && (!f.priority || !filters.priorities.includes(f.priority)))
+      return false;
+    if (
+      filters.actionGroups.length > 0 &&
+      (!f.actionGroup || !filters.actionGroups.includes(f.actionGroup))
+    )
+      return false;
+    if (
+      filters.modules.length > 0 &&
+      (!f.location?.module || !filters.modules.includes(f.location.module))
+    )
+      return false;
+    if (
+      filters.fields.length > 0 &&
+      (!f.location?.field || !filters.fields.includes(f.location.field))
+    )
+      return false;
     if (filters.hasLocation === true && !f.location) return false;
     if (filters.hasLocation === false && f.location) return false;
     if (filters.hasValueTrace === true && !f.valueTrace) return false;
     if (filters.hasValueTrace === false && f.valueTrace) return false;
-    if (filters.onlyCriticalOrBlocker && f.severity !== "CRITICAL" && f.priority !== "BLOCKER") return false;
+    if (filters.onlyCriticalOrBlocker && f.severity !== "CRITICAL" && f.priority !== "BLOCKER")
+      return false;
     if (filters.onlyWithDifference && !f.valueTrace?.difference) return false;
-    if (filters.onlyTaxImpact && !(f.actionGroup ?? "").toUpperCase().includes("TAX") && !(f.actionGroup ?? "").toUpperCase().includes("IMPUESTO")) return false;
+    if (
+      filters.onlyTaxImpact &&
+      !(f.actionGroup ?? "").toUpperCase().includes("TAX") &&
+      !(f.actionGroup ?? "").toUpperCase().includes("IMPUESTO")
+    )
+      return false;
     if (filters.onlyTechnicalImpact && f.category !== "TECHNICAL") return false;
     if (filters.onlySupportMessageRelevant && !f.recommendedAction) return false;
     return true;
@@ -208,7 +270,8 @@ export function summarizeActiveFilters(filters: SmartFilters): string | null {
   const parts: string[] = [];
   if (filters.severities.length > 0) parts.push(filters.severities.join(", "));
   if (filters.priorities.length > 0) parts.push(`Prioridad: ${filters.priorities.join(", ")}`);
-  if (filters.modules.length > 0) parts.push(`Módulo: ${filters.modules.map(getFindingModuleLabel).join(", ")}`);
+  if (filters.modules.length > 0)
+    parts.push(`Módulo: ${filters.modules.map(getFindingModuleLabel).join(", ")}`);
   if (filters.actionGroups.length > 0) parts.push(`Grupo: ${filters.actionGroups.join(", ")}`);
   if (filters.onlyCriticalOrBlocker) parts.push("Críticos/Bloqueantes");
   if (filters.onlyWithDifference) parts.push("Con diferencia");
@@ -218,7 +281,13 @@ export function summarizeActiveFilters(filters: SmartFilters): string | null {
   return `${parts.length} filtro${parts.length > 1 ? "s" : ""} activo${parts.length > 1 ? "s" : ""}: ${parts.join(", ")}`;
 }
 
-export type ZipSortMode = "score-asc" | "score-desc" | "critical-desc" | "warning-desc" | "name" | "status";
+export type ZipSortMode =
+  | "score-asc"
+  | "score-desc"
+  | "critical-desc"
+  | "warning-desc"
+  | "name"
+  | "status";
 
 export interface ZipFilters {
   text?: string;
@@ -278,9 +347,21 @@ export function filterZipFiles(
     if (filters.hasBom && !r.analysis.technicalDiagnostics?.bomDetected) return false;
     if (filters.hasNormalizedXml && !r.analysis.normalizedXml?.available) return false;
     if (filters.hasTimbreError && !fnd.some((fx) => fx.location?.module === "tfd")) return false;
-    if (filters.hasTaxError && !fnd.some((fx) => (fx.actionGroup ?? "").toUpperCase().includes("TAX"))) return false;
-    if (filters.hasPaymentError && !fnd.some((fx) => fx.location?.module === "payment")) return false;
-    if (filters.hasCartaPorteError && !fnd.some((fx) => fx.location?.module === "carta-porte" || fx.location?.module === "comercio-exterior")) return false;
+    if (
+      filters.hasTaxError &&
+      !fnd.some((fx) => (fx.actionGroup ?? "").toUpperCase().includes("TAX"))
+    )
+      return false;
+    if (filters.hasPaymentError && !fnd.some((fx) => fx.location?.module === "payment"))
+      return false;
+    if (
+      filters.hasCartaPorteError &&
+      !fnd.some(
+        (fx) =>
+          fx.location?.module === "carta-porte" || fx.location?.module === "comercio-exterior",
+      )
+    )
+      return false;
     if (filters.hasRetenciones && r.analysis.documentKind !== "RETENCIONES") return false;
     if (filters.hasNomina && !fnd.some((fx) => fx.location?.module === "nomina")) return false;
     return true;
@@ -294,24 +375,48 @@ export function sortZipFiles(
   return [...files].sort((a, b) => {
     switch (sortMode) {
       case "score-asc": {
-        const sa = a.status === "ANALYZED" && a.analysis?.findings ? calculateRiskScore(a.analysis.findings).score : 0;
-        const sb = b.status === "ANALYZED" && b.analysis?.findings ? calculateRiskScore(b.analysis.findings).score : 0;
+        const sa =
+          a.status === "ANALYZED" && a.analysis?.findings
+            ? calculateRiskScore(a.analysis.findings).score
+            : 0;
+        const sb =
+          b.status === "ANALYZED" && b.analysis?.findings
+            ? calculateRiskScore(b.analysis.findings).score
+            : 0;
         return sa - sb;
       }
       case "score-desc": {
-        const sa = a.status === "ANALYZED" && a.analysis?.findings ? calculateRiskScore(a.analysis.findings).score : 0;
-        const sb = b.status === "ANALYZED" && b.analysis?.findings ? calculateRiskScore(b.analysis.findings).score : 0;
+        const sa =
+          a.status === "ANALYZED" && a.analysis?.findings
+            ? calculateRiskScore(a.analysis.findings).score
+            : 0;
+        const sb =
+          b.status === "ANALYZED" && b.analysis?.findings
+            ? calculateRiskScore(b.analysis.findings).score
+            : 0;
         return sb - sa;
       }
       case "critical-desc": {
-        const ca = a.status === "ANALYZED" && a.analysis?.findings ? a.analysis.findings.filter((fx) => fx.severity === "CRITICAL").length : 0;
-        const cb = b.status === "ANALYZED" && b.analysis?.findings ? b.analysis.findings.filter((fx) => fx.severity === "CRITICAL").length : 0;
+        const ca =
+          a.status === "ANALYZED" && a.analysis?.findings
+            ? a.analysis.findings.filter((fx) => fx.severity === "CRITICAL").length
+            : 0;
+        const cb =
+          b.status === "ANALYZED" && b.analysis?.findings
+            ? b.analysis.findings.filter((fx) => fx.severity === "CRITICAL").length
+            : 0;
         if (ca !== cb) return cb - ca;
         return (a.status === "FAILED" ? 1 : 0) - (b.status === "FAILED" ? 1 : 0);
       }
       case "warning-desc": {
-        const wa = a.status === "ANALYZED" && a.analysis?.findings ? a.analysis.findings.filter((fx) => fx.severity === "WARNING").length : 0;
-        const wb = b.status === "ANALYZED" && b.analysis?.findings ? b.analysis.findings.filter((fx) => fx.severity === "WARNING").length : 0;
+        const wa =
+          a.status === "ANALYZED" && a.analysis?.findings
+            ? a.analysis.findings.filter((fx) => fx.severity === "WARNING").length
+            : 0;
+        const wb =
+          b.status === "ANALYZED" && b.analysis?.findings
+            ? b.analysis.findings.filter((fx) => fx.severity === "WARNING").length
+            : 0;
         if (wa !== wb) return wb - wa;
         return (a.status === "FAILED" ? 1 : 0) - (b.status === "FAILED" ? 1 : 0);
       }

@@ -1,8 +1,4 @@
-import type {
-  PaymentComplement,
-  PaymentInfo,
-  PaymentDocument,
-} from "./xml-audit.service.js";
+import type { PaymentComplement, PaymentInfo, PaymentDocument } from "./xml-audit.service.js";
 
 function toStr(val: unknown): string | null {
   if (val === null || val === undefined) return null;
@@ -43,9 +39,7 @@ export interface PaymentComplementAdvancedContext {
   addFinding: FindingAdder;
 }
 
-export function validatePaymentComplementAdvanced(
-  ctx: PaymentComplementAdvancedContext,
-): void {
+export function validatePaymentComplementAdvanced(ctx: PaymentComplementAdvancedContext): void {
   const { paymentComplement, addFinding } = ctx;
 
   if (!paymentComplement || !paymentComplement.pagos) return;
@@ -55,7 +49,9 @@ export function validatePaymentComplementAdvanced(
     const monedaP = toStr(pago.monedaP) ?? "";
     const monto = toStr(pago.monto) ?? "";
 
-    function pagoEvidence(extra?: { label: string; value?: string }[]): { label: string; value?: string }[] {
+    function pagoEvidence(
+      extra?: { label: string; value?: string }[],
+    ): { label: string; value?: string }[] {
       return [
         { label: "pagoIndex", value: String(pagoNum) },
         { label: "monedaP", value: monedaP || "—" },
@@ -198,7 +194,9 @@ export function validatePaymentComplementAdvanced(
       const impSaldoInsoluto = toStr(doc.impSaldoInsoluto) ?? "";
       const objetoImpDR = toStr(doc.objetoImpDR) ?? "";
 
-      function docEvidence(extra?: { label: string; value?: string }[]): { label: string; value?: string }[] {
+      function docEvidence(
+        extra?: { label: string; value?: string }[],
+      ): { label: string; value?: string }[] {
         return [
           ...pagoEvidence(),
           { label: "documentoIndex", value: String(docNum) },
@@ -358,7 +356,11 @@ export function validatePaymentComplementAdvanced(
       }
 
       // B11) Paid exceeds previous balance - reuse RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE
-      if (isNonEmptyString(doc.impSaldoAnt) && isNonEmptyString(doc.impPagado) && pagadoNum > saldoAntNum + 0.01) {
+      if (
+        isNonEmptyString(doc.impSaldoAnt) &&
+        isNonEmptyString(doc.impPagado) &&
+        pagadoNum > saldoAntNum + 0.01
+      ) {
         addFinding(
           "RELATED_DOCUMENT_PAID_EXCEEDS_PREVIOUS_BALANCE",
           "CRITICAL",
@@ -366,7 +368,10 @@ export function validatePaymentComplementAdvanced(
           "El importe pagado del documento relacionado es mayor al saldo anterior.",
           "Valida los importes del REP.",
           docEvidence([
-            { label: "difference", value: String(Math.round((pagadoNum - saldoAntNum) * 100) / 100) },
+            {
+              label: "difference",
+              value: String(Math.round((pagadoNum - saldoAntNum) * 100) / 100),
+            },
           ]),
         );
       }
@@ -435,9 +440,10 @@ export function validatePaymentComplementAdvanced(
 
       // B16) ObjetoImpDR 03 with tax amount > 0
       if (objetoImpDR === "03" && doc.impuestosDR) {
-        const hasAmount = [...(doc.impuestosDR.trasladosDR ?? []), ...(doc.impuestosDR.retencionesDR ?? [])].some(
-          (t) => toMoneyNumber(t.importeDR) > 0,
-        );
+        const hasAmount = [
+          ...(doc.impuestosDR.trasladosDR ?? []),
+          ...(doc.impuestosDR.retencionesDR ?? []),
+        ].some((t) => toMoneyNumber(t.importeDR) > 0);
         if (hasAmount) {
           addFinding(
             "RELATED_DOCUMENT_OBJECT_IMP_03_WITH_TAX_AMOUNT_REVIEW",
@@ -463,7 +469,9 @@ export function validatePaymentComplementAdvanced(
         const taxRate = toStr(tax.tasaOCuotaDR) ?? "";
         const taxImporte = toStr(tax.importeDR) ?? "";
 
-        function taxEvidence(extra?: { label: string; value?: string }[]): { label: string; value?: string }[] {
+        function taxEvidence(
+          extra?: { label: string; value?: string }[],
+        ): { label: string; value?: string }[] {
           return [
             ...docEvidence(),
             { label: "impuestoDR", value: taxImpuesto || "—" },
@@ -490,10 +498,15 @@ export function validatePaymentComplementAdvanced(
         }
 
         // D2) Rate/amount mismatch
-        if (isNonEmptyString(tax.baseDR) && isNonEmptyString(tax.tasaOCuotaDR) && isNonEmptyString(tax.importeDR)) {
+        if (
+          isNonEmptyString(tax.baseDR) &&
+          isNonEmptyString(tax.tasaOCuotaDR) &&
+          isNonEmptyString(tax.importeDR)
+        ) {
           const expectedImporte = Math.round(taxBaseNum * taxImporteNum * 100) / 100;
           const actualImporte = taxImporteNum;
-          const importeFromRate = Math.round(taxBaseNum * toMoneyNumber(tax.tasaOCuotaDR) * 100) / 100;
+          const importeFromRate =
+            Math.round(taxBaseNum * toMoneyNumber(tax.tasaOCuotaDR) * 100) / 100;
           if (moneyDiff(importeFromRate, actualImporte) > 0.01) {
             addFinding(
               "PAYMENT_RELATED_TAX_RATE_MISMATCH",
@@ -565,16 +578,15 @@ export function validatePaymentComplementAdvanced(
     // Skip if servicio ya lo maneja en lines 4484-4565
 
     // C2) Sum of ImpPagado < Monto (significant difference)
-    if (
-      pago.documentosRelacionados.length > 0 &&
-      isNonEmptyString(pago.monto)
-    ) {
+    if (pago.documentosRelacionados.length > 0 && isNonEmptyString(pago.monto)) {
       const allDocsComparable = pago.documentosRelacionados.every((doc) => {
         const docMoneda = toStr(doc.monedaDR)?.toUpperCase() ?? "";
         const docEquivalencia = toStr(doc.equivalenciaDR) ?? "";
         return (
           isNonEmptyString(doc.impPagado) &&
-          (docMoneda === monedaP.toUpperCase() || docMoneda === "" || !isNonEmptyString(doc.monedaDR)) &&
+          (docMoneda === monedaP.toUpperCase() ||
+            docMoneda === "" ||
+            !isNonEmptyString(doc.monedaDR)) &&
           (docEquivalencia === "" || docEquivalencia === "1")
         );
       });
@@ -594,7 +606,10 @@ export function validatePaymentComplementAdvanced(
             pagoEvidence([
               { label: "Suma ImpPagado", value: String(sumPagado) },
               { label: "Monto pago", value: pago.monto! },
-              { label: "difference", value: String(Math.round((sumPagado - montoNum) * 100) / 100) },
+              {
+                label: "difference",
+                value: String(Math.round((sumPagado - montoNum) * 100) / 100),
+              },
             ]),
           );
         } else if (montoNum - sumPagado > 0.01) {
@@ -651,10 +666,7 @@ export function validatePaymentComplementAdvanced(
   });
 
   // D7) Totales present without DR taxes
-  if (
-    paymentComplement.totales &&
-    Object.keys(paymentComplement.totales).length > 0
-  ) {
+  if (paymentComplement.totales && Object.keys(paymentComplement.totales).length > 0) {
     const hasDrTaxes = paymentComplement.pagos.some((p) =>
       p.documentosRelacionados.some(
         (d) =>
@@ -670,9 +682,7 @@ export function validatePaymentComplementAdvanced(
         "Totales de impuestos presentes sin impuestos DR",
         "El complemento de pagos reporta totales de impuestos, pero no se detectaron impuestos DR en los documentos relacionados.",
         "Verifica que los impuestos DR estén correctamente capturados.",
-        [
-          { label: "MontoTotalPagos", value: paymentComplement.totales.montoTotalPagos ?? "—" },
-        ],
+        [{ label: "MontoTotalPagos", value: paymentComplement.totales.montoTotalPagos ?? "—" }],
       );
     }
   }
