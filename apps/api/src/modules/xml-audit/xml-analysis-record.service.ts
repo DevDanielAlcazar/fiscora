@@ -32,7 +32,7 @@ export interface SaveFailedXmlAnalysisRecordParams {
   errorMessage: string;
 }
 
-function sanitizeAnalysisJson(analysis: AnalysisResponse): Record<string, unknown> {
+export function sanitizeAnalysisJson(analysis: AnalysisResponse): Record<string, unknown> {
   const obj = JSON.parse(JSON.stringify(analysis)) as Record<string, unknown>;
   if (obj.normalizedXml && typeof obj.normalizedXml === "object") {
     const nx = obj.normalizedXml as Record<string, unknown>;

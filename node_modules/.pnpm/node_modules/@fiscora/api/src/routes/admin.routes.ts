@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { PasswordService } from "../modules/auth/password.service.js";
+import { sanitizeAnalysisJson } from "../modules/xml-audit/xml-analysis-record.service.js";
 
 const updateAccessBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -1177,6 +1178,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
+      const sanitizedJson = sanitizeAnalysisJson(record.analysisJson as any);
       return reply.send({
         id: record.id,
         createdAt: record.createdAt,
@@ -1218,7 +1220,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         zipFilename: record.zipFilename,
         zipEntryName: record.zipEntryName,
         zipEntryIndex: record.zipEntryIndex,
-        analysisJson: record.analysisJson,
+        analysisJson: sanitizedJson,
       });
     },
   });
