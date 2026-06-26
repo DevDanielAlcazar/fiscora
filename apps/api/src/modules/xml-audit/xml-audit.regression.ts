@@ -7409,6 +7409,119 @@ async function testJjNoBreakNoEvidence(): Promise<void> {
   );
 }
 
+// ── JO–JT: SAT Catalog Registry Tests ──
+
+async function testJoCatalogLookupKnown(): Promise<void> {
+  const { lookupCatalogEntry } = await import("./sat-catalogs/sat-catalog.helpers.js");
+  const result = lookupCatalogEntry("c_TipoDeComprobante", "I");
+  assertTruthy(result.known, "Debería conocer el código I");
+  assertTruthy(result.label, "Debería tener label");
+  assertEqual(result.label, "Ingreso", "Label debería ser Ingreso");
+  assertEqual(result.completeness, "PARTIAL", "Debería ser PARTIAL");
+  assertEqual(result.sourceType, "FISCORA_CURATED", "Source type debería ser FISCORA_CURATED");
+}
+
+async function testJpCatalogOutOfValidity(): Promise<void> {
+  const { lookupCatalogEntry } = await import("./sat-catalogs/sat-catalog.helpers.js");
+  const result = lookupCatalogEntry("c_TipoDeComprobante", "I", { cfdiDate: "2020-01-01" });
+  assertTruthy(result.known, "Debería conocer el código");
+  assertTruthy(result.activeOnDate === null || result.activeOnDate === true, "Sin vigencia debería ser null o true");
+}
+
+async function testJqPartialCatalogBounded(): Promise<void> {
+  const { lookupCatalogEntry } = await import("./sat-catalogs/sat-catalog.helpers.js");
+  const result = lookupCatalogEntry("c_UsoCFDI", "G01");
+  assertTruthy(result.known, "Debería conocer G01");
+  assertEqual(result.completeness, "PARTIAL", "Debería indicar PARTIAL");
+}
+
+async function testJrUnknownCodeEvidence(): Promise<void> {
+  const { buildCatalogEvidence } = await import("./sat-catalogs/sat-catalog.helpers.js");
+  const evidence = buildCatalogEvidence("c_TipoDeComprobante", "X");
+  assertEqual(evidence.known, false, "Debería ser unknown");
+  assertEqual(evidence.catalogKey, "c_TipoDeComprobante", "Key debería coincidir");
+  assertEqual(evidence.completeness, "PARTIAL", "Debería indicar PARTIAL");
+}
+
+async function testJsMissingCfdiDate(): Promise<void> {
+  const { lookupCatalogEntry } = await import("./sat-catalogs/sat-catalog.helpers.js");
+  const result = lookupCatalogEntry("c_TipoDeComprobante", "I", { cfdiDate: undefined });
+  assertTruthy(result.known, "Debería conocer código sin fecha");
+  assertEqual(result.activeOnDate, null, "Sin fecha debería ser null");
+}
+
+async function testJtLegacyHelpers(): Promise<void> {
+  const {
+    isKnownTipoComprobante,
+    isKnownRegimenFiscal,
+    getRegimenFiscalLabel,
+  } = await import("./xml-audit.catalogs.js");
+  assertTruthy(isKnownTipoComprobante("I"), "I debería ser known");
+  assertTruthy(isKnownRegimenFiscal("601"), "601 debería ser known");
+  assertEqual(getRegimenFiscalLabel("601"), "General de Ley Personas Morales", "Label debería coincidir");
+}
+
+// ── JU–JZ: SAT Matrix Mapping Tests ──
+
+async function testJuMatrixUniqueIds(): Promise<void> {
+  const { validateMatrixIntegrity } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const result = validateMatrixIntegrity();
+  assertTruthy(result.valid, "Matriz debería tener IDs únicos");
+}
+
+async function testJvMatrixSummary(): Promise<void> {
+  const { getSatMatrixSummary } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const summary = getSatMatrixSummary();
+  assertTruthy(summary.totalRules > 0, "Debería tener reglas");
+  assertTruthy(summary.coveredDirect >= 0, "Debería contar cobertura directa");
+}
+
+async function testJwFindingCodeMaps(): Promise<void> {
+  const { findRulesByFiscoraCode, getCoverageForFindingCode } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const rules = findRulesByFiscoraCode("TFD_UUID_MISSING");
+  assertTruthy(rules.length > 0, "Debería encontrar reglas para TFD_UUID_MISSING");
+  const coverage = getCoverageForFindingCode("TFD_UUID_MISSING");
+  assertTruthy(coverage.mapped, "Debería estar mapeado");
+}
+
+async function testJxNotCoveredNoCodes(): Promise<void> {
+  const { getCfdi40MatrixRules } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const rules = getCfdi40MatrixRules();
+  const notCovered = rules.filter((r) => r.coverage === "NOT_COVERED");
+  for (const r of notCovered) {
+    assertEqual(r.fiscoraFindingCodes.length, 0, `Regla ${r.id} NOT_COVERED no debería tener códigos`);
+  }
+}
+
+async function testJyGapsMarked(): Promise<void> {
+  const { getCfdi40MatrixRules } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const rules = getCfdi40MatrixRules();
+  const cryptoRequired = rules.filter((r) => r.requiresCryptoValidation);
+  const xsdRequired = rules.filter((r) => r.requiresXsd);
+  assertTruthy(cryptoRequired.length > 0, "Debería haber reglas con crypto requerido");
+  assertTruthy(xsdRequired.length > 0, "Debería haber reglas con XSD requerido");
+}
+
+async function testJzModulesHaveRules(): Promise<void> {
+  const { findRulesByModule } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const cfdiBaseRules = findRulesByModule("CFDI_BASE");
+  const totalsRules = findRulesByModule("TOTALES");
+  assertTruthy(cfdiBaseRules.length > 0, "Debería tener reglas CFDI_BASE");
+  assertTruthy(totalsRules.length > 0, "Debería tener reglas TOTALES");
+}
+
+async function testKaForensicRulesExist(): Promise<void> {
+  const { findRulesByModule } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const forensicRules = findRulesByModule("SEGURIDAD_PAYLOAD");
+  assertTruthy(forensicRules.length > 0, "Debería tener reglas forenses");
+}
+
+async function testKbIntegrityPasses(): Promise<void> {
+  const { validateMatrixIntegrity } = await import("./sat-matrix/sat-matrix.helpers.js");
+  const result = validateMatrixIntegrity();
+  assertTruthy(result.valid, "Integridad de matriz debería pasar");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -7776,6 +7889,26 @@ async function main() {
   await runCase("JH) valueTrace se genera para mismatch numérico", testJhValueTraceNumerico);
   await runCase("JI) Sanitización conserva location/valueTrace", testJiSanitizationPreserves);
   await runCase("JJ) No se rompe finding sin evidence", testJjNoBreakNoEvidence);
+
+  // ── JO–JT: SAT Catalog Registry Tests ──
+
+  await runCase("JO) catalog registry lookup known code", testJoCatalogLookupKnown);
+  await runCase("JP) catalog registry out of validity", testJpCatalogOutOfValidity);
+  await runCase("JQ) partial catalog emits bounded review", testJqPartialCatalogBounded);
+  await runCase("JR) unknown code includes catalog evidence", testJrUnknownCodeEvidence);
+  await runCase("JS) missing cfdi date does not fail", testJsMissingCfdiDate);
+  await runCase("JT) legacy helpers still work", testJtLegacyHelpers);
+
+  // ── JU–JZ: SAT Matrix Mapping Tests ──
+
+  await runCase("JU) matriz tiene IDs únicos", testJuMatrixUniqueIds);
+  await runCase("JV) summary calcula totales", testJvMatrixSummary);
+  await runCase("JW) finding code conocido mapea a regla", testJwFindingCodeMaps);
+  await runCase("JX) regla NOT_COVERED no tiene finding codes", testJxNotCoveredNoCodes);
+  await runCase("JY) gaps XSD/crypto/online quedan marcados", testJyGapsMarked);
+  await runCase("JZ) módulos clave tienen al menos una regla", testJzModulesHaveRules);
+  await runCase("KA) reglas forenses Fiscora existen", testKaForensicRulesExist);
+  await runCase("KB) validateMatrixIntegrity no falla", testKbIntegrityPasses);
 
   printSummary();
 

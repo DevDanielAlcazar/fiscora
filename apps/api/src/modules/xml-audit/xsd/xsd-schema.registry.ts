@@ -1,0 +1,122 @@
+import type { XsdSchemaDefinition, XsdSchemaKey } from "./xsd-validation.types.js";
+
+export const XSD_SCHEMA_REGISTRY: XsdSchemaDefinition[] = [
+  {
+    key: "CFDI_40",
+    module: "cfdi-base",
+    displayName: "CFDI 4.0",
+    expectedNamespace: "http://www.sat.gob.mx/cfd/4",
+    localPath: "xsd/schemas/cfdi/4.0/cfdv40.xsd",
+    required: true,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "TFD_11",
+    module: "tfd",
+    displayName: "Timbre Fiscal Digital 1.1",
+    expectedNamespace: "http://www.sat.gob.mx/TimbreFiscalDigital",
+    localPath: "xsd/schemas/tfd/1.1/TimbreFiscalDigitalv11.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "PAGOS_20",
+    module: "pago20",
+    displayName: "Complemento de Pago 2.0",
+    expectedNamespace: "http://www.sat.gob.mx/Pagos20",
+    localPath: "xsd/schemas/pagos/2.0/Pagos20.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "NOMINA_12",
+    module: "nomina12",
+    displayName: "Nómina 1.2",
+    expectedNamespace: "http://www.sat.gob.mx/nomina12",
+    localPath: "xsd/schemas/nomina/1.2/nomina12.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "CARTA_PORTE_30",
+    module: "cartaporte30",
+    displayName: "Carta Porte 3.0",
+    expectedNamespace: "http://www.sat.gob.mx/CartaPorte30",
+    localPath: "xsd/schemas/cartaporte/3.0/CartaPorte30.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "CARTA_PORTE_31",
+    module: "cartaporte31",
+    displayName: "Carta Porte 3.1",
+    expectedNamespace: "http://www.sat.gob.mx/CartaPorte31",
+    localPath: "xsd/schemas/cartaporte/3.1/CartaPorte31.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "COMERCIO_EXTERIOR_20",
+    module: "comercioexterior20",
+    displayName: "Comercio Exterior 2.0",
+    expectedNamespace: "http://www.sat.gob.mx/ComercioExterior20",
+    localPath: "xsd/schemas/comercioexterior/2.0/ComercioExterior20.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "RETENCIONES_20",
+    module: "retenciones20",
+    displayName: "Retenciones 2.0",
+    expectedNamespace: "http://www.sat.gob.mx/retenciones",
+    localPath: "xsd/schemas/retenciones/2.0/retenciones20.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "IMPUESTOS_LOCALES",
+    module: "impuestoslocales",
+    displayName: "Impuestos Locales",
+    expectedNamespace: "http://www.sat.gob.mx/ImpuestosLocales",
+    localPath: "xsd/schemas/impuestoslocales/ImpuestosLocales.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "LEYENDAS_FISCALES",
+    module: "leyendasfiscales",
+    displayName: "Leyendas Fiscales",
+    expectedNamespace: "http://www.sat.gob.mx/leyendasFisc",
+    localPath: "xsd/schemas/leyendasfiscales/leyendasFisc.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+  {
+    key: "DONATARIAS",
+    module: "donatarias",
+    displayName: "Donatarias",
+    expectedNamespace: "http://www.sat.gob.mx/donat",
+    localPath: "xsd/schemas/donatarias/donat.xsd",
+    required: false,
+    configured: false,
+    notes: ["Schema oficial SAT pendiente ser cargado localmente"],
+  },
+];
+
+export function getSchemaDefinition(key: XsdSchemaKey): XsdSchemaDefinition | undefined {
+  return XSD_SCHEMA_REGISTRY.find((def) => def.key === key);
+}
+
+export function getAllSchemaDefinitions(): XsdSchemaDefinition[] {
+  return XSD_SCHEMA_REGISTRY.map((def) => ({ ...def }));
+}

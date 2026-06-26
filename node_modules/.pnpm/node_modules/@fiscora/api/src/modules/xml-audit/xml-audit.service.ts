@@ -41,6 +41,8 @@ import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.help
 import { validatePartiesAdvanced } from "./party-validations.helper.js";
 import { validateCrossModuleConsistency } from "./cross-module-validations.helper.js";
 import { validateCfdiVersionConsistency } from "./cfdi-version-validations.helper.js";
+import { buildXsdValidationSummary } from "./xsd/xsd-validation.service.js";
+import type { XsdValidationSummary } from "./xsd/xsd-validation.types.js";
 import {
   type FindingLocation,
   type FindingValueTrace,
@@ -682,6 +684,7 @@ export interface AnalysisCoverageInfo {
   hasAddenda: boolean;
   hasTimbreFiscalDigital: boolean;
   hasSafeNormalization: boolean;
+  xsdValidation?: XsdValidationSummary;
 }
 
 export interface AnalysisMetaInfo {
@@ -689,6 +692,7 @@ export interface AnalysisMetaInfo {
   engineVersion: string;
   performance: AnalysisPerformanceInfo;
   coverage: AnalysisCoverageInfo;
+  xsdValidationSummary?: XsdValidationSummary;
 }
 
 function sha256Text(value: string): string {
@@ -9350,7 +9354,20 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   );
   const cUnknown = cDetected.filter((c) => !new Set(cKnown).has(c));
 
-  const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
+const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
+
+  const xsdValidationSummary = buildXsdValidationSummary(undefined, {
+    version,
+    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+    hasPaymentComplement: !!paymentComplement,
+    hasNomina: !!nomina,
+    hasCartaPorte: cartaPorte ? { detected: true, hasAutotransporte: false } : undefined,
+    hasComercioExterior: !!comercioExterior,
+    hasRetenciones: false,
+    hasImpuestosLocales: !!impuestosLocales,
+    hasLeyendasFiscales: !!leyendasFiscales,
+    hasDonatarias: !!donatarias,
+  });
 
   const analysisMeta: AnalysisMetaInfo = {
     generatedAt: new Date().toISOString(),
@@ -9514,6 +9531,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
       hasAddenda: addendaDetected,
       hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
       hasSafeNormalization: safeNormalizationApplied,
+      xsdValidation: xsdValidationSummary,
     },
   };
 
@@ -10517,6 +10535,19 @@ function buildRetencionesResult(
 
   const countBP2 = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
 
+  const xsdValidationSummary2 = buildXsdValidationSummary(undefined, {
+    version,
+    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+    hasPaymentComplement: false,
+    hasNomina: false,
+    hasCartaPorte: undefined,
+    hasComercioExterior: false,
+    hasRetenciones: true,
+    hasImpuestosLocales: false,
+    hasLeyendasFiscales: false,
+    hasDonatarias: false,
+  });
+
   const analysisMeta: AnalysisMetaInfo = {
     generatedAt: new Date().toISOString(),
     engineVersion: "xml-audit-engine-1.0",
@@ -10659,6 +10690,7 @@ function buildRetencionesResult(
       hasAddenda: false,
       hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
       hasSafeNormalization: safeNormalizationApplied,
+      xsdValidation: xsdValidationSummary2,
     },
   };
 
