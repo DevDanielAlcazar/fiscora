@@ -42,3 +42,7 @@ Matriz interna baseline. No sustituye documentos oficiales SAT. Requiere contras
 - **Carta Porte**: requiere catálogos extensos (BienesTransp) y XSD.
 - **Comercio Exterior**: requiere catálogas aduaneras y XSD.
 - **Retenciones**: requiere XSD y catálogos.
+
+## Fixtures sintéticos 13G
+
+Ver `docs/XML_AUDIT_SYNTHETIC_FIXTURES.md` para el banco de XMLs sintéticos que validan estos escenarios.

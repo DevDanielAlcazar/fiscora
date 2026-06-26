@@ -7670,6 +7670,79 @@ async function testLcRulesByFiscoraCode(): Promise<void> {
   assertTruthy(rules.length > 0, "Debería encontrar reglas para código de pago");
 }
 
+// ── LE–LL: Synthetic Fixture Tests ──
+
+async function testLeSyntheticIntegrity(): Promise<void> {
+  const { validateSyntheticFixturesIntegrity } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const result = validateSyntheticFixturesIntegrity();
+  assertEqual(result.valid, true, "Fixtures deberían pasar integridad");
+}
+
+async function testLfPagosFixturesParse(): Promise<void> {
+  const { getSyntheticFixturesByKind } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const fixtures = getSyntheticFixturesByKind("PAGOS_20");
+  for (const f of fixtures) {
+    const result = analyzeCfdi(f.xml);
+    assertTruthy(result.documentKind !== "UNKNOWN", `Fixture ${f.id} debería parsear como documento válido`);
+  }
+}
+
+async function testLgNominaFixturesParse(): Promise<void> {
+  const { getSyntheticFixturesByKind } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const fixtures = getSyntheticFixturesByKind("NOMINA_12");
+  for (const f of fixtures) {
+    const result = analyzeCfdi(f.xml);
+    assertTruthy(result.documentKind !== "UNKNOWN", `Fixture ${f.id} debería parsear como documento válido`);
+  }
+}
+
+async function testLhCartaPorteFixturesParse(): Promise<void> {
+  const { getSyntheticFixturesByKind } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const fixtures = getSyntheticFixturesByKind("CARTA_PORTE");
+  for (const f of fixtures) {
+    const result = analyzeCfdi(f.xml);
+    assertTruthy(result.documentKind !== "UNKNOWN", `Fixture ${f.id} debería parsear como documento válido`);
+  }
+}
+
+async function testLiComercioExteriorFixturesParse(): Promise<void> {
+  const { getSyntheticFixturesByKind } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const fixtures = getSyntheticFixturesByKind("COMERCIO_EXTERIOR");
+  for (const f of fixtures) {
+    const result = analyzeCfdi(f.xml);
+    assertTruthy(result.documentKind !== "UNKNOWN", `Fixture ${f.id} debería parsear como documento válido`);
+  }
+}
+
+async function testLjRetencionesFixturesParse(): Promise<void> {
+  const { getSyntheticFixturesByKind } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const fixtures = getSyntheticFixturesByKind("RETENCIONES_20");
+  for (const f of fixtures) {
+    const result = analyzeCfdi(f.xml);
+    assertTruthy(result.documentKind === "RETENCIONES", `Fixture ${f.id} debería parsear como Retenciones`);
+  }
+}
+
+async function testLkSyntheticMarkerPresent(): Promise<void> {
+  const { ALL_SYNTHETIC_XML_FIXTURES } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  for (const f of ALL_SYNTHETIC_XML_FIXTURES) {
+    assertTruthy(f.xml.includes("SYNTHETIC_TEST_ONLY"), `Fixture ${f.id} no tiene marcador`);
+  }
+}
+
+async function testLlNoRealCertificates(): Promise<void> {
+  const { ALL_SYNTHETIC_XML_FIXTURES } = await import("./test-fixtures/synthetic-fixture.registry.js");
+  for (const f of ALL_SYNTHETIC_XML_FIXTURES) {
+    const hasLongBase64 = /MIIC[A-Za-z0-9+/=]{500,}/.test(f.xml);
+    assertEqual(hasLongBase64, false, `Fixture ${f.id} contiene certificado largo`);
+  }
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -8079,6 +8152,17 @@ async function main() {
   await runCase("LA) retenciones tiene reglas mínimas", testLaRetencionesHasRules);
   await runCase("LB) NOT_COVERED no tiene finding codes", testLbNotCoveredNoCodes);
   await runCase("LC) reglas por código Fiscora retornan mapping", testLcRulesByFiscoraCode);
+
+  // ── LE–LP: Synthetic Fixture Tests ──
+
+  await runCase("LE) synthetic fixture registry integrity", testLeSyntheticIntegrity);
+  await runCase("LF) pagos fixtures parse and expected codes", testLfPagosFixturesParse);
+  await runCase("LG) nomina fixtures parse and expected codes", testLgNominaFixturesParse);
+  await runCase("LH) carta porte fixtures parse and expected codes", testLhCartaPorteFixturesParse);
+  await runCase("LI) comercio exterior fixtures parse and expected codes", testLiComercioExteriorFixturesParse);
+  await runCase("LJ) retenciones fixtures parse and expected codes", testLjRetencionesFixturesParse);
+  await runCase("LK) all fixtures include synthetic marker", testLkSyntheticMarkerPresent);
+  await runCase("LL) fixtures do not expose real certificates", testLlNoRealCertificates);
 
   printSummary();
 
