@@ -21,6 +21,17 @@ export type SatRuleSeverityAlignment =
   | "NOT_MAPPED"
   | "UNKNOWN";
 
+export type SatComplementKey =
+  | "PAGOS_20"
+  | "NOMINA_12"
+  | "CARTA_PORTE"
+  | "COMERCIO_EXTERIOR"
+  | "RETENCIONES_20"
+  | "IMPUESTOS_LOCALES"
+  | "LEYENDAS_FISCALES"
+  | "DONATARIAS"
+  | "ADDENDA";
+
 export type SatRuleModule =
   | "CFDI_BASE"
   | "EMISOR_RECEPTOR"
@@ -44,6 +55,27 @@ export type SatRuleModule =
   | "COHERENCIA_TRANSVERSAL"
   | "SEGURIDAD_PAYLOAD"
   | "ZIP_PERFORMANCE";
+
+export interface SatMatrixRule {
+  id: string;
+  source: SatRuleSource;
+  officialCode?: string;
+  officialField?: string;
+  officialDescription: string;
+  module: SatRuleModule;
+  complementKey?: SatComplementKey;
+  coverage: SatRuleCoverage;
+  fiscoraFindingCodes: string[];
+  severityAlignment: SatRuleSeverityAlignment;
+  notes?: string[];
+  testCases?: string[];
+  requiresCatalog?: boolean;
+  requiredCatalogs?: string[];
+  officialReference?: string;
+  requiresXsd?: boolean;
+  requiresCryptoValidation?: boolean;
+  requiresOnlineSatValidation?: boolean;
+}
 
 export interface SatMatrixRule {
   id: string;

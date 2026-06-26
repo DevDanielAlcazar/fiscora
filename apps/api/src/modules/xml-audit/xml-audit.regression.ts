@@ -7610,6 +7610,66 @@ async function testKsCoverageIncludesCrypto(): Promise<void> {
   assertEqual(result.analysisMeta?.cryptoValidation?.status, "NOT_CONFIGURED", "Status NOT_CONFIGURED");
 }
 
+// ── KU–LC: Complement Matrix Tests ──
+
+async function testKuComplementMatrixUniqueIds(): Promise<void> {
+  const { validateComplementMatrixIntegrity } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const result = validateComplementMatrixIntegrity();
+  assertEqual(result.valid, true, "IDs deberían ser únicos");
+}
+
+async function testKvComplementMatrixSummary(): Promise<void> {
+  const { getComplementMatrixSummary } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const summary = getComplementMatrixSummary();
+  assertTruthy(summary.totalRules > 0, "Debería tener reglas");
+  assertTruthy(summary.byComplement["PAGOS_20"] > 0, "Pagos debería tener reglas");
+}
+
+async function testKwPagosHasRules(): Promise<void> {
+  const { getComplementMatrixRulesByComplement } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRulesByComplement("PAGOS_20");
+  assertTruthy(rules.length >= 20, `Pagos debería tener al menos 20 reglas, tiene ${rules.length}`);
+}
+
+async function testKxNominaHasRules(): Promise<void> {
+  const { getComplementMatrixRulesByComplement } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRulesByComplement("NOMINA_12");
+  assertTruthy(rules.length >= 20, `Nómina debería tener al menos 20 reglas, tiene ${rules.length}`);
+}
+
+async function testKyCartaPorteHasRules(): Promise<void> {
+  const { getComplementMatrixRulesByComplement } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRulesByComplement("CARTA_PORTE");
+  assertTruthy(rules.length >= 20, `Carta Porte debería tener al menos 20 reglas, tiene ${rules.length}`);
+}
+
+async function testKzComercioExteriorHasRules(): Promise<void> {
+  const { getComplementMatrixRulesByComplement } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRulesByComplement("COMERCIO_EXTERIOR");
+  assertTruthy(rules.length >= 20, `Comercio Exterior debería tener al menos 20 reglas, tiene ${rules.length}`);
+}
+
+async function testLaRetencionesHasRules(): Promise<void> {
+  const { getComplementMatrixRulesByComplement } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRulesByComplement("RETENCIONES_20");
+  assertTruthy(rules.length >= 20, `Retenciones debería tener al menos 20 reglas, tiene ${rules.length}`);
+}
+
+async function testLbNotCoveredNoCodes(): Promise<void> {
+  const { getComplementMatrixRules } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = getComplementMatrixRules();
+  const notCovered = rules.filter((r) => r.coverage === "NOT_COVERED");
+  for (const r of notCovered) {
+    assertEqual(r.fiscoraFindingCodes.length, 0, `Regla ${r.id} NOT_COVERED no debería tener códigos`);
+  }
+}
+
+async function testLcRulesByFiscoraCode(): Promise<void> {
+  const { findComplementRulesByFiscoraCode } = await import("./sat-matrix/complement-matrix.helpers.js");
+  const rules = findComplementRulesByFiscoraCode("PAYMENT_MISSING_FECHA_PAGO");
+  assertTruthy(rules.length > 0, "Debería encontrar reglas para código de pago");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -8007,6 +8067,18 @@ async function main() {
   await runCase("KO) CFDI con sello detecta XSLT CFDI", testKoCfdiDetectsXslt);
   await runCase("KP) crypto finding deduplicado", testKpCryptoFindingDedup);
   await runCase("KS) coverage/meta incluye estado cripto", testKsCoverageIncludesCrypto);
+
+  // ── KU–LC: Complement Matrix Tests ──
+
+  await runCase("KU) complement matrix ids únicos", testKuComplementMatrixUniqueIds);
+  await runCase("KV) summary por complemento calcula totales", testKvComplementMatrixSummary);
+  await runCase("KW) pagos tiene reglas mínimas", testKwPagosHasRules);
+  await runCase("KX) nómina tiene reglas mínimas", testKxNominaHasRules);
+  await runCase("KY) carta porte tiene reglas mínimas", testKyCartaPorteHasRules);
+  await runCase("KZ) comercio exterior tiene reglas mínimas", testKzComercioExteriorHasRules);
+  await runCase("LA) retenciones tiene reglas mínimas", testLaRetencionesHasRules);
+  await runCase("LB) NOT_COVERED no tiene finding codes", testLbNotCoveredNoCodes);
+  await runCase("LC) reglas por código Fiscora retornan mapping", testLcRulesByFiscoraCode);
 
   printSummary();
 

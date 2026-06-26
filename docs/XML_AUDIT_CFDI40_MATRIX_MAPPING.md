@@ -1,8 +1,8 @@
 # Matriz CFDI 4.0 vs Fiscora — Mapeo de Cobertura
 
 **Fecha:** Thu Jun 25 2026  
-**Motor:** Auditoría XML v1.0 + infraestructura catálogos + arquitectura cripto (13E)  
-**Regresión:** 291/291 tests pasados
+**Motor:** Auditoría XML v1.0 + infraestructura catálogos + arquitectura cripto + matriz complementos (13F)  
+**Regresión:** 300/300 tests pasados
 
 ---
 
@@ -127,10 +127,10 @@ Esta matriz es **interna y representativa**, no copia oficial completa SAT.
 
 | Gap | Impacto | Estado |
 |-----|---------|--------|
-| XSD formal | Alto | Pendiente 13D |
-| Validación cripto sello/cadena/certificado | Alto | Pendiente 13E |
+| XSD formal | Alto | Implementado 13D (ver `docs/XML_AUDIT_XSD_VALIDATION.md`) |
+| Validación cripto sello/cadena/certificado | Alto | Implementado 13E (ver `docs/XML_AUDIT_CRYPTO_VALIDATION.md`) |
 | Catálogos oficiales completos | Alto | Pendiente 13B |
-| Matriz oficial complementos | Medio | Pendiente 13F |
+| Matriz complementos SAT | Medio | Implementado 13F (ver `docs/XML_AUDIT_COMPLEMENT_MATRIX_MAPPING.md`) |
 | Estado SAT online cancelación | Bajo | Opcional 13H |
 
 ---
@@ -140,9 +140,8 @@ Esta matriz es **interna y representativa**, no copia oficial completa SAT.
 **El módulo sigue listo como V1 beta funcional.**
 
 **No declarar cobertura SAT/forense completa hasta:**
-1. 13D XSD offline implementado
-2. 13E sello/cadena/certificado validado
-3. 13F matrices complementos cargadas
-4. Catálogos oficiales completos integrados
+1. Catálogos oficiales completos integrados
+2. XSD real con assets locales
+3. Cripto real con XSLT/trust
 
 La matriz actual proporciona trazabilidad para decisiones posteriores.

@@ -1,8 +1,8 @@
 # Matriz SAT vs Motor Fiscora — Gap Analysis
 
-**Fecha:** Wed Jun 24 2026  
-**Motor:** Auditoría XML v1.0  
-**Regresión:** 276/276 tests pasados (incrementado con tests catalog registry)
+**Fecha:** Fri Jun 25 2026  
+**Motor:** Auditoría XML v1.0 + arquitectura XSD + arquitectura cripto + matriz complementos (13F)  
+**Regresión:** 300/300 tests pasados
 
 ---
 
@@ -14,8 +14,9 @@
 | Validaciones SAT directas | ~45 códigos |
 | Validaciones forenses/heurísticas Fiscora | ~40 códigos |
 | Cobertura por módulo | Variable (ver tabla 3) |
-| XSD formal implementado | No |
-| Cadena original/sello criptográfico | No (solo metadata) |
+| XSD formal implementado | Arquitectura preparada (13D) |
+| Cadena original/sello criptográfico | Arquitectura preparada (13E) |
+| Matriz complementos SAT | Implementada (13F) |
 
 **Conclusión:** El motor está **listo funcionalmente** pero **pendiente cobertura SAT exhaustiva** y **validación forense avanzada**.
 
