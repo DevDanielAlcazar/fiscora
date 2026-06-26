@@ -43,6 +43,7 @@ import { validateCrossModuleConsistency } from "./cross-module-validations.helpe
 import { validateCfdiVersionConsistency } from "./cfdi-version-validations.helper.js";
 import { buildXsdValidationSummary } from "./xsd/xsd-validation.service.js";
 import type { XsdValidationSummary } from "./xsd/xsd-validation.types.js";
+import { buildCryptoValidationSummary } from "./crypto/crypto-validation.service.js";
 import {
   type FindingLocation,
   type FindingValueTrace,
@@ -675,6 +676,8 @@ export interface AnalysisCoverageModule {
   findingsCount: number;
 }
 
+import type { CryptoValidationSummary } from "./crypto/crypto-validation.types.js";
+
 export interface AnalysisCoverageInfo {
   documentKind: "CFDI" | "RETENCIONES" | "UNKNOWN";
   modules: AnalysisCoverageModule[];
@@ -693,6 +696,7 @@ export interface AnalysisMetaInfo {
   performance: AnalysisPerformanceInfo;
   coverage: AnalysisCoverageInfo;
   xsdValidationSummary?: XsdValidationSummary;
+  cryptoValidation?: CryptoValidationSummary;
 }
 
 function sha256Text(value: string): string {
@@ -9369,6 +9373,14 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
     hasDonatarias: !!donatarias,
   });
 
+  const cryptoValidation = buildCryptoValidationSummary(certificado, {
+    hasSello: !!sello,
+    hasCertificado: !!certificado,
+    hasNoCertificado: !!noCertificado,
+    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+    hasSelloSat: !!selloSat,
+  });
+
   const analysisMeta: AnalysisMetaInfo = {
     generatedAt: new Date().toISOString(),
     engineVersion: "xml-audit-engine-1.0",
@@ -9533,6 +9545,7 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
       hasSafeNormalization: safeNormalizationApplied,
       xsdValidation: xsdValidationSummary,
     },
+    cryptoValidation,
   };
 
   // ── Catalog Consistency Validations (CFDI) ──
@@ -10548,6 +10561,14 @@ function buildRetencionesResult(
     hasDonatarias: false,
   });
 
+  const cryptoValidation2 = buildCryptoValidationSummary(cert, {
+    hasSello: !!sello,
+    hasCertificado: !!cert,
+    hasNoCertificado: !!numCert,
+    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
+    hasSelloSat: false,
+  });
+
   const analysisMeta: AnalysisMetaInfo = {
     generatedAt: new Date().toISOString(),
     engineVersion: "xml-audit-engine-1.0",
@@ -10692,6 +10713,7 @@ function buildRetencionesResult(
       hasSafeNormalization: safeNormalizationApplied,
       xsdValidation: xsdValidationSummary2,
     },
+    cryptoValidation: cryptoValidation2,
   };
 
   // ── Catalog Consistency Validations (Retenciones) ──

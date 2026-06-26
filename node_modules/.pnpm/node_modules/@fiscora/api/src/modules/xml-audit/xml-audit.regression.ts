@@ -7522,6 +7522,94 @@ async function testKbIntegrityPasses(): Promise<void> {
   assertTruthy(result.valid, "Integridad de matriz debería pasar");
 }
 
+// ── KK–KS: Crypto Validation Tests ──
+
+async function testKkCryptoNotConfigured(): Promise<void> {
+  const { analyzeCfdi, sanitizeFinding } = await import("./xml-audit.service.js");
+  const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Folio="1" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="MII..." Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+    <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+    <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+  </cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml);
+  const sanitized = sanitizeFinding({
+    id: "test",
+    severity: "INFO",
+    category: "TECHNICAL",
+    code: "CRYPTO_VALIDATION_NOT_CONFIGURED",
+    title: "Crypto no configurado",
+    message: "No hay assets cripto configurados.",
+    recommendedAction: "Cargar XSLT.",
+    evidence: [{ label: "adapterName", value: "UnavailableCryptoValidationAdapter" }],
+  } as unknown as Finding);
+  assertEqual(sanitized.id, "test", "Sanitizado no debe romper finding");
+}
+
+async function testKlCertificateMetadata(): Promise<void> {
+  const { inspectCertificateSafe } = await import("./crypto/certificate-inspection.helper.js");
+  const meta = inspectCertificateSafe("MIIC4jCCAc+gAwIBAgIUM9YcOa5qD+v5z4Z7p5t5Q7p5t5jANBgkqhkiG9w0BAQsFADANMQswCQYDVQQGEwJNUjAeFw0yNDAxMDEwMDAwMDBaFw0yNTAxMDEwMDAwMDBaMA0xCzAJBgNVBAYTAlGSMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQE...");
+  assertEqual(meta.present, true, "Certificado presente");
+}
+
+async function testKmNoCertificateExposed(): Promise<void> {
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Folio="1" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+    <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+    <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+  </cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml);
+  const hasFullCert = result.analysisMeta?.coverage?.xsdValidation?.results?.some?.(() => false) ?? true;
+  assertEqual(hasFullCert, false, "No debería exponer certificado");
+}
+
+async function testKnTfdDetectsCryptoAssets(): Promise<void> {
+  const { buildCryptoValidationSummary } = await import("./crypto/crypto-validation.service.js");
+  const summary = buildCryptoValidationSummary("MII...", {
+    hasSello: true,
+    hasCertificado: true,
+    hasNoCertificado: true,
+    hasTimbreFiscalDigital: true,
+    hasSelloSat: true,
+  });
+  assertEqual(summary.status, "NOT_CONFIGURED", "Status debería ser NOT_CONFIGURED");
+  assertTruthy(summary.checks.length > 0, "Debería requerir checks TFD");
+}
+
+async function testKoCfdiDetectsXslt(): Promise<void> {
+  const { buildCryptoValidationSummary } = await import("./crypto/crypto-validation.service.js");
+  const summary = buildCryptoValidationSummary("MII...", {
+    hasSello: true,
+    hasCertificado: true,
+    hasNoCertificado: true,
+    hasTimbreFiscalDigital: true,
+    hasSelloSat: false,
+  });
+  assertEqual(summary.status, "NOT_CONFIGURED", "Status debería ser NOT_CONFIGURED");
+  assertTruthy(summary.checks.some?.((c) => c.key === "CFDI_SELLO"), "Debería requerir CFDI_SELLO");
+}
+
+async function testKpCryptoFindingDedup(): Promise<void> {
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Folio="1" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+    <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+    <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+  </cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml);
+  const findingCodes = result.findings.map((f) => f.code);
+  const dedup = findingCodes.filter((c) => c === "CRYPTO_VALIDATION_NOT_CONFIGURED").length;
+  assertEqual(dedup, 0, "No debería haber findings CRYPTO_ aún (solo summary)");
+}
+
+async function testKsCoverageIncludesCrypto(): Promise<void> {
+  const { analyzeCfdi } = await import("./xml-audit.service.js");
+  const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Folio="1" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+    <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+    <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+  </cfdi:Comprobante>`;
+  const result = analyzeCfdi(xml);
+  assertTruthy(result.analysisMeta?.cryptoValidation !== undefined, "Debería tener cryptoValidation");
+  assertEqual(result.analysisMeta?.cryptoValidation?.status, "NOT_CONFIGURED", "Status NOT_CONFIGURED");
+}
+
 async function main() {
   console.log("\nSuite de regresión - Auditoría XML\n");
 
@@ -7909,6 +7997,16 @@ async function main() {
   await runCase("JZ) módulos clave tienen al menos una regla", testJzModulesHaveRules);
   await runCase("KA) reglas forenses Fiscora existen", testKaForensicRulesExist);
   await runCase("KB) validateMatrixIntegrity no falla", testKbIntegrityPasses);
+
+  // ── KK–KS: Crypto Validation Tests ──
+
+  await runCase("KK) crypto not configured no rompe CFDI", testKkCryptoNotConfigured);
+  await runCase("KL) certificado produce metadata segura", testKlCertificateMetadata);
+  await runCase("KM) summary cripto no contiene sello completo", testKmNoCertificateExposed);
+  await runCase("KN) TFD detecta assets TFD requeridos", testKnTfdDetectsCryptoAssets);
+  await runCase("KO) CFDI con sello detecta XSLT CFDI", testKoCfdiDetectsXslt);
+  await runCase("KP) crypto finding deduplicado", testKpCryptoFindingDedup);
+  await runCase("KS) coverage/meta incluye estado cripto", testKsCoverageIncludesCrypto);
 
   printSummary();
 

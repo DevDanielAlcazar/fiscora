@@ -1,8 +1,8 @@
 # Matriz CFDI 4.0 vs Fiscora — Mapeo de Cobertura
 
 **Fecha:** Thu Jun 25 2026  
-**Motor:** Auditoría XML v1.0 + infraestructura catálogos  
-**Regresión:** 284/284 tests pasados
+**Motor:** Auditoría XML v1.0 + infraestructura catálogos + arquitectura cripto (13E)  
+**Regresión:** 291/291 tests pasados
 
 ---
 
