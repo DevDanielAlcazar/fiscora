@@ -4,7 +4,7 @@ export const NOMINA_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
   {
     id: "NM_SYNTH_OK_BASE",
     name: "Nómina base válida",
-    kind: "CFDI_BASE",
+    kind: "NOMINA_12",
     description: "CFDI Tipo N con complemento Nómina mínimo",
     xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
 <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="N" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
@@ -92,5 +92,67 @@ export const NOMINA_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
 </cfdi:Comprobante>`,
     expectedFindingCodes: ["NOMINA_PERCEPCIONES_TOTALGRAVADO_MISMATCH"],
     tags: ["nomina", "total-mismatch"],
+  },
+  {
+    id: "NM_SYNTH_RECEPTOR_INCOMPLETE",
+    name: "Nómina receptor incompleto",
+    kind: "NOMINA_12",
+    description: "Receptor sin TipoRegimen",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="N" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="N/A"/>
+  <cfdi:Complemento>
+    <nomina12:Nomina xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="1.2" FechaPago="2024-01-15">
+      <nomina12:Receptor NumEmpleado="1"/>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["nomina", "receptor-incompleto"],
+  },
+  {
+    id: "NM_SYNTH_DEDUCCIONES_MISMATCH",
+    name: "Nómina deducciones mismatch",
+    kind: "NOMINA_12",
+    description: "TotalOtrasDeducciones no cuadra",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="N" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="N/A"/>
+  <cfdi:Complemento>
+    <nomina12:Nomina xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="1.2" FechaPago="2024-01-15" FechaInicialPago="2024-01-01" FechaFinalPago="2024-01-15" NumDiasPagados="15">
+      <nomina12:Receptor Curp="AAAA010101HDFABC00" NumEmpleado="1" TipoRegimen="605" PeriodicidadPago="01" ClaveEntFed="AGU"/>
+      <nomina12:Percepciones TotalGravado="100.00"/>
+      <nomina12:Deducciones TotalOtrasDeducciones="50.00">
+        <nomina12:Deduccion TipoDeduccion="001" Importe="25.00"/>
+      </nomina12:Deducciones>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["nomina", "deducciones-mismatch"],
+  },
+  {
+    id: "NM_SYNTH_SUBSIDIO_INCONSISTENT",
+    name: "Nómina subsidio inconsistente",
+    kind: "NOMINA_12",
+    description: "SubsidioAlEmpleo sin importe pero con tipo",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="N" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="N/A"/>
+  <cfdi:Complemento>
+    <nomina12:Nomina xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="1.2" FechaPago="2024-01-15" FechaInicialPago="2024-01-01" FechaFinalPago="2024-01-15" NumDiasPagados="15">
+      <nomina12:Receptor Curp="AAAA010101HDFABC00" NumEmpleado="1" TipoRegimen="605" PeriodicidadPago="01" ClaveEntFed="AGU"/>
+      <nomina12:Percepciones TotalGravado="100.00"/>
+      <nomina12:OtrosPagos>
+        <nomina12:OtroPago TipoOtroPago="002"/>
+      </nomina12:OtrosPagos>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["nomina", "subsidio"],
   },
 ];

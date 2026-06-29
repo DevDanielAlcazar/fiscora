@@ -41,6 +41,7 @@ import { validateCfdiRelationsAdvanced } from "./cfdi-relations-validations.help
 import { validatePartiesAdvanced } from "./party-validations.helper.js";
 import { validateCrossModuleConsistency } from "./cross-module-validations.helper.js";
 import { validateCfdiVersionConsistency } from "./cfdi-version-validations.helper.js";
+import { validateXmlWellFormedness } from "./xml-wellformedness.helper.js";
 import { buildXsdValidationSummary } from "./xsd/xsd-validation.service.js";
 import type { XsdValidationSummary } from "./xsd/xsd-validation.types.js";
 import { buildCryptoValidationSummary } from "./crypto/crypto-validation.service.js";
@@ -1852,6 +1853,14 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   }
   diag.safeNormalizationApplied = safeNormalizationApplied;
   diag.safeNormalizationNotes = safeNormalizationNotes;
+
+  const wellFormed = validateXmlWellFormedness(xmlContent);
+  if (!wellFormed.isWellFormed) {
+    throw Object.assign(
+      new Error(wellFormed.message ?? "El XML no está bien formado"),
+      { code: wellFormed.errorCode ?? "XML_MALFORMED", wellFormed },
+    );
+  }
 
   const parser = new XMLParser({
     ignoreAttributes: false,

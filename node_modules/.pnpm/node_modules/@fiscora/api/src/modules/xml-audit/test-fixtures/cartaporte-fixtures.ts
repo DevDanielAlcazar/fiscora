@@ -4,7 +4,7 @@ export const CARTA_PORTE_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
   {
     id: "CP_SYNTH_OK_BASE",
     name: "Carta Porte base válida",
-    kind: "CFDI_BASE",
+    kind: "CARTA_PORTE",
     description: "CFDI con Carta Porte mínima",
     xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
 <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="T" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
@@ -88,5 +88,86 @@ export const CARTA_PORTE_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
 </cfdi:Comprobante>`,
     expectedFindingCodes: ["CARTA_PORTE_NUMMERCANCIAS_MISMATCH"],
     tags: ["carta-porte", "mercancias"],
+  },
+  {
+    id: "CP_SYNTH_MISSING_CLAVE_UNIDAD",
+    name: "Carta Porte mercancía sin ClaveUnidad",
+    kind: "CARTA_PORTE",
+    description: "Mercancía sin ClaveUnidad (requiere catálogo)",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="T" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="T01"/>
+  <cfdi:Complemento>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" TranspInternac="No" TotalDistRec="100.00">
+      <cartaporte30:Mercancias NumTotalMercancias="1">
+        <cartaporte30:Mercancia BienesTransp="12345678"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["carta-porte", "clave-unidad"],
+  },
+  {
+    id: "CP_SYNTH_AUTOTRANSPORTE_INCOMPLETE",
+    name: "Carta Porte autotransporte incompleto",
+    kind: "CARTA_PORTE",
+    description: "Sin Autotransporte",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="T" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="T01"/>
+  <cfdi:Complemento>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" TranspInternac="No">
+      <cartaporte30:Ubicaciones/>
+      <cartaporte30:Mercancias NumTotalMercancias="1">
+        <cartaporte30:Mercancia BienesTransp="12345678"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["carta-porte", "autotransporte"],
+  },
+  {
+    id: "CP_SYNTH_FIGURA_INCOMPLETE",
+    name: "Carta Porte figura incompleta",
+    kind: "CARTA_PORTE",
+    description: "Figura transporte sin RFC",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="T" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="T01"/>
+  <cfdi:Complemento>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0" TranspInternac="No">
+      <cartaporte30:FiguraTransporte>
+        <cartaporte30:TiposFigura TipoFigura="01"/>
+      </cartaporte30:FiguraTransporte>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["carta-porte", "figura"],
+  },
+  {
+    id: "CP_SYNTH_SIN_UBICACIONES",
+    name: "Carta Porte sin Ubicaciones",
+    kind: "CARTA_PORTE",
+    description: "Complemento sin nodo Ubicaciones",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="T" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="T01"/>
+  <cfdi:Complemento>
+    <cartaporte30:CartaPorte xmlns:cartaporte30="http://www.sat.gob.mx/CartaPorte30" Version="3.0">
+      <cartaporte30:Mercancias NumTotalMercancias="1">
+        <cartaporte30:Mercancia BienesTransp="12345678"/>
+      </cartaporte30:Mercancias>
+    </cartaporte30:CartaPorte>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["carta-porte", "sin-ubicaciones"],
   },
 ];

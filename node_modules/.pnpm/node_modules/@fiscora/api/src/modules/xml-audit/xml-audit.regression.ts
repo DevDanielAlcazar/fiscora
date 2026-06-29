@@ -8164,6 +8164,153 @@ async function main() {
   await runCase("LK) all fixtures include synthetic marker", testLkSyntheticMarkerPresent);
   await runCase("LL) fixtures do not expose real certificates", testLlNoRealCertificates);
 
+  // ── LM–LP: Tests de mínimos para fixtures y malformed XML ──
+
+  async function testLmMinimumFixtures(): Promise<void> {
+    const { getSyntheticFixtureSummary } = await import("./test-fixtures/synthetic-fixture.registry.js");
+    const summary = getSyntheticFixtureSummary();
+    const complements = ["PAGOS_20", "NOMINA_12", "CARTA_PORTE", "COMERCIO_EXTERIOR", "RETENCIONES_20"];
+    for (const c of complements) {
+      assertTruthy((summary.byKind[c] ?? 0) >= 8, `Complemento ${c} debería tener al menos 8 fixtures, tiene ${summary.byKind[c] ?? 0}`);
+    }
+  }
+
+  async function testLnTotalFixtures(): Promise<void> {
+    const { getSyntheticFixtureSummary } = await import("./test-fixtures/synthetic-fixture.registry.js");
+    const summary = getSyntheticFixtureSummary();
+    assertTruthy(summary.total >= 40, `Total fixtures debería ser >= 40, es ${summary.total}`);
+  }
+
+  async function testLoAllMeetMinimum(): Promise<void> {
+    const { getSyntheticFixtureSummary } = await import("./test-fixtures/synthetic-fixture.registry.js");
+    const summary = getSyntheticFixtureSummary();
+    const complements = ["PAGOS_20", "NOMINA_12", "CARTA_PORTE", "COMERCIO_EXTERIOR", "RETENCIONES_20"];
+    for (const c of complements) {
+      if ((summary.byKind[c] ?? 0) < 8) {
+        assertEqual(true, false, `Complemento ${c} no alcanza mínimo`);
+      }
+    }
+  }
+
+  async function testLpNoCrash(): Promise<void> {
+    const { getSyntheticFixtures } = await import("./test-fixtures/synthetic-fixture.registry.js");
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const fixtures = getSyntheticFixtures();
+    for (const f of fixtures) {
+      try {
+        analyzeCfdi(f.xml);
+      } catch {
+        assertEqual(true, false, `Fixture ${f.id} causó crash`);
+      }
+    }
+  }
+
+  async function testLqMalformedComplementoAfterClose(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const malformedXml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+</cfdi:Comprobante>
+<cfdi:Complemento>
+  <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="12345678-90ab-cdef-1234-567890abcdef"/>
+</cfdi:Complemento>`;
+    const result = validateXmlWellFormedness(malformedXml);
+    assertEqual(result.isWellFormed, false, "Debería detectar XML mal formado");
+    assertEqual(result.hasComplementAfterComprobanteClose, true, "Debería detectar Complemento después del cierre");
+  }
+
+  async function testLrMalformedDuplicateComprobante(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const malformedXml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+</cfdi:Comprobante>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+<cfdi:Emisor Rfc="BBB010101BBB"/></cfdi:Comprobante>`;
+    const result = validateXmlWellFormedness(malformedXml);
+    assertEqual(result.isWellFormed, false, "Debería detectar XML mal formado");
+    assertEqual(result.hasDuplicateComprobanteClose, true, "Debería detectar Comprobante duplicado");
+  }
+
+  async function testLsMalformedRetencionesAfterClose(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const malformedXml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<retenciones:Retenciones xmlns:retenciones="http://www.sat.gob.mx/retenciones" Version="2.0">
+  <retenciones:Emisor RfcE="AAA010101AAA"/>
+</retenciones:Retenciones>
+<retenciones:Complemento><retenciones:ImpRetenidos/></retenciones:Complemento>`;
+    const result = validateXmlWellFormedness(malformedXml);
+    assertEqual(result.isWellFormed, false, "Debería detectar XML mal formado");
+    assertEqual(result.hasContentAfterRoot, true, "Debería detectar content después del cierre");
+  }
+
+  async function testLtWellformedDetectsMultipleRoots(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const wellformedXml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+  <cfdi:Receptor Rfc="XAXX010101000"/>
+</cfdi:Comprobante>`;
+    const result = validateXmlWellFormedness(wellformedXml);
+    assertEqual(result.isWellFormed, true, "XML bien formado debería pasar");
+  }
+
+  await runCase("LM) cada complemento tiene mínimo 8 fixtures", testLmMinimumFixtures);
+  await runCase("LN) total fixtures >= 40", testLnTotalFixtures);
+  await runCase("LO) summary reporta allMeetMinimum", testLoAllMeetMinimum);
+  await runCase("LP) fixtures se analizan sin crash", testLpNoCrash);
+
+  await runCase("LQ) XML mal formado con Complemento después del cierre", testLqMalformedComplementoAfterClose);
+  await runCase("LR) XML mal formado con segundo Comprobante", testLrMalformedDuplicateComprobante);
+  await runCase("LS) XML mal formado con content después de Retenciones", testLsMalformedRetencionesAfterClose);
+  await runCase("LT) wellformed helper detecta múltiples raíces", testLtWellformedDetectsMultipleRoots);
+
+  // ── LU–LV: Truncated XML Tests ──
+
+  async function testLuTruncatedNoClose(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const truncatedXml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+`;
+    const result = validateXmlWellFormedness(truncatedXml);
+    assertEqual(result.isWellFormed, false, "Debería detectar XML truncado");
+    assertEqual(result.errorCode, "XML_TRUNCATED_NO_CLOSE", "Debería marcar como truncado");
+  }
+
+  async function testLvRetencionesTruncated(): Promise<void> {
+    const { validateXmlWellFormedness } = await import("./xml-wellformedness.helper.js");
+    const truncatedXml = `<retenciones:Retenciones xmlns:retenciones="http://www.sat.gob.mx/retenciones" Version="2.0">
+  <retenciones:Emisor RfcE="AAA010101AAA"/>
+`;
+    const result = validateXmlWellFormedness(truncatedXml);
+    assertEqual(result.isWellFormed, false, "Debería detectar Retenciones truncado");
+  }
+
+  await runCase("LU) XML truncado sin cierre de Comprobante", testLuTruncatedNoClose);
+  await runCase("LV) XML Retenciones truncado sin cierre", testLvRetencionesTruncated);
+
+  // ── LX: Integration test - analyzeCfdi rejects malformed ──
+
+  async function testLxAnalyzeCfdiRejectsMalformed(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const malformedXml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+</cfdi:Comprobante>
+<cfdi:Complemento>
+  <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="12345678-90ab-cdef-1234-567890abcdef"/>
+</cfdi:Complemento>`;
+    try {
+      analyzeCfdi(malformedXml);
+      assertEqual(true, false, "analyzeCfdi debería lanzar error para XML mal formado");
+    } catch (e) {
+      const err = e as { code?: string };
+      assertTruthy(err.code === "XML_MALFORMED_CONTENT_AFTER_ROOT", `Debería tener código XML_MALFORMED_CONTENT_AFTER_ROOT, pero tiene ${err.code}`);
+    }
+  }
+
+  await runCase("LX) analyzeCfdi rechaza XML mal formado con código", testLxAnalyzeCfdiRejectsMalformed);
+
   printSummary();
 
   if (failed > 0) {

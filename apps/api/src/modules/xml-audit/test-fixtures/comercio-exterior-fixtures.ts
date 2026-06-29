@@ -4,7 +4,7 @@ export const COMERCIO_EXTERIOR_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
   {
     id: "CE_SYNTH_OK_BASE",
     name: "Comercio Exterior base válido",
-    kind: "CFDI_BASE",
+    kind: "COMERCIO_EXTERIOR",
     description: "CFDI con Complemento Comercio Exterior",
     xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
 <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Exportacion="02" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="USD" TipoCambio="18.00">
@@ -87,5 +87,65 @@ export const COMERCIO_EXTERIOR_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
 </cfdi:Comprobante>`,
     expectedFindingCodes: ["COMERCIO_EXTERIOR_TOTALUSD_MISMATCH"],
     tags: ["comercio-exterior", "valor-mismatch"],
+  },
+  {
+    id: "CE_SYNTH_CERT_ORIGEN_INVALID",
+    name: "CE CertificadoOrigen inválido",
+    kind: "COMERCIO_EXTERIOR",
+    description: "CertificadoOrigen=1 sin NumCertificadoOrigen",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Exportacion="02" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="USD" TipoCambio="18.00">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="G01"/>
+  <cfdi:Complemento>
+    <cce20:ComercioExterior xmlns:cce20="http://www.sat.gob.mx/ComercioExterior20" Version="2.0" TipoOperacion="01" TotalUSD="5.56">
+      <cce20:Mercancias>
+        <cce20:Mercancia NoIdentificacion="1" FraccionArancelaria="12345678"/>
+      </cce20:Mercancias>
+    </cce20:ComercioExterior>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["comercio-exterior", "certificado"],
+  },
+  {
+    id: "CE_SYNTH_MERCANCIA_INCOMPLETE",
+    name: "CE mercancía incompleta",
+    kind: "COMERCIO_EXTERIOR",
+    description: "Mercancía sin FraccionArancelaria",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Exportacion="02" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="USD" TipoCambio="18.00">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="G01"/>
+  <cfdi:Complemento>
+    <cce20:ComercioExterior xmlns:cce20="http://www.sat.gob.mx/ComercioExterior20" Version="2.0" TipoOperacion="01" TotalUSD="5.56">
+      <cce20:Mercancias>
+        <cce20:Mercancia NoIdentificacion="1" CantidadAduana="1"/>
+      </cce20:Mercancias>
+    </cce20:ComercioExterior>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: ["COMERCIO_EXTERIOR_MERCANCIA_FRACCION_MISSING"],
+    tags: ["comercio-exterior", "fraccion"],
+  },
+  {
+    id: "CE_SYNTH_RECEPTOR_EXTRANJERO_INCOMPLETE",
+    name: "CE receptor extranjero sin NumRegIdTrib",
+    kind: "COMERCIO_EXTERIOR",
+    description: "Receptor sin NumRegIdTrib",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Exportacion="02" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="USD" TipoCambio="18.00">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XEXX010101000" Nombre="Receptor" UsoCFDI="G01"/>
+  <cfdi:Complemento>
+    <cce20:ComercioExterior xmlns:cce20="http://www.sat.gob.mx/ComercioExterior20" Version="2.0" TipoOperacion="01" TotalUSD="5.56">
+      <cce20:Mercancias>
+        <cce20:Mercancia NoIdentificacion="1" FraccionArancelaria="12345678"/>
+      </cce20:Mercancias>
+    </cce20:ComercioExterior>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: ["COMERCIO_EXTERIOR_RECEPTOR_SIN_NUMREG"],
+    tags: ["comercio-exterior", "receptor-extranjero"],
   },
 ];

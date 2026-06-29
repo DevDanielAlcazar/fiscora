@@ -23,7 +23,7 @@ export const PAGOS_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
   {
     id: "PG_SYNTH_OK_BASE",
     name: "Pago 2.0 base válido",
-    kind: "CFDI_BASE",
+    kind: "PAGOS_20",
     description: "CFDI Tipo P con complemento Pago 2.0 completo",
     xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
 <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="P" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="XXX">
@@ -113,5 +113,59 @@ export const PAGOS_SYNTHETIC_FIXTURES: SyntheticFixtureCase[] = [
 </cfdi:Comprobante>`,
     expectedFindingCodes: ["RELATED_DOCUMENT_BALANCE_NEGATIVE"],
     tags: ["pago", "balance-invalido"],
+  },
+  {
+    id: "PG_SYNTH_DOCTO_MISSING_MONEDA",
+    name: "DoctoRelacionado sin MonedaDR",
+    kind: "PAGOS_20",
+    description: "DoctoRelacionado sin MonedaDR",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="P" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="XXX">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="P01"/>
+  <cfdi:Complemento>
+    <pago20:Pago xmlns:pago20="http://www.sat.gob.mx/Pagos20" FechaPago="2024-01-15T12:00:00" FormaDePagoP="01" MonedaP="MXN" Monto="100.00">
+      <pago20:DoctoRelacionado IdDocumento="12345678-1234-1234-1234-123456789012" NumParcialidad="1" ImpSaldoAnt="100.00" ImpPagado="100.00"/>
+    </pago20:Pago>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["pago", "docto-sin-moneda"],
+  },
+  {
+    id: "PG_SYNTH_TOTAL_MISSMATCH",
+    name: "Pago 2.0 totales inconsistentes",
+    kind: "PAGOS_20",
+    description: "Pago con monto pero sin conceptos",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="P" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="XXX">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="P01"/>
+  <cfdi:Complemento>
+    <pago20:Pago xmlns:pago20="http://www.sat.gob.mx/Pagos20" FechaPago="2024-01-15T12:00:00" FormaDePagoP="01" MonedaP="MXN" Monto="100.00">
+      <pago20:DoctoRelacionado IdDocumento="12345678-1234-1234-1234-123456789012" MonedaDR="MXN" NumParcialidad="1" ImpSaldoAnt="100.00" ImpPagado="50.00" ImpSaldoInsoluto="50.00"/>
+    </pago20:Pago>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["pago", "totales-invalidos"],
+  },
+  {
+    id: "PG_SYNTH_UNKNOWN_FORMA_PAGO_P",
+    name: "Pago con FormaDePagoP desconocida",
+    kind: "PAGOS_20",
+    description: "Pago con FormaDePagoP desconocida",
+    xml: `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="P" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="XXX">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="P01"/>
+  <cfdi:Complemento>
+    <pago20:Pago xmlns:pago20="http://www.sat.gob.mx/Pagos20" FechaPago="2024-01-15T12:00:00" FormaDePagoP="99" MonedaP="MXN" Monto="100.00">
+      <pago20:DoctoRelacionado IdDocumento="12345678-1234-1234-1234-123456789012" MonedaDR="MXN" NumParcialidad="1" ImpSaldoAnt="100.00" ImpPagado="100.00"/>
+    </pago20:Pago>
+  </cfdi:Complemento>
+</cfdi:Comprobante>`,
+    expectedFindingCodes: [],
+    tags: ["pago", "forma-pago-desconocida"],
   },
 ];
