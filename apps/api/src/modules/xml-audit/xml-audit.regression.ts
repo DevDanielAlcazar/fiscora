@@ -8311,6 +8311,67 @@ async function main() {
 
   await runCase("LX) analyzeCfdi rechaza XML mal formado con código", testLxAnalyzeCfdiRejectsMalformed);
 
+  // ── LY–LZ: Catalog Importer Tests ──
+
+  async function testLyImporterLoadsCsv(): Promise<void> {
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const result = await loadSatCatalog("c_UsoCFDI");
+    assertEqual(result.status, "LOADED", "Debería cargar el CSV");
+    assertEqual(result.totalRows > 0, true, "Debería tener filas");
+    assertEqual(result.entries.length > 0, true, "Debería tener entradas");
+  }
+
+  async function testLzImporterHandlesMissing(): Promise<void> {
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const result = await loadSatCatalog("c_Pais");
+    assertEqual(result.status, "NOT_CONFIGURED", "Catálogo no configurado debería retornar NOT_CONFIGURED");
+  }
+
+  await runCase("LY) catalog importer carga CSV", testLyImporterLoadsCsv);
+  await runCase("LZ) catalog importer maneja faltantes", testLzImporterHandlesMissing);
+
+  // ── MM–MW: Catalog Import Registry & Index Tests ──
+
+  async function testMmImporterRegistryHasEight(): Promise<void> {
+    const { getAllCatalogImportDefinitions } = await import("./sat-catalogs/importer/sat-catalog-import.registry.js");
+    const defs = getAllCatalogImportDefinitions();
+    assertEqual(defs.length, 8, "Debería tener 8 catálogos registrados");
+  }
+
+  async function testMnCsvLoaderReadsSample(): Promise<void> {
+    const { loadSatCatalogFile } = await import("./sat-catalogs/importer/sat-catalog-file-loader.js");
+    const result = loadSatCatalogFile("c_UsoCFDI.sample.csv", "CSV");
+    assertEqual(result.exists, true, "Archivo debería existir");
+    assertEqual(result.content.includes("c_UsoCFDI"), true, "Debería tener encabezados");
+  }
+
+  async function testMoIndexLookupWorks(): Promise<void> {
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const { lookupCatalogEntry } = await import("./sat-catalogs/importer/sat-catalog-index.js");
+    const result = await loadSatCatalog("c_UsoCFDI");
+    const entry = lookupCatalogEntry("c_UsoCFDI", "G01");
+    assertEqual(entry !== undefined, true, "Debería encontrar entrada");
+    assertEqual(entry?.label?.includes("Gastos"), true, "Debería tener label");
+  }
+
+  async function testMpPathTraversalRejected(): Promise<void> {
+    const { loadSatCatalogFile } = await import("./sat-catalogs/importer/sat-catalog-file-loader.js");
+    const result = loadSatCatalogFile("../../../etc/passwd", "CSV");
+    assertEqual(result.exists, false, "Path traversal debería ser rechazado");
+  }
+
+  async function testMqImportedFirstFallback(): Promise<void> {
+    const { lookupImportedCatalogValue } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const label = lookupImportedCatalogValue("c_UsoCFDI", "G01");
+    assertEqual(label !== undefined, true, "Debería fallback a catálogo actual si no está importado");
+  }
+
+  await runCase("MM) catalog import registry has 8 definitions", testMmImporterRegistryHasEight);
+  await runCase("MN) CSV loader reads sample file", testMnCsvLoaderReadsSample);
+  await runCase("MO) index lookup finds known key", testMoIndexLookupWorks);
+  await runCase("MP) path traversal is rejected", testMpPathTraversalRejected);
+  await runCase("MQ) imported-first fallback works", testMqImportedFirstFallback);
+
   printSummary();
 
   if (failed > 0) {

@@ -1,24 +1,23 @@
 # 13G - Síntesis y Mínimos
 
 ## Goal
-Completar banco de XMLs sintéticos (40 fixtures mínimo), arquitectura XSD/cripto preparada, matrices por complemento, validación wellformedness, y regresión 319/319.
+Completar infraestructura de importación de catálogos SAT/4.0, validación wellformedness, banco syntético, regresión 321/321.
 
 ## Constraints & Preferences
-- No descargar XSDs ni hacer scraping SAT
-- No agregar dependencias nuevas
+- No descargar catálogos de internet
+- No consultar SAT
+- No agregar dependencias
 - No tocar Prisma ni endpoints
-- No exponer XML fuente, normalizedXml.content, sellos, certificados
-- Mantener typecheck/lint/regresión verdes
+- No exponer contenido sensible
+- Mantener regresión verde
 
 ## Progress
 ### Done
-- ✅ XSD offline: tipos, registry (11 schemas), unavailable adapter, service integrado
-- ✅ Cripto offline: tipos, registry (4 assets), unavailable adapter, inspector seguro
-- ✅ Matrices complementos: 100 reglas baseline (Pagos, Nómina, Carta Porte, Comercio Exterior, Retenciones)
-- ✅ Fixtures sintéticos: 42 fixtures totales (8+8+9+9+8)
-- ✅ Tests regresión: 319/319 casos pasaron
-- ✅ Well-formedness validation: helper creado, integrado en analyzeCfdi ANTES del parse
-- ✅ Tests malformed: LQ-LX agregados (7 casos)
+- ✅ XSD offline: arquitectura preparada (11 schemas, unavailable adapter)
+- ✅ Cripto offline: arquitectura preparada (4 assets, unavailable adapter)
+- ✅ Well-formedness validation: helper + integración en analyzeCfdi (LQ-LX: 7 casos)
+- ✅ Fixtures sintéticos: 42 totales (8+8+9+9+8 por complemento)
+- ✅ Importación catálogos: infraestructura CSV/JSON + 8 fixtures (LY-MQ: 11 casos)
 
 ### In Progress
 - (none)
@@ -27,29 +26,22 @@ Completar banco de XMLs sintéticos (40 fixtures mínimo), arquitectura XSD/crip
 - (none)
 
 ## Key Decisions
-- Adapter `UnavailableXsdValidationAdapter` y `UnavailableCryptoValidationAdapter` por falta de assets locales
-- Registry XSD marca schemas como `configured: false`, registry crypto `configured: false`
-- Metadata segura de certificado con fingerprint SHA256 truncado, sin exponer PEM completo
-- Fixtures sintéticos con marcador `SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT`
+- Adapter UnavailableXsd/Crypto por falta de assets locales
+- Registry XSD/crypto marca `configured: false`
+- Metadata certificado con fingerprint SHA256 truncado
+- Fixtures marcados SYNTHETIC_TEST_ONLY
+- Catálogos importables con status EMPTY/PARTIAL/CURATED/LOCAL_IMPORTED/OFFICIAL_PENDING
 
 ## Next Steps
-- (none - objetivo completado)
+- (none - infraestructura base completa)
 
 ## Critical Context
-- Regression 13G: 319/319 casos pasaron
-- Cada fixture usa RFCs ficticios (AAA010101AAA, XAXX010101000, BBB010101BBB)
-- Certificados como placeholder `MII...` no reales
-- No hay validación XSD real sin schemas locales
-- No hay validación cripto real sin XSLT/trust
+- Regression 13G: 321/321 casos pasaron
 
 ## Relevant Files
-- `apps/api/src/modules/xml-audit/xsd/*`: arquitectura XSD preparada
-- `apps/api/src/modules/xml-audit/crypto/*`: arquitectura cripto preparada
-- `apps/api/src/modules/xml-audit/xml-wellformedness.helper.ts`: validación wellformedness
-- `apps/api/src/modules/xml-audit/sat-matrix/complementos/*`: 100 reglas por complemento
-- `apps/api/src/modules/xml-audit/test-fixtures/*`: banco sintético de XMLs (42 fixtures)
-- `docs/XML_AUDIT_XSD_VALIDATION.md`: documentación XSD
-- `docs/XML_AUDIT_CRYPTO_VALIDATION.md`: documentación cripto
-- `docs/XML_AUDIT_COMPLEMENT_MATRIX_MAPPING.md`: matrices complementos
-- `docs/XML_AUDIT_SYNTHETIC_FIXTURES.md`: documentación fixtures
-- `docs/XML_AUDIT_WELLFORMEDNESS.md`: documentación wellformedness
+- `apps/api/src/modules/xml-audit/sat-catalogs/importer/*` - infraestructura importación
+- `apps/api/src/modules/xml-audit/sat-catalogs/importer/fixtures/*` - samples CSV (8 archivos)
+- `apps/api/src/modules/xml-audit/xml-wellformedness.helper.ts` - validación wellformedness
+- `apps/api/src/modules/xml-audit/test-fixtures/*` - banco sintético (42 fixtures)
+- `docs/XML_AUDIT_WELLFORMEDNESS.md` - documentación wellformedness
+- `docs/XML_AUDIT_SAT_CATALOGS_STATUS.md` - documentación catálogos

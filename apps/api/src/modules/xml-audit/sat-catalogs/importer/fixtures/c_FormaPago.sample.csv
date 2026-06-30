@@ -1,0 +1,4 @@
+c_FormaPago,c_Descripcion
+01,Efectivo
+02,Cheque nominativo
+03,Transferencia electrónica de fondos
