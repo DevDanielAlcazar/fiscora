@@ -77,4 +77,30 @@ Funciones imported-first con fallback:
 }
 ```
 
-Flujo: imported-first → fallback a catálogos curados
+## Manifest & Traceability
+
+`apps/api/src/modules/xml-audit/sat-catalogs/importer/sat-catalog-manifest.types.ts`
+
+`apps/api/src/modules/xml-audit/sat-catalogs/importer/sat-catalog-manifest.helpers.ts`
+
+`apps/api/src/modules/xml-audit/sat-catalogs/importer/sat-catalog-runtime-tracker.ts`
+
+### SatCatalogFileManifest
+- `fileSha256`: hash SHA-256 del archivo CSV local
+- `fileSizeBytes`: tamaño del archivo
+- `columnsDetected`: columnas encontradas en headers
+- `missingRequiredColumns`: columnas requeridas faltantes
+- `warningsCount`, `errorsCount`: conteos de warnings/errors
+
+### SatCatalogRuntimeUsageManifest
+- `lookupCount`, `knownCount`, `unknownCount`
+- `fallbackCount`, `importedHitCount`, `curatedHitCount`, `staticFallbackHitCount`
+
+### Runtime Usage Tracker
+- `createCatalogRuntimeUsageTracker()`: crea tracker por análisis
+- Thread-safe: no shared mutable state entre análisis
+
+## Integration Future
+- `analysisMeta.catalogRuntime`: metadata segura de catálogos usados
+- `loadSatCatalogs()` en bootstrap de servidor
+- Versionado de catálogos por release

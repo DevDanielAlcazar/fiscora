@@ -1,7 +1,7 @@
-# 13G/13I - Síntesis, Wellformedness y Catalog Import
+# 13G/13I - Síntesis, Wellformedness y Catalog Import/Traceability
 
 ## Goal
-Infraestructura completa de importación de catálogos SAT + validación wellformedness + banco sintético, regresión 332/332.
+Infraestructura completa de catálogos SAT con manifest/traceability, wellformedness, banco sintético, regresión 339/339.
 
 ## Constraints
 - No descargar SAT
@@ -18,11 +18,11 @@ Infraestructura completa de importación de catálogos SAT + validación wellfor
 - ✅ Fixtures sintéticos: 42 totales
 - ✅ Importación catálogos: infraestructura CSV/JSON + 8 fixtures (LY-MQ: 9 casos)
 - ✅ Runtime adapter: imported-first para 8 catálogos (MR-MW: 6 casos)
+- ✅ Catalog manifest/traceability: tipos + helpers + tracker (NX-OD: 8 casos)
 
 ## Critical Context
-- Regression: 332/332 casos pasaron
+- Regression: 339/339 casos pasaron
 - RFCs ficticios en fixtures
-- Certificados: MII... placeholders
 - No hay validación XSD real sin schemas locales
 
 ## Relevant Files

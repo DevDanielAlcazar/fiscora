@@ -18,6 +18,9 @@ export type SatCatalogCoverageStatus =
   | "LOCAL_IMPORTED"
   | "OFFICIAL_PENDING";
 
+// Re-export for use in manifest types
+export type { SatCatalogCoverageStatus as CatalogCoverageStatusExport } from "./sat-catalog-import.types.js";
+
 export interface SatCatalogColumnDefinition {
   name: string;
   required: boolean;

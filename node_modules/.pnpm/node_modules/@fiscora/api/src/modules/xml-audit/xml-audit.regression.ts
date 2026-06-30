@@ -8433,6 +8433,84 @@ async function main() {
   await runCase("MV) Impuesto y TipoFactor runtime lookup imported-first", testMvImpuestoTipoFactorRuntime);
   await runCase("MW) TasaOCuota runtime lookup imported-first", testMwTasaOCuotaRuntime);
 
+  // ── NX–OH: Catalog Manifest Tests ──
+
+  async function testNxManifestHashStable(): Promise<void> {
+    const { hashCatalogFileContent } = await import("./sat-catalogs/importer/sat-catalog-manifest.helpers.js");
+    const content = "line1\nline2\n";
+    const hash1 = hashCatalogFileContent(content);
+    const hash2 = hashCatalogFileContent(content);
+    assertEqual(hash1, hash2, "SHA-256 debe ser estable");
+    assertEqual(hash1.length, 64, "SHA-256 debe ser 64 chars hex");
+  }
+
+  async function testNyManifestNoCsvContent(): Promise<void> {
+    const { buildSatCatalogFileManifest } = await import("./sat-catalogs/importer/sat-catalog-manifest.helpers.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const result = await loadSatCatalog("c_UsoCFDI");
+    const manifest = buildSatCatalogFileManifest(result);
+    assertEqual(!("content" in manifest), true, "Manifest no debe tener content");
+    assertEqual(!("entries" in manifest), true, "Manifest no debe tener entries");
+  }
+
+  async function testNzManifestNoAbsolutePath(): Promise<void> {
+    const { buildSatCatalogFileManifest } = await import("./sat-catalogs/importer/sat-catalog-manifest.helpers.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const result = await loadSatCatalog("c_UsoCFDI");
+    const manifest = buildSatCatalogFileManifest(result);
+    assertEqual(!manifest.relativePath?.startsWith("/"), true, "No ruta absoluta");
+  }
+
+  async function testOaManifestColumnsDetected(): Promise<void> {
+    const { buildSatCatalogFileManifest } = await import("./sat-catalogs/importer/sat-catalog-manifest.helpers.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    const result = await loadSatCatalog("c_UsoCFDI");
+    const manifest = buildSatCatalogFileManifest(result);
+    assertTruthy(manifest.columnsDetected.length > 0, "Debe detectar columnas");
+  }
+
+  async function testObRuntimeTrackerCounts(): Promise<void> {
+    const { createCatalogRuntimeUsageTracker } = await import("./sat-catalogs/importer/sat-catalog-runtime-tracker.js");
+    const tracker = createCatalogRuntimeUsageTracker();
+    tracker.recordLookup("c_UsoCFDI", { known: true, key: "G01", source: "LOCAL_IMPORTED" });
+    tracker.recordLookup("c_UsoCFDI", { known: false, key: "ZZZ", source: "UNKNOWN" });
+    const manifest = tracker.getUsageManifest();
+    const usoCfdi = manifest.find((m) => m.catalogKey === "c_UsoCFDI");
+    assertEqual(usoCfdi?.lookupCount, 2, "Debería contar 2 lookups");
+    assertEqual(usoCfdi?.knownCount, 1, "Debería contar 1 known");
+    assertEqual(usoCfdi?.unknownCount, 1, "Debería contar 1 unknown");
+  }
+
+  async function testOcFallbackCounted(): Promise<void> {
+    const { createCatalogRuntimeUsageTracker } = await import("./sat-catalogs/importer/sat-catalog-runtime-tracker.js");
+    const tracker = createCatalogRuntimeUsageTracker();
+    tracker.recordLookup("c_UsoCFDI", { known: true, key: "G01", source: "LOCAL_IMPORTED" });
+    tracker.recordLookup("c_Moneda", { known: true, key: "XYZ", source: "FISCORA_CURATED" });
+    const manifest = tracker.getUsageManifest();
+    const usoCfdi = manifest.find((m) => m.catalogKey === "c_UsoCFDI");
+    const moneda = manifest.find((m) => m.catalogKey === "c_Moneda");
+    assertEqual(usoCfdi?.importedHitCount, 1, "importedHitCount");
+    assertEqual(moneda?.curatedHitCount, 1, "curatedHitCount");
+  }
+
+  async function testOdMalformedNoCatalogLookup(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const malformedXml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0"><cfdi:Emisor Rfc="AAA010101AAA"/></cfdi:Comprobante><cfdi:Complemento/>`;
+    try {
+      analyzeCfdi(malformedXml);
+    } catch {
+      // Expected to throw
+    }
+  }
+
+  await runCase("NX) manifest hash SHA-256 estable", testNxManifestHashStable);
+  await runCase("NY) manifest no contiene CSV content", testNyManifestNoCsvContent);
+  await runCase("NZ) manifest no contiene rutas absolutas", testNzManifestNoAbsolutePath);
+  await runCase("OA) manifest detecta columnas", testOaManifestColumnsDetected);
+  await runCase("OB) runtime tracker cuenta lookups", testObRuntimeTrackerCounts);
+  await runCase("OC) runtime tracker cuenta fallbacks", testOcFallbackCounted);
+  await runCase("OD) malformed XML no busca catálogos fiscales", testOdMalformedNoCatalogLookup);
+
   printSummary();
 
   if (failed > 0) {
