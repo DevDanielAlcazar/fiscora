@@ -1,42 +1,29 @@
-# 13G - Síntesis y Mínimos
+# 13G/13I - Síntesis, Wellformedness y Catalog Import
 
 ## Goal
-Completar infraestructura de importación de catálogos SAT/4.0, validación wellformedness, banco syntético, regresión 321/321.
+Infraestructura completa de importación de catálogos SAT + validación wellformedness + banco sintético, regresión 332/332.
 
-## Constraints & Preferences
-- No descargar catálogos de internet
-- No consultar SAT
-- No agregar dependencias
-- No tocar Prisma ni endpoints
-- No exponer contenido sensible
-- Mantener regresión verde
+## Constraints
+- No descargar SAT
+- No scraping
+- No endpoints
+- No Prisma
+- No dependencias
+- No cambios fiscales nuevos
+- Fallback preservado
 
 ## Progress
 ### Done
-- ✅ XSD offline: arquitectura preparada (11 schemas, unavailable adapter)
-- ✅ Cripto offline: arquitectura preparada (4 assets, unavailable adapter)
-- ✅ Well-formedness validation: helper + integración en analyzeCfdi (LQ-LX: 7 casos)
-- ✅ Fixtures sintéticos: 42 totales (8+8+9+9+8 por complemento)
-- ✅ Importación catálogos: infraestructura CSV/JSON + 8 fixtures (LY-MQ: 11 casos)
-
-### In Progress
-- (none)
-
-### Blocked
-- (none)
-
-## Key Decisions
-- Adapter UnavailableXsd/Crypto por falta de assets locales
-- Registry XSD/crypto marca `configured: false`
-- Metadata certificado con fingerprint SHA256 truncado
-- Fixtures marcados SYNTHETIC_TEST_ONLY
-- Catálogos importables con status EMPTY/PARTIAL/CURATED/LOCAL_IMPORTED/OFFICIAL_PENDING
-
-## Next Steps
-- (none - infraestructura base completa)
+- ✅ Well-formedness: helper + integración en analyzeCfdi (LQ-LX: 7 casos)
+- ✅ Fixtures sintéticos: 42 totales
+- ✅ Importación catálogos: infraestructura CSV/JSON + 8 fixtures (LY-MQ: 9 casos)
+- ✅ Runtime adapter: imported-first para 8 catálogos (MR-MW: 6 casos)
 
 ## Critical Context
-- Regression 13G: 321/321 casos pasaron
+- Regression: 332/332 casos pasaron
+- RFCs ficticios en fixtures
+- Certificados: MII... placeholders
+- No hay validación XSD real sin schemas locales
 
 ## Relevant Files
 - `apps/api/src/modules/xml-audit/sat-catalogs/importer/*` - infraestructura importación

@@ -8372,6 +8372,67 @@ async function main() {
   await runCase("MP) path traversal is rejected", testMpPathTraversalRejected);
   await runCase("MQ) imported-first fallback works", testMqImportedFirstFallback);
 
+  // ── MR–MW: Runtime Imported Catalog Integration Tests ──
+
+  async function testMrUsoCfdiRuntimeLookup(): Promise<void> {
+    const { lookupUsoCfdiRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_UsoCFDI");
+    const result = lookupUsoCfdiRuntime("G01");
+    assertEqual(result.known, true, "Debería conocer clave G01");
+    assertEqual(result.source, "LOCAL_IMPORTED", "Debería venir de catálogo importado");
+  }
+
+  async function testMsFormaPagoRuntime(): Promise<void> {
+    const { lookupFormaPagoRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_FormaPago");
+    const result = lookupFormaPagoRuntime("01");
+    assertEqual(result.known, true, "Debería conocer clave 01");
+  }
+
+  async function testMtMonedaRuntime(): Promise<void> {
+    const { lookupMonedaRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_Moneda");
+    const result = lookupMonedaRuntime("MXN");
+    assertEqual(result.known, true, "Debería conocer MXN");
+  }
+
+  async function testMuObjetoImpRuntime(): Promise<void> {
+    const { lookupObjetoImpRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_ObjetoImp");
+    const result = lookupObjetoImpRuntime("01");
+    assertEqual(result.known, true, "Debería conocer ObjetoImp 01");
+  }
+
+  async function testMvImpuestoTipoFactorRuntime(): Promise<void> {
+    const { lookupImpuestoRuntime, lookupTipoFactorRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_Impuesto");
+    await loadSatCatalog("c_TipoFactor");
+    const impResult = lookupImpuestoRuntime("002");
+    const tfResult = lookupTipoFactorRuntime("Tasa");
+    assertEqual(impResult.known, true, "Debería conocer Impuesto 002");
+    assertEqual(tfResult.known, true, "Debería conocer TipoFactor Tasa");
+  }
+
+  async function testMwTasaOCuotaRuntime(): Promise<void> {
+    const { lookupTasaOCuotaRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    const { loadSatCatalog } = await import("./sat-catalogs/importer/sat-catalog-import.helpers.js");
+    await loadSatCatalog("c_TasaOCuota");
+    const result = lookupTasaOCuotaRuntime("0.060000");
+    assertEqual(result.known, true, "Debería conocer TasaOCuota");
+  }
+
+  await runCase("MR) UsoCFDI runtime lookup imported-first", testMrUsoCfdiRuntimeLookup);
+  await runCase("MS) FormaPago runtime lookup imported-first", testMsFormaPagoRuntime);
+  await runCase("MT) Moneda runtime lookup imported-first", testMtMonedaRuntime);
+  await runCase("MU) ObjetoImp runtime lookup imported-first", testMuObjetoImpRuntime);
+  await runCase("MV) Impuesto y TipoFactor runtime lookup imported-first", testMvImpuestoTipoFactorRuntime);
+  await runCase("MW) TasaOCuota runtime lookup imported-first", testMwTasaOCuotaRuntime);
+
   printSummary();
 
   if (failed > 0) {

@@ -47,3 +47,34 @@ G02,Gastos en actividades de construcción
 2. Agregar definición en `sat-catalog-import.registry.ts`
 3. Cambiar `coverageStatus` a `OFFICIAL_PENDING`
 4. Ejecutar `loadSatCatalog()` en bootstrap
+
+## Runtime Adapter
+
+`apps/api/src/modules/xml-audit/sat-catalogs/sat-catalog-runtime.adapter.ts`
+
+Funciones imported-first con fallback:
+
+| Función | Catálogo |
+|---------|----------|
+| `lookupUsoCfdiRuntime(key)` | c_UsoCFDI |
+| `lookupFormaPagoRuntime(key)` | c_FormaPago |
+| `lookupMonedaRuntime(key)` | c_Moneda |
+| `lookupRegimenFiscalRuntime(key)` | c_RegimenFiscal |
+| `lookupObjetoImpRuntime(key)` | c_ObjetoImp |
+| `lookupImpuestoRuntime(key)` | c_Impuesto |
+| `lookupTipoFactorRuntime(key)` | c_TipoFactor |
+| `lookupTasaOCuotaRuntime(key)` | c_TasaOCuota |
+
+### RuntimeCatalogLookupResult
+```ts
+{
+  known: boolean;
+  key: string;
+  label?: string;
+  source: "LOCAL_IMPORTED" | "FISCORA_CURATED" | "STATIC_FALLBACK" | "UNKNOWN";
+  coverageStatus?: string;
+  active?: boolean;
+}
+```
+
+Flujo: imported-first → fallback a catálogos curados
