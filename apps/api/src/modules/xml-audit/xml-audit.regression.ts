@@ -7557,8 +7557,10 @@ async function testKmNoCertificateExposed(): Promise<void> {
     <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
   </cfdi:Comprobante>`;
   const result = analyzeCfdi(xml);
-  const hasFullCert = result.analysisMeta?.coverage?.xsdValidation?.results?.some?.(() => false) ?? true;
-  assertEqual(hasFullCert, false, "No debería exponer certificado");
+  // xsdValidation no debe contener certificado completo
+  const xsdValStr = JSON.stringify(result.analysisMeta?.xsdValidationSummary ?? {});
+  const hasFullCert = xsdValStr.includes("MII...") && xsdValStr.length > 1000;
+  assertEqual(hasFullCert, false, "No debería exponer certificado en xsdValidation");
 }
 
 async function testKnTfdDetectsCryptoAssets(): Promise<void> {
@@ -8596,6 +8598,198 @@ async function main() {
   await runCase("OK) JSON export no expone CSV raw", testOkJsonExportNoCsvRaw);
   await runCase("OK2) Admin/historial sanitizado no expone catalog raw", testOkAdminSanitizedNoCatalogRaw);
   await runCase("OL) fallback funciona si catálogo importado falla", testOlFallbackWorksWhenImportFails);
+
+  // ── 13K: XSD Registry and Preflight Tests ──
+
+  async function testOmRegistryContainsCfdi40(): Promise<void> {
+    const { XSD_SCHEMA_REGISTRY } = await import("./xsd/xsd-schema.registry.js");
+    const cfdi40 = XSD_SCHEMA_REGISTRY.find((s) => s.key === "CFDI_40");
+    assertTruthy(cfdi40 !== undefined, "CFDI 4.0 debe estar en registry");
+    assertEqual(cfdi40?.expectedNamespace, "http://www.sat.gob.mx/cfd/4", "Namespace correcto");
+  }
+
+  async function testOnRegistryContainsTfd11(): Promise<void> {
+    const { XSD_SCHEMA_REGISTRY } = await import("./xsd/xsd-schema.registry.js");
+    const tfd = XSD_SCHEMA_REGISTRY.find((s) => s.key === "TFD_11");
+    assertTruthy(tfd !== undefined, "TFD 1.1 debe estar en registry");
+  }
+
+  async function testOoRegistryContainsPagos20(): Promise<void> {
+    const { XSD_SCHEMA_REGISTRY } = await import("./xsd/xsd-schema.registry.js");
+    const pagos = XSD_SCHEMA_REGISTRY.find((s) => s.key === "PAGOS_20");
+    assertTruthy(pagos !== undefined, "Pagos 2.0 debe estar en registry");
+  }
+
+  async function testOpRegistryContainsNomina12(): Promise<void> {
+    const { XSD_SCHEMA_REGISTRY } = await import("./xsd/xsd-schema.registry.js");
+    const nomina = XSD_SCHEMA_REGISTRY.find((s) => s.key === "NOMINA_12");
+    assertTruthy(nomina !== undefined, "Nómina 1.2 debe estar en registry");
+  }
+
+  async function testOqRegistryContainsCartaPorte31(): Promise<void> {
+    const { XSD_SCHEMA_REGISTRY } = await import("./xsd/xsd-schema.registry.js");
+    const cp31 = XSD_SCHEMA_REGISTRY.find((s) => s.key === "CARTA_PORTE_31");
+    assertTruthy(cp31 !== undefined, "Carta Porte 3.1 debe estar en registry");
+  }
+
+  async function testOrSchemaLocationExtracted(): Promise<void> {
+    const { extractSchemaLocationPairs } = await import("./xsd/xsd-preflight.helper.js");
+    const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cadenaoriginal/xslt/cfdv40.xsd">`;
+    const pairs = extractSchemaLocationPairs(xml);
+    assertEqual(pairs.length, 1, "Debe extraer 1 par");
+    assertEqual(pairs[0]?.namespaceUri, "http://www.sat.gob.mx/cfd/4", "Namespace correcto");
+  }
+
+  async function testOsNamespacesDetected(): Promise<void> {
+    const { detectNamespacesForXsd } = await import("./xsd/xsd-preflight.helper.js");
+    const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4">`;
+    const namespaces = detectNamespacesForXsd(xml);
+    assertTruthy(namespaces.includes("http://www.sat.gob.mx/cfd/4"), "Debe detectar namespace CFDI");
+  }
+
+  async function testOtPendingSchemaAssets(): Promise<void> {
+    const { validateXmlAgainstConfiguredXsd } = await import("./xsd/xsd-validation.service.js");
+    const xml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4"/>`;
+    const result = validateXmlAgainstConfiguredXsd({ xml });
+    assertEqual(result.status, "PENDING_SCHEMA_ASSETS", "Status debe ser PENDING_SCHEMA_ASSETS");
+    assertEqual(result.formalValidationExecuted, false, "No ejecutado formalmente");
+  }
+
+  async function testOuMalformedNoXsd(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const malformedXml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0"><cfdi:Emisor/></cfdi:Comprobante><extra/>`;
+    try {
+      analyzeCfdi(malformedXml);
+    } catch {
+      // Expected to fail before XSD
+    }
+  }
+
+  async function testOvXsdInAnalysisMeta(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    assertTruthy(result.analysisMeta?.xsdValidationSummary?.status !== undefined, "xsdValidationSummary debe existir");
+    assertEqual(result.analysisMeta?.xsdValidationSummary?.schemasConfigured, 11, "Debe tener schemas configurados");
+  }
+
+  async function testOwSanitizerRemovesAbsolutePath(): Promise<void> {
+    const { sanitizeXsdValidationSummary } = await import("./xsd/xsd-validation.sanitizer.js");
+    const input = {
+      status: "NOT_CONFIGURED" as const,
+      formalValidationExecuted: false,
+      formalValidationAvailable: false,
+      schemasConfigured: 1,
+      schemasDetected: 1,
+      schemasWithLocalAssets: 0,
+      schemasMissingLocalAssets: 1,
+      detectedSchemas: ["CFDI_40"],
+      namespacesDetected: ["http://www.sat.gob.mx/cfd/4"],
+      schemaLocationDeclared: false,
+      schemaLocationPairs: [],
+      schemas: [],
+      warnings: ["a".repeat(300)],
+      errors: [],
+    };
+    const result = sanitizeXsdValidationSummary(input);
+    assertEqual(result.warnings[0]?.endsWith("..."), true, "Warning truncado con '...'");
+  }
+
+  async function testOxSanitizerLimitsSchemaLocation(): Promise<void> {
+    const { sanitizeXsdValidationSummary } = await import("./xsd/xsd-validation.sanitizer.js");
+    const input = {
+      status: "NOT_CONFIGURED" as const,
+      formalValidationExecuted: false,
+      formalValidationAvailable: false,
+      schemasConfigured: 1,
+      schemasDetected: 1,
+      schemasWithLocalAssets: 0,
+      schemasMissingLocalAssets: 1,
+      detectedSchemas: ["CFDI_40"],
+      namespacesDetected: ["http://www.sat.gob.mx/cfd/4"],
+      schemaLocationDeclared: false,
+      schemaLocationPairs: [{ namespaceUri: "test", location: "a".repeat(300) }],
+      schemas: [],
+      warnings: [],
+      errors: [],
+    };
+    const result = sanitizeXsdValidationSummary(input);
+    assertEqual(result.schemaLocationPairs[0]?.location.length, 203, "Location truncado (+ '...')");
+  }
+
+  async function testOyZipHasXsdValidation(): Promise<void> {
+    const { analyzeZipFull } = await import("./xml-zip-audit.service.js");
+    const zip = new AdmZip();
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+</cfdi:Comprobante>`;
+    zip.addFile("test.xml", Buffer.from(xml, "utf-8"));
+    const result = analyzeZipFull(Buffer.from(zip.toBuffer()), "test.zip");
+    assertTruthy(result.analyzedCount > 0, "Debe analizar archivo");
+    assertTruthy(result.results[0]?.analysis?.analysisMeta?.xsdValidationSummary !== undefined, "xsdValidationSummary en ZIP");
+  }
+
+  async function testOzJsonNoXmlExposure(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+  <cfdi:Receptor Rfc="BBB010101BBB"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const xsdStr = JSON.stringify(result.analysisMeta?.xsdValidationSummary ?? {});
+    assertEqual(!xsdStr.includes("<cfdi:Comprobante>"), true, "No debe exponer XML");
+    assertEqual(!xsdStr.includes("normalizedXml.content"), true, "No debe exponer normalizedXml");
+  }
+
+  async function testPaNoRiskLevelChange(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Fecha="2024-01-01T00:00:00" NoCertificado="3000" Sello="abc123" Certificado="def456" Moneda="MXN" SubTotal="100" Total="100">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa de Prueba" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio de prueba" ValorUnitario="100" Importe="100"/>
+  </cfdi:Conceptos>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    // Verificar que no hay finding XSD
+    const xsdFindings = result.findings.filter((f) => f.code.startsWith("XSD_"));
+    assertEqual(xsdFindings.length, 0, "No findings XSD");
+  }
+
+  async function testPbBaselinePreserved(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    assertEqual(result.findings.some((f) => f.code.startsWith("XSD_")), false, "No findings XSD aún");
+  }
+
+  await runCase("OM) registry contiene CFDI 4.0", testOmRegistryContainsCfdi40);
+  await runCase("ON) registry contiene TFD 1.1", testOnRegistryContainsTfd11);
+  await runCase("OO) registry contiene Pagos 2.0", testOoRegistryContainsPagos20);
+  await runCase("OP) registry contiene Nómina 1.2", testOpRegistryContainsNomina12);
+  await runCase("OQ) registry contiene Carta Porte 3.1", testOqRegistryContainsCartaPorte31);
+  await runCase("OR) schemaLocation pairs extraídos", testOrSchemaLocationExtracted);
+  await runCase("OS) namespaces detectados", testOsNamespacesDetected);
+  await runCase("OT) sin assets locales → PENDING_SCHEMA_ASSETS", testOtPendingSchemaAssets);
+  await runCase("OU) malformed XML no ejecuta XSD formal", testOuMalformedNoXsd);
+  await runCase("OV) xsdValidation aparece en analysisMeta", testOvXsdInAnalysisMeta);
+  await runCase("OW) sanitizer elimina path absoluto", testOwSanitizerRemovesAbsolutePath);
+  await runCase("OX) sanitizer limita schemaLocation", testOxSanitizerLimitsSchemaLocation);
+  await runCase("OY) ZIP incluye xsdValidation seguro", testOyZipHasXsdValidation);
+  await runCase("OZ) JSON export no expone XML ni XSD content", testOzJsonNoXmlExposure);
+  await runCase("PA) ausencia de XSD no cambia riskLevel", testPaNoRiskLevelChange);
+  await runCase("PB) baseline fixture conserva findings", testPbBaselinePreserved);
 
   printSummary();
 

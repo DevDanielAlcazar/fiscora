@@ -682,11 +682,40 @@ export interface SatCatalogRuntimeManifestSummary {
   catalogFiles: SatCatalogFileManifest[];
 }
 
+export interface XsdSchemaPreflightEntry {
+  schemaKey: string;
+  displayName: string;
+  namespaceUri: string;
+  detected: boolean;
+  declaredInSchemaLocation: boolean;
+  localAssetPresent: boolean;
+  coverageStatus: string;
+  expectedLocalPath?: string;
+}
+
+export interface XsdValidationSummary {
+  status: string;
+  formalValidationExecuted: boolean;
+  formalValidationAvailable: boolean;
+  schemasConfigured: number;
+  schemasDetected: number;
+  schemasWithLocalAssets: number;
+  schemasMissingLocalAssets: number;
+  detectedSchemas: string[];
+  namespacesDetected: string[];
+  schemaLocationDeclared: boolean;
+  schemaLocationPairs: Array<{ namespaceUri: string; location: string }>;
+  schemas: XsdSchemaPreflightEntry[];
+  warnings: string[];
+  errors: string[];
+}
+
 export interface AnalysisMetaInfo {
   generatedAt: string;
   engineVersion: string;
   performance: AnalysisPerformanceInfo;
   coverage: AnalysisCoverageInfo;
+  xsdValidationSummary?: XsdValidationSummary;
   catalogRuntime?: SatCatalogRuntimeManifestSummary;
 }
 

@@ -1,4 +1,15 @@
-import type { XsdSchemaDefinition, XsdSchemaKey } from "./xsd-validation.types.js";
+import type { XsdSchemaKey, XsdSchemaPreflightEntry } from "./xsd-validation.types.js";
+
+export interface XsdSchemaDefinition {
+  key: XsdSchemaKey;
+  module: string;
+  displayName: string;
+  expectedNamespace?: string;
+  localPath?: string;
+  required: boolean;
+  configured: boolean;
+  notes?: string[];
+}
 
 export const XSD_SCHEMA_REGISTRY: XsdSchemaDefinition[] = [
   {

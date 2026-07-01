@@ -42,7 +42,7 @@ import { validatePartiesAdvanced } from "./party-validations.helper.js";
 import { validateCrossModuleConsistency } from "./cross-module-validations.helper.js";
 import { validateCfdiVersionConsistency } from "./cfdi-version-validations.helper.js";
 import { validateXmlWellFormedness } from "./xml-wellformedness.helper.js";
-import { buildXsdValidationSummary } from "./xsd/xsd-validation.service.js";
+import { validateXmlAgainstConfiguredXsd } from "./xsd/xsd-validation.service.js";
 import type { XsdValidationSummary } from "./xsd/xsd-validation.types.js";
 import { buildCryptoValidationSummary } from "./crypto/crypto-validation.service.js";
 import {
@@ -9399,20 +9399,12 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
 const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
 
-  const xsdValidationSummary = buildXsdValidationSummary(undefined, {
-    version,
-    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
-    hasPaymentComplement: !!paymentComplement,
-    hasNomina: !!nomina,
-    hasCartaPorte: cartaPorte ? { detected: true, hasAutotransporte: false } : undefined,
-    hasComercioExterior: !!comercioExterior,
-    hasRetenciones: false,
-    hasImpuestosLocales: !!impuestosLocales,
-    hasLeyendasFiscales: !!leyendasFiscales,
-    hasDonatarias: !!donatarias,
+  const xsdValidationSummary = validateXmlAgainstConfiguredXsd({
+    xml: xmlContent,
+    knownComplements: cDetected,
   });
 
-const cryptoValidation = buildCryptoValidationSummary(certificado, {
+  const cryptoValidation = buildCryptoValidationSummary(certificado, {
     hasSello: !!sello,
     hasCertificado: !!certificado,
     hasNoCertificado: !!noCertificado,
@@ -9590,12 +9582,11 @@ const cryptoValidation = buildCryptoValidationSummary(certificado, {
       hasAddenda: addendaDetected,
       hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
       hasSafeNormalization: safeNormalizationApplied,
-      xsdValidation: xsdValidationSummary,
     },
-    xsdValidationSummary,
-    cryptoValidation,
-    catalogRuntime,
-  };
+xsdValidationSummary: xsdValidationSummary,
+     cryptoValidation,
+     catalogRuntime,
+   };
 
   // Clean up tracker after analysis
   setCurrentCatalogTracker(null);
@@ -10600,17 +10591,9 @@ function buildRetencionesResult(
 
   const countBP2 = (p: string): number => findings.filter((f) => f.code.startsWith(p)).length;
 
-  const xsdValidationSummary2 = buildXsdValidationSummary(undefined, {
-    version,
-    hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
-    hasPaymentComplement: false,
-    hasNomina: false,
-    hasCartaPorte: undefined,
-    hasComercioExterior: false,
-    hasRetenciones: true,
-    hasImpuestosLocales: false,
-    hasLeyendasFiscales: false,
-    hasDonatarias: false,
+  const xsdValidationSummary2 = validateXmlAgainstConfiguredXsd({
+    xml: xmlContent,
+    knownComplements: [],
   });
 
   const cryptoValidation2 = buildCryptoValidationSummary(cert, {

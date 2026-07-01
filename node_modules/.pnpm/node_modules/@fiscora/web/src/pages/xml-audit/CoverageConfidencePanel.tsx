@@ -11,6 +11,7 @@ import {
   getConfidenceDescription,
 } from "./coverageConfidence.helpers";
 import { buildCatalogRuntimeSummary } from "./catalogRuntimeSection.helpers";
+import { buildXsdValidationSummary } from "./xsdValidationSection.helpers";
 
 interface CoverageConfidencePanelProps {
   result?: AnalysisResult | ZipFullAnalysisFileResult;
@@ -97,6 +98,12 @@ export default function CoverageConfidencePanel({
     if (!result || zipFiles) return null;
     const analysis = result as AnalysisResult;
     return buildCatalogRuntimeSummary(analysis.analysisMeta?.catalogRuntime);
+  }, [result, zipFiles]);
+
+  const xsdValidation = useMemo(() => {
+    if (!result || zipFiles) return null;
+    const analysis = result as AnalysisResult;
+    return buildXsdValidationSummary(analysis.analysisMeta?.xsdValidationSummary);
   }, [result, zipFiles]);
 
   const rows = useMemo((): ReturnType<typeof buildModuleCoverageRows> => {
@@ -242,11 +249,38 @@ export default function CoverageConfidencePanel({
                    <span className="px-2 py-0.5 rounded bg-muted/50">
                      En este análisis: {catalogRuntime.catalogsUsedInAnalysis.length}
                    </span>
-                 )}
+)}
+                </div>
+                {catalogRuntime.catalogsWithErrors.length > 0 && (
+                  <p className="text-[10px] text-yellow-600">
+                    Catálogos con errores: {catalogRuntime.catalogsWithErrors.join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+
+           {!compact && xsdValidation && (
+             <div className="space-y-1.5">
+               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                 Validación XSD
+               </p>
+               <div className="flex flex-wrap gap-2 text-xs">
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Estado: {xsdValidation.status}
+                 </span>
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Schemas detectados: {xsdValidation.schemasDetected}
+                 </span>
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Schemas locales: {xsdValidation.schemasWithLocalAssets}
+                 </span>
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   SchemaLocation: {xsdValidation.schemaLocationDeclared ? "Sí" : "No"}
+                 </span>
                </div>
-               {catalogRuntime.catalogsWithErrors.length > 0 && (
+               {xsdValidation.status === "PENDING_SCHEMA_ASSETS" && (
                  <p className="text-[10px] text-yellow-600">
-                   Catálogos con errores: {catalogRuntime.catalogsWithErrors.join(", ")}
+                   Fiscora detectó los schemas esperados, pero la validación XSD formal aún no se ejecuta porque no hay archivos XSD locales oficiales cargados.
                  </p>
                )}
              </div>
