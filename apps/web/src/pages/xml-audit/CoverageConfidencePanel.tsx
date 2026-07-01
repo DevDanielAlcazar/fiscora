@@ -10,6 +10,7 @@ import {
   getConfidenceLabel,
   getConfidenceDescription,
 } from "./coverageConfidence.helpers";
+import { buildCatalogRuntimeSummary } from "./catalogRuntimeSection.helpers";
 
 interface CoverageConfidencePanelProps {
   result?: AnalysisResult | ZipFullAnalysisFileResult;
@@ -90,6 +91,12 @@ export default function CoverageConfidencePanel({
     if (!result || zipFiles) return null;
     const analysis = result as AnalysisResult;
     return buildUnknownComplementsSummary(analysis);
+  }, [result, zipFiles]);
+
+  const catalogRuntime = useMemo(() => {
+    if (!result || zipFiles) return null;
+    const analysis = result as AnalysisResult;
+    return buildCatalogRuntimeSummary(analysis.analysisMeta?.catalogRuntime);
   }, [result, zipFiles]);
 
   const rows = useMemo((): ReturnType<typeof buildModuleCoverageRows> => {
@@ -205,16 +212,45 @@ export default function CoverageConfidencePanel({
             </div>
           )}
 
-          {showUnknownComplements && unknownComp && unknownComp.unknown.length > 0 && (
-            <div className="p-3 rounded-lg border border-yellow-200 bg-yellow-50 space-y-1.5">
-              <p className="text-xs font-semibold text-yellow-800">Complementos no clasificados</p>
-              <p className="text-xs text-yellow-700">{unknownComp.unknown.join(", ")}</p>
-              <p className="text-[10px] text-yellow-600">
-                Estos complementos fueron detectados, pero no cuentan aún con análisis
-                especializado.
-              </p>
-            </div>
-          )}
+{showUnknownComplements && unknownComp && unknownComp.unknown.length > 0 && (
+             <div className="p-3 rounded-lg border border-yellow-200 bg-yellow-50 space-y-1.5">
+               <p className="text-xs font-semibold text-yellow-800">Complementos no clasificados</p>
+               <p className="text-xs text-yellow-700">{unknownComp.unknown.join(", ")}</p>
+               <p className="text-[10px] text-yellow-600">
+                 Estos complementos fueron detectados, pero no cuentan aún con análisis
+                 especializado.
+               </p>
+             </div>
+           )}
+
+           {!compact && catalogRuntime && (
+             <div className="space-y-1.5">
+               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                 Catálogos usados
+               </p>
+               <div className="flex flex-wrap gap-2 text-xs">
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Configurados: {catalogRuntime.totalCatalogsConfigured}
+                 </span>
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Cargados: {catalogRuntime.loadedCatalogs}
+                 </span>
+                 <span className="px-2 py-0.5 rounded bg-muted/50">
+                   Total filas: {catalogRuntime.totalRows}
+                 </span>
+                 {catalogRuntime.catalogsUsedInAnalysis.length > 0 && (
+                   <span className="px-2 py-0.5 rounded bg-muted/50">
+                     En este análisis: {catalogRuntime.catalogsUsedInAnalysis.length}
+                   </span>
+                 )}
+               </div>
+               {catalogRuntime.catalogsWithErrors.length > 0 && (
+                 <p className="text-[10px] text-yellow-600">
+                   Catálogos con errores: {catalogRuntime.catalogsWithErrors.join(", ")}
+                 </p>
+               )}
+             </div>
+           )}
         </>
       )}
 

@@ -68,6 +68,8 @@ export interface SatCatalogImportResult {
   errors: string[];
   loadedAt: string;
   entries: SatCatalogImportedEntry[];
+  columnsDetected: string[];
+  missingRequiredColumns: string[];
 }
 
 export interface SatCatalogIndex {

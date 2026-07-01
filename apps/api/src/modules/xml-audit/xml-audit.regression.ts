@@ -8503,6 +8503,86 @@ async function main() {
     }
   }
 
+  async function testOhCatalogRuntimeExistsInAnalysis(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa de Prueba" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="G01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio" ValorUnitario="100" Importe="100"/>
+  </cfdi:Conceptos>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    assertTruthy(result.analysisMeta?.catalogRuntime !== undefined, "catalogRuntime debe existir en analysisMeta");
+    assertEqual(typeof result.analysisMeta?.catalogRuntime?.catalogsUsedInAnalysis, "object", "catalogsUsedInAnalysis debe ser array");
+  }
+
+  async function testOiCatalogRuntimeNoFullRows(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa de Prueba" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptor" UsoCFDI="G01"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio" ValorUnitario="100" Importe="100"/>
+  </cfdi:Conceptos>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const cr = result.analysisMeta?.catalogRuntime;
+    // catalogRuntime no debe contener contenido del catálogo
+    assertEqual(!cr?.catalogFiles?.some((f) => f.columnsDetected && f.columnsDetected.length > 100), true, "catalogRuntime no debe contener datos masivos de columnas");
+  }
+
+  async function testOjZipAnalysisHasSecureCatalogRuntime(): Promise<void> {
+    const { analyzeZipFull } = await import("./xml-zip-audit.service.js");
+    const zip = new AdmZip();
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    zip.addFile("test.xml", Buffer.from(xml, "utf-8"));
+    const result = analyzeZipFull(Buffer.from(zip.toBuffer()), "test.zip");
+    assertTruthy(result.analyzedCount > 0, "Debería analizar al menos un archivo");
+    assertTruthy(result.results[0]?.analysis?.analysisMeta?.catalogRuntime !== undefined, "catalogRuntime debe existir en ZIP analysis");
+  }
+
+  async function testOkJsonExportNoCsvRaw(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const crStr = JSON.stringify(result.analysisMeta?.catalogRuntime ?? {});
+    assertEqual(crStr.includes("c_UsoCFDI"), false, "No debe incluir claves completas de catálogo en JSON");
+    assertEqual(crStr.length < 5000, true, "catalogRuntime debe ser compacto");
+  }
+
+  async function testOkAdminSanitizedNoCatalogRaw(): Promise<void> {
+    const { toAnalysisResponse } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = toAnalysisResponse(analyzeCfdi(xml));
+    const crStr = JSON.stringify(result.analysisMeta?.catalogRuntime ?? {});
+    // No debe contener valores raw de catálogo
+    assertEqual(crStr.includes("Gastos"), false, "No debe contener labels de catálogo");
+    assertEqual(crStr.includes("General"), false, "No debe contener labels completos");
+  }
+
+  async function testOlFallbackWorksWhenImportFails(): Promise<void> {
+    const { lookupTasaOCuotaRuntime } = await import("./sat-catalogs/sat-catalog-runtime.adapter.js");
+    // No cargar catálogo, forzar fallback
+    const result = lookupTasaOCuotaRuntime("99.999999");
+    assertEqual(result.known, false, "Debería ser unknown cuando catálogo no está cargado");
+    assertEqual(result.source, "UNKNOWN", "Fuente debe ser UNKNOWN");
+  }
+
   await runCase("NX) manifest hash SHA-256 estable", testNxManifestHashStable);
   await runCase("NY) manifest no contiene CSV content", testNyManifestNoCsvContent);
   await runCase("NZ) manifest no contiene rutas absolutas", testNzManifestNoAbsolutePath);
@@ -8510,6 +8590,12 @@ async function main() {
   await runCase("OB) runtime tracker cuenta lookups", testObRuntimeTrackerCounts);
   await runCase("OC) runtime tracker cuenta fallbacks", testOcFallbackCounted);
   await runCase("OD) malformed XML no busca catálogos fiscales", testOdMalformedNoCatalogLookup);
+  await runCase("OH) catalogRuntime existe en análisis normal", testOhCatalogRuntimeExistsInAnalysis);
+  await runCase("OI) catalogRuntime no contiene rows completos", testOiCatalogRuntimeNoFullRows);
+  await runCase("OJ) ZIP analysis mantiene catalogRuntime seguro", testOjZipAnalysisHasSecureCatalogRuntime);
+  await runCase("OK) JSON export no expone CSV raw", testOkJsonExportNoCsvRaw);
+  await runCase("OK2) Admin/historial sanitizado no expone catalog raw", testOkAdminSanitizedNoCatalogRaw);
+  await runCase("OL) fallback funciona si catálogo importado falla", testOlFallbackWorksWhenImportFails);
 
   printSummary();
 

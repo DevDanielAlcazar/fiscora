@@ -7,10 +7,6 @@ export function hashCatalogFileContent(content: string): string {
 }
 
 export function buildSatCatalogFileManifest(importResult: SatCatalogImportResult, content?: string): SatCatalogFileManifest {
-  const columnsDetected = importResult.entries.length > 0
-    ? Object.keys(importResult.entries[0]?.raw ?? {})
-    : [];
-
   return {
     catalogKey: importResult.catalogKey,
     displayName: importResult.displayName,
@@ -24,8 +20,8 @@ export function buildSatCatalogFileManifest(importResult: SatCatalogImportResult
     validRows: importResult.validRows,
     invalidRows: importResult.invalidRows,
     duplicateKeys: importResult.duplicateKeys,
-    columnsDetected,
-    missingRequiredColumns: [],
+    columnsDetected: importResult.columnsDetected,
+    missingRequiredColumns: importResult.missingRequiredColumns,
     warningsCount: importResult.warnings.length,
     errorsCount: importResult.errors.length,
     loadedAt: importResult.loadedAt,

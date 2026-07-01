@@ -1,8 +1,8 @@
 # Matriz SAT vs Motor Fiscora — Gap Analysis
 
 **Fecha:** Fri Jun 25 2026  
-**Motor:** Auditoría XML v1.0 + arquitectura XSD + arquitectura cripto + matriz complementos + fixtures sintéticos (13G)  
-**Regresión:** 308/308 tests pasados
+**Motor:** Auditoría XML v1.0 + arquitectura XSD + arquitectura cripto + matriz complementos + fixtures sintéticos (13G) + manifest catálogos (13J)  
+**Regresión:** 345/345 tests pasados
 
 ---
 

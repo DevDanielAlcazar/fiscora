@@ -43,6 +43,7 @@ fiscora/
 ✅ **Code Quality**: ESLint y Prettier configurados
 ✅ **Tax Advanced Validations**: 13 nuevos códigos (A1–G3) en helper separado, regresión 202/202
 ✅ **Concept Advanced Validations**: 20 nuevos códigos en helper separado, regresión 212/212
+✅ **Catalog Manifest & Traceability**: SHA-256 hashes, runtime tracker, catalogRuntime en analysisMeta
 
 ## Auth Module
 

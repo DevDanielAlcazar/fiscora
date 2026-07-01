@@ -640,11 +640,54 @@ export interface AnalysisCoverageInfo {
   hasSafeNormalization: boolean;
 }
 
+export interface SatCatalogRuntimeUsageManifest {
+  catalogKey: string;
+  lookupCount: number;
+  knownCount: number;
+  unknownCount: number;
+  fallbackCount: number;
+  importedHitCount: number;
+  curatedHitCount: number;
+  staticFallbackHitCount: number;
+}
+
+export interface SatCatalogFileManifest {
+  catalogKey: string;
+  displayName: string;
+  coverageStatus: string;
+  loadStatus: string;
+  sourceFormat: string;
+  relativePath: string;
+  fileSha256?: string;
+  fileSizeBytes?: number;
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateKeys: number;
+  columnsDetected: string[];
+  missingRequiredColumns: string[];
+  warningsCount: number;
+  errorsCount: number;
+  loadedAt: string;
+}
+
+export interface SatCatalogRuntimeManifestSummary {
+  totalCatalogsConfigured: number;
+  loadedCatalogs: number;
+  invalidCatalogs: number;
+  partialCatalogs: number;
+  totalRows: number;
+  catalogsWithErrors: string[];
+  catalogsUsedInAnalysis: SatCatalogRuntimeUsageManifest[];
+  catalogFiles: SatCatalogFileManifest[];
+}
+
 export interface AnalysisMetaInfo {
   generatedAt: string;
   engineVersion: string;
   performance: AnalysisPerformanceInfo;
   coverage: AnalysisCoverageInfo;
+  catalogRuntime?: SatCatalogRuntimeManifestSummary;
 }
 
 export interface AnalyzeResponse {

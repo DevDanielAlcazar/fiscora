@@ -1,6 +1,7 @@
 import type { SatCatalogKey } from "./sat-catalog.types.js";
 import { lookupCatalogEntry } from "./importer/sat-catalog-index.js";
 import { lookupImportedCatalogValue } from "./importer/sat-catalog-import.helpers.js";
+import { getCurrentCatalogTracker } from "./importer/sat-catalog-runtime-tracker.js";
 
 export interface RuntimeCatalogLookupResult {
   known: boolean;
@@ -10,6 +11,8 @@ export interface RuntimeCatalogLookupResult {
   coverageStatus?: string;
   active?: boolean;
 }
+
+export type CatalogRuntimeLookupSource = "LOCAL_IMPORTED" | "FISCORA_CURATED" | "STATIC_FALLBACK" | "UNKNOWN";
 
 const IMPORTED_CATALOG_KEYS: SatCatalogKey[] = [
   "c_UsoCFDI",
@@ -41,18 +44,30 @@ export function lookupRuntimeCatalogValue(
   if (isImportedCatalogAvailable(catalogKey)) {
     const importedLabel = lookupImportedCatalogValue(catalogKey, normalizedKey);
     if (importedLabel !== undefined) {
-      return {
+      const result = {
         known: true,
         key: normalizedKey,
         label: importedLabel,
-        source: "LOCAL_IMPORTED",
+        source: "LOCAL_IMPORTED" as const,
         coverageStatus: "LOCAL_IMPORTED",
       };
+      // Record usage if tracker available
+      const tracker = getCurrentCatalogTracker();
+      if (tracker) {
+        tracker.recordLookup(catalogKey, { known: true, key: normalizedKey, source: "LOCAL_IMPORTED" });
+      }
+      return result;
     }
   }
 
   // Fallback to existing - we return UNKNOWN here and let callers use existing logic
-  return { known: false, key: normalizedKey, source: "UNKNOWN" };
+  const result = { known: false, key: normalizedKey, source: "UNKNOWN" as const };
+  // Record fallback usage
+  const tracker = getCurrentCatalogTracker();
+  if (tracker) {
+    tracker.recordLookup(catalogKey, { known: false, key: normalizedKey, source: "UNKNOWN" });
+  }
+  return result;
 }
 
 export function lookupUsoCfdiRuntime(key: string | undefined | null): RuntimeCatalogLookupResult {

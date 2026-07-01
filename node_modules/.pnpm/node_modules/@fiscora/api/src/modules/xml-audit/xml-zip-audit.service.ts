@@ -315,6 +315,7 @@ export function analyzeZipFull(buffer: Buffer, originalFilename: string): ZipFul
         totalsValidation: cfdiResult.totalsValidation,
         taxSummary: cfdiResult.taxSummary,
         normalizedXml: sanitizeNormalizedXml(cfdiResult.normalizedXml),
+        analysisMeta: cfdiResult.analysisMeta,
       };
 
       results.push({

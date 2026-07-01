@@ -100,7 +100,8 @@ Funciones imported-first con fallback:
 - `createCatalogRuntimeUsageTracker()`: crea tracker por análisis
 - Thread-safe: no shared mutable state entre análisis
 
-## Integration Future
-- `analysisMeta.catalogRuntime`: metadata segura de catálogos usados
-- `loadSatCatalogs()` en bootstrap de servidor
-- Versionado de catálogos por release
+## Integration Implemented
+- ✅ `analysisMeta.catalogRuntime`: metadata segura de catálogos usados (en cada análisis CFDI)
+- ✅ Runtime tracker integrado en `analyzeCfdi()` y `analyzeZipFull()`
+- ✅ `SatCatalogImportResult.columnsDetected` y `missingRequiredColumns` agregados
+- ✅ Hash SHA-256 incluido en manifest de archivos

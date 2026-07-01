@@ -50,6 +50,30 @@ import {
   type FindingValueTrace,
   inferFindingLocationFromEvidence,
 } from "./finding-evidence-location.helper.js";
+import {
+  lookupUsoCfdiRuntime,
+  lookupFormaPagoRuntime,
+  lookupMonedaRuntime,
+  lookupRegimenFiscalRuntime,
+  lookupObjetoImpRuntime,
+  lookupImpuestoRuntime,
+  lookupTipoFactorRuntime,
+  lookupTasaOCuotaRuntime,
+} from "./sat-catalogs/sat-catalog-runtime.adapter.js";
+import {
+  createCatalogRuntimeUsageTracker,
+  setCurrentCatalogTracker,
+} from "./sat-catalogs/importer/sat-catalog-runtime-tracker.js";
+import {
+  loadAllCatalogs,
+  loadSatCatalog,
+} from "./sat-catalogs/importer/sat-catalog-import.helpers.js";
+import {
+  buildSatCatalogFileManifest,
+  buildSatCatalogManifestSummary,
+  sanitizeCatalogManifestForOutput,
+} from "./sat-catalogs/importer/sat-catalog-manifest.helpers.js";
+import type { SatCatalogRuntimeManifestSummary } from "./sat-catalogs/importer/sat-catalog-manifest.types.js";
 
 export interface TechnicalDiagnostics {
   isStamped: boolean;
@@ -698,6 +722,7 @@ export interface AnalysisMetaInfo {
   coverage: AnalysisCoverageInfo;
   xsdValidationSummary?: XsdValidationSummary;
   cryptoValidation?: CryptoValidationSummary;
+  catalogRuntime?: SatCatalogRuntimeManifestSummary;
 }
 
 function sha256Text(value: string): string {
@@ -1806,6 +1831,10 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
   const warnings: string[] = [];
   const safeNormalizationNotes: string[] = [];
 
+  // Create catalog runtime tracker for this analysis
+  const catalogTracker = createCatalogRuntimeUsageTracker();
+  setCurrentCatalogTracker(catalogTracker);
+
   let bomDetected = false;
   let leadingContentBeforeXml = false;
   let safeNormalizationApplied = false;
@@ -1856,6 +1885,7 @@ export function analyzeCfdi(rawXml: string, originalFilename?: string): CfdiAnal
 
   const wellFormed = validateXmlWellFormedness(xmlContent);
   if (!wellFormed.isWellFormed) {
+    setCurrentCatalogTracker(null);
     throw Object.assign(
       new Error(wellFormed.message ?? "El XML no está bien formado"),
       { code: wellFormed.errorCode ?? "XML_MALFORMED", wellFormed },
@@ -9382,12 +9412,20 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
     hasDonatarias: !!donatarias,
   });
 
-  const cryptoValidation = buildCryptoValidationSummary(certificado, {
+const cryptoValidation = buildCryptoValidationSummary(certificado, {
     hasSello: !!sello,
     hasCertificado: !!certificado,
     hasNoCertificado: !!noCertificado,
     hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
     hasSelloSat: !!selloSat,
+  });
+
+  // Build catalog runtime manifest
+  const catalogUsageManifest = catalogTracker.getUsageManifest();
+  const catalogRuntimeSummary = buildSatCatalogManifestSummary([]);
+  const catalogRuntime = sanitizeCatalogManifestForOutput({
+    ...catalogRuntimeSummary,
+    catalogsUsedInAnalysis: catalogUsageManifest,
   });
 
   const analysisMeta: AnalysisMetaInfo = {
@@ -9554,8 +9592,13 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
       hasSafeNormalization: safeNormalizationApplied,
       xsdValidation: xsdValidationSummary,
     },
+    xsdValidationSummary,
     cryptoValidation,
+    catalogRuntime,
   };
+
+  // Clean up tracker after analysis
+  setCurrentCatalogTracker(null);
 
   // ── Catalog Consistency Validations (CFDI) ──
   validateCatalogConsistency({

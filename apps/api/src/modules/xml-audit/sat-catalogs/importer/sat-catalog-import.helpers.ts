@@ -30,6 +30,8 @@ export async function loadSatCatalog(
       errors: ["Catálogo no configurado en registry"],
       loadedAt: new Date().toISOString(),
       entries: [],
+      columnsDetected: [],
+      missingRequiredColumns: [],
     };
   }
 
@@ -51,6 +53,8 @@ export async function loadSatCatalog(
       errors: [],
       loadedAt: new Date().toISOString(),
       entries: [],
+      columnsDetected: [],
+      missingRequiredColumns: def.requiredColumns.map((c) => c.name),
     };
   }
 
@@ -58,6 +62,7 @@ export async function loadSatCatalog(
   const colValidation = validateRequiredColumns(rows[0] ?? [], def.requiredColumns);
 
   if (!colValidation.valid && rows.length > 0) {
+    const columnsDetected = rows[0] ?? [];
     return {
       catalogKey: def.catalogKey,
       displayName: def.displayName,
@@ -73,6 +78,8 @@ export async function loadSatCatalog(
       errors: [`Columnas faltantes: ${colValidation.missing.join(", ")}`],
       loadedAt: new Date().toISOString(),
       entries: [],
+      columnsDetected: columnsDetected.map((h) => h.trim()),
+      missingRequiredColumns: colValidation.missing,
     };
   }
 
@@ -100,6 +107,8 @@ export async function loadSatCatalog(
     registerCatalogIndex(def.catalogKey, entryValidation.valid);
   }
 
+  const columnsDetected = rows.length > 0 ? (rows[0] ?? []).map((h) => h.trim()) : [];
+
   return {
     catalogKey: def.catalogKey,
     displayName: def.displayName,
@@ -115,6 +124,8 @@ export async function loadSatCatalog(
     errors: [],
     loadedAt: new Date().toISOString(),
     entries: entryValidation.valid,
+    columnsDetected,
+    missingRequiredColumns: colValidation.missing,
   };
 }
 
