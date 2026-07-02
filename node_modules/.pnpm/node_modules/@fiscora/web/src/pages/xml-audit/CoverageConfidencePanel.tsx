@@ -12,6 +12,7 @@ import {
 } from "./coverageConfidence.helpers";
 import { buildCatalogRuntimeSummary } from "./catalogRuntimeSection.helpers";
 import { buildXsdValidationSummary } from "./xsdValidationSection.helpers";
+import { buildCryptoPreflightDisplay } from "./cryptoPreflightSection.helpers";
 
 interface CoverageConfidencePanelProps {
   result?: AnalysisResult | ZipFullAnalysisFileResult;
@@ -104,6 +105,12 @@ export default function CoverageConfidencePanel({
     if (!result || zipFiles) return null;
     const analysis = result as AnalysisResult;
     return buildXsdValidationSummary(analysis.analysisMeta?.xsdValidationSummary);
+  }, [result, zipFiles]);
+
+  const cryptoPreflight = useMemo(() => {
+    if (!result || zipFiles) return null;
+    const analysis = result as AnalysisResult;
+    return buildCryptoPreflightDisplay(analysis.analysisMeta?.cryptoPreflight);
   }, [result, zipFiles]);
 
   const rows = useMemo((): ReturnType<typeof buildModuleCoverageRows> => {
@@ -278,13 +285,44 @@ export default function CoverageConfidencePanel({
                    SchemaLocation: {xsdValidation.schemaLocationDeclared ? "Sí" : "No"}
                  </span>
                </div>
-               {xsdValidation.status === "PENDING_SCHEMA_ASSETS" && (
-                 <p className="text-[10px] text-yellow-600">
-                   Fiscora detectó los schemas esperados, pero la validación XSD formal aún no se ejecuta porque no hay archivos XSD locales oficiales cargados.
-                 </p>
-               )}
-             </div>
-           )}
+{xsdValidation.status === "PENDING_SCHEMA_ASSETS" && (
+                  <p className="text-[10px] text-yellow-600">
+                    Fiscora detectó los schemas esperados, pero la validación XSD formal aún no se ejecuta porque no hay archivos XSD locales oficiales cargados.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!compact && cryptoPreflight && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Preflight criptográfico
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className={`px-2 py-0.5 rounded bg-muted/50 ${cryptoPreflight.statusColor}`}>
+                    Estado: {cryptoPreflight.statusLabel}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-muted/50">
+                    Campos detectados: {cryptoPreflight.fieldsDetected}/{cryptoPreflight.fieldsTotal}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-muted/50">
+                    Validación formal del sello: No ejecutada
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-muted/50">
+                    Cadena original: No reconstruida
+                  </span>
+                </div>
+                {cryptoPreflight.warnings.length > 0 && (
+                  <p className="text-[10px] text-yellow-600">
+                    Avisos: {cryptoPreflight.warnings.slice(0, 2).join("; ")}
+                    {cryptoPreflight.warnings.length > 2 && "…"}
+                  </p>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  Este preflight revisa estructura y consistencia criptográfica básica. No equivale a validación formal del sello, porque aún no se reconstruye la cadena original con XSLT oficial.
+                </p>
+              </div>
+            )}
         </>
       )}
 

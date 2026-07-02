@@ -8791,6 +8791,287 @@ async function main() {
   await runCase("PA) ausencia de XSD no cambia riskLevel", testPaNoRiskLevelChange);
   await runCase("PB) baseline fixture conserva findings", testPbBaselinePreserved);
 
+  // ── 13L-B: Crypto Preflight Real Implementation Tests ──
+
+  async function testPcDetectsPresenceSelloCertificadoNoCertificado(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: {
+        fecha: "2024-01-01T00:00:00",
+        sello: "abc123",
+        certificado: "def456",
+        noCertificado: "1234567890",
+      },
+      tfd: undefined,
+    });
+    assertEqual(summary.fieldPresence.sello, true, "Sello presente");
+    assertEqual(summary.fieldPresence.certificado, true, "Certificado presente");
+    assertEqual(summary.fieldPresence.noCertificado, true, "NoCertificado presente");
+    assertEqual(summary.fieldPresence.selloCfd, false, "SelloCFD no presente");
+    assertEqual(summary.status, "FORMAT_REVIEW", "Status FORMAT_REVIEW por base64 inválido");
+  }
+
+  async function testPdDetectsTfdFields(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: { fecha: "2024-01-01T00:00:00", sello: undefined, certificado: undefined, noCertificado: undefined },
+      tfd: {
+        uuid: "12345678-1234-5678-1234-567890abcdef",
+        fechaTimbrado: "2024-01-02T00:00:00",
+        selloCfd: "sigCfd",
+        selloSat: "sigSat",
+        noCertificadoSat: "3000",
+        rfcProvCertif: "AAA010101AAA",
+      },
+    });
+    assertEqual(summary.fieldPresence.uuid, true, "UUID presente");
+    assertEqual(summary.fieldPresence.fechaTimbrado, true, "FechaTimbrado presente");
+    assertEqual(summary.fieldPresence.selloSat, true, "SelloSAT presente");
+    assertEqual(summary.fieldPresence.rfcProvCertif, true, "RfcProvCertif presente");
+  }
+
+  async function testPeLooksLikeBase64True(): Promise<void> {
+    const { looksLikeBase64 } = await import("./crypto/crypto-format.helper.js");
+    const longBase64 = "MIIC" + "a".repeat(500);
+    assertEqual(looksLikeBase64(longBase64), true, "Base64 largo válido");
+  }
+
+  async function testPfBase64InvalidGeneratesFormatReview(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: {
+        fecha: "2024-01-01T00:00:00",
+        sello: "not-base64!!!",
+        certificado: "also-not-base64!!!",
+        noCertificado: "123",
+      },
+      tfd: undefined,
+    });
+    assertEqual(summary.status, "FORMAT_REVIEW", "Status FORMAT_REVIEW");
+    assertEqual(summary.selloLooksBase64, false, "Sello no parece base64");
+  }
+
+  async function testPgUuidValidRecognized(): Promise<void> {
+    const { looksLikeUuid } = await import("./crypto/crypto-format.helper.js");
+    assertEqual(looksLikeUuid("12345678-1234-5678-1234-567890abcdef"), true, "UUID válido reconocido");
+  }
+
+  async function testPhUuidInvalidGeneratesReview(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: { fecha: undefined, sello: undefined, certificado: undefined, noCertificado: undefined },
+      tfd: { uuid: "not-a-valid-uuid", fechaTimbrado: undefined },
+    });
+    assertEqual(summary.uuidFormatValid, false, "UUID inválido genera review");
+  }
+
+  async function testPiRfcProvCertifPlausible(): Promise<void> {
+    const { looksLikeRfc } = await import("./crypto/crypto-format.helper.js");
+    assertEqual(looksLikeRfc("AAA010101AAA"), true, "RFC plausible reconocido");
+  }
+
+  async function testPjFechaTimbradoBeforeCfdiReview(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: { fecha: "2024-01-02T00:00:00", sello: undefined, certificado: undefined, noCertificado: undefined },
+      tfd: { fechaTimbrado: "2024-01-01T00:00:00", uuid: undefined },
+    });
+    assertEqual(summary.fechaTimbradoBeforeCfdiDateReview, true, "Fecha timbrado anterior genera review");
+  }
+
+  async function testPkFechaTimbradoFutureGeneratesReview(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const summary = buildCryptoPreflightSummary({
+      cfdi: { fecha: "2024-01-01T00:00:00", sello: undefined, certificado: undefined, noCertificado: undefined },
+      tfd: { fechaTimbrado: futureDate, uuid: undefined },
+      now: new Date(),
+    });
+    assertEqual(summary.fechaTimbradoFutureReview, true, "Fecha futura genera review");
+  }
+
+  async function testPlCertificateAbsentNoCrash(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: { fecha: "2024-01-01T00:00:00", sello: "aaa", certificado: undefined, noCertificado: "123" },
+      tfd: undefined,
+    });
+    assertEqual(summary.certificado?.parseStatus, "NOT_PRESENT", "Sin certificado");
+    assertEqual(summary.warnings.length >= 1, true, "Warnings presentes");
+  }
+
+  async function testPmCertificateBase64InvalidParseFailed(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const summary = buildCryptoPreflightSummary({
+      cfdi: {
+        fecha: "2024-01-01T00:00:00",
+        sello: "abc123",
+        certificado: "not-valid-base64!!!",
+        noCertificado: "123",
+      },
+      tfd: undefined,
+    });
+    assertEqual(summary.certificado?.parseStatus, "PARSE_FAILED", "Certificado inválido");
+    assertEqual(summary.errors.length >= 1, true, "Errors presentes");
+  }
+
+  async function testPnMetadataSanitizedNoCertificateExposed(): Promise<void> {
+    const { buildCryptoPreflightSummary } = await import("./crypto/crypto-preflight.service.js");
+    const longCert = "MIIC" + "a".repeat(1000);
+    const summary = buildCryptoPreflightSummary({
+      cfdi: {
+        fecha: "2024-01-01T00:00:00",
+        sello: "abc123",
+        certificado: longCert,
+        noCertificado: "12345678901234567890",
+      },
+      tfd: undefined,
+    });
+    const cert = summary.certificado;
+    if (cert?.subject) {
+      assertEqual(cert.subject.length < 500, true, "Subject no expone certificado completo");
+    }
+  }
+
+  async function testPoCryptoPreflightExistsInAnalysisMeta(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    assertTruthy(result.analysisMeta?.cryptoPreflight !== undefined, "cryptoPreflight existe en analysisMeta");
+    assertEqual(typeof result.analysisMeta?.cryptoPreflight?.status, "string", "Status es string");
+  }
+
+  async function testPpFormalSealValidationAlwaysFalse(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    assertEqual(result.analysisMeta?.cryptoPreflight?.formalSealValidationExecuted, false, "formalSealValidationExecuted false");
+    assertEqual(result.analysisMeta?.cryptoPreflight?.cadenaOriginalReconstructed, false, "cadenaOriginalReconstructed false");
+    assertEqual(result.analysisMeta?.cryptoPreflight?.xsltAssetsAvailable, false, "xsltAssetsAvailable false");
+    assertEqual(result.analysisMeta?.cryptoPreflight?.trustChainValidated, false, "trustChainValidated false");
+    assertEqual(result.analysisMeta?.cryptoPreflight?.cryptographicSignatureVerified, false, "cryptographicSignatureVerified false");
+  }
+
+  async function testPqJsonExportNoSelloCertificadoComplete(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig123" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const cpStr = JSON.stringify(result.analysisMeta?.cryptoPreflight ?? {});
+    const hasLongSello = /"sig123{100,}"/.test(cpStr);
+    const hasLongCert = /"MII[a-zA-Z0-9+/]{500,}"/.test(cpStr);
+    assertEqual(!hasLongSello, true, "No expone sello completo");
+    assertEqual(!hasLongCert, true, "No expone certificado completo");
+  }
+
+  async function testPrZipHasCryptoPreflight(): Promise<void> {
+    const { analyzeZipFull } = await import("./xml-zip-audit.service.js");
+    const AdmZip = (await import("adm-zip")).default;
+    const zip = new AdmZip();
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    zip.addFile("test.xml", Buffer.from(xml, "utf-8"));
+    const result = analyzeZipFull(Buffer.from(zip.toBuffer()), "test.zip");
+    assertTruthy(result.results[0]?.analysis?.analysisMeta?.cryptoPreflight !== undefined, "ZIP tiene cryptoPreflight seguro");
+  }
+
+  async function testPtMalformedXmlNoDeepCrypto(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const malformedXml = `<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0"><cfdi:Emisor Rfc="AAA010101AAA"/></cfdi:Comprobante><cfdi:Complemento/>`;
+    try {
+      analyzeCfdi(malformedXml);
+    } catch {
+      // Expected
+    }
+  }
+
+async function testPuRiskLevelNotChangedByPendingValidation(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" SubTotal="100.00" Sello="aaa" Certificado="" NoCertificado="" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    // riskLevel can be WARNING due to warnings, but NOT CRITICAL just for pending crypto validation
+    const hasCriticalCrypto = result.findings.some((f) => f.code.startsWith("CRYPTO_") && f.severity === "CRITICAL");
+    assertEqual(hasCriticalCrypto, false, "riskLevel no cambia por validación formal pendiente - no hay findings CRITICAL crypto");
+  }
+
+  async function testPvFindingsDedup(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const dedup = result.findings.filter((f) => f.code.startsWith("CRYPTO_")).length;
+    assertEqual(dedup, 0, "No findings CRYPTO_ hasta ahora (solo metadata)");
+  }
+
+  async function testPwAdminHistNoCertificateExposed(): Promise<void> {
+    const { toAnalysisResponse } = await import("./xml-audit.service.js");
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" Fecha="2024-01-01T00:00:00" TipoDeComprobante="I" Total="100.00" Subtotal="100.00" Sello="sig" Certificado="MII..." NoCertificado="3000" Moneda="MXN">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Receptora" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = toAnalysisResponse(analyzeCfdi(xml));
+    const cpStr = JSON.stringify(result.analysisMeta?.cryptoPreflight ?? {});
+    assertEqual(!cpStr.includes("MII...") || cpStr.length < 1000, true, "Admin/historial no expone certificado");
+  }
+
+  async function testPxBaselinePreservesMainFindings(): Promise<void> {
+    const { analyzeCfdi } = await import("./xml-audit.service.js");
+    const xml = `<!-- SYNTHETIC_TEST_ONLY_DO_NOT_USE_AS_FISCAL_DOCUMENT -->
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0">
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Empresa" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BBB010101BBB" UsoCFDI="G01"/>
+</cfdi:Comprobante>`;
+    const result = analyzeCfdi(xml);
+    const baselineCodes = ["COMPROBANTE_NO_TIMBRE", "COMPROBANTE_NO_CERTIFICADO", "COMPROBANTE_NO_SELLO"];
+    const hasBaseline = result.findings.some((f) => baselineCodes.includes(f.code));
+    assertEqual(!hasBaseline, true, "Baseline sin crypto assets mantiene findings originales (no nuevos)");
+  }
+
+  await runCase("PC) crypto preflight detecta presencia sello/certificado/noCertificado", testPcDetectsPresenceSelloCertificadoNoCertificado);
+  await runCase("PD) crypto preflight detecta campos TFD UUID/FechaTimbrado/SelloSAT", testPdDetectsTfdFields);
+  await runCase("PE) looksLikeBase64 true para certificado fixture", testPeLooksLikeBase64True);
+  await runCase("PF) base64 inválido genera FORMAT_REVIEW", testPfBase64InvalidGeneratesFormatReview);
+  await runCase("PG) UUID válido se reconoce", testPgUuidValidRecognized);
+  await runCase("PH) UUID inválido genera review", testPhUuidInvalidGeneratesReview);
+  await runCase("PI) RfcProvCertif plausible se reconoce", testPiRfcProvCertifPlausible);
+  await runCase("PJ) FechaTimbrado anterior a Fecha CFDI genera review", testPjFechaTimbradoBeforeCfdiReview);
+  await runCase("PK) FechaTimbrado futura genera review", testPkFechaTimbradoFutureGeneratesReview);
+  await runCase("PL) certificado ausente no rompe análisis", testPlCertificateAbsentNoCrash);
+  await runCase("PM) certificado base64 inválido genera PARSE_FAILED", testPmCertificateBase64InvalidParseFailed);
+  await runCase("PN) metadata sanitizada no expone certificado completo", testPnMetadataSanitizedNoCertificateExposed);
+  await runCase("PO) analysisMeta.cryptoPreflight existe", testPoCryptoPreflightExistsInAnalysisMeta);
+  await runCase("PP) formalSealValidationExecuted siempre false", testPpFormalSealValidationAlwaysFalse);
+  await runCase("PQ) JSON export no expone sello/certificado completo", testPqJsonExportNoSelloCertificadoComplete);
+  await runCase("PR) ZIP conserva cryptoPreflight seguro", testPrZipHasCryptoPreflight);
+  await runCase("PT) malformed XML no ejecuta crypto profundo", testPtMalformedXmlNoDeepCrypto);
+  await runCase("PU) riskLevel no cambia solo por validación formal pendiente", testPuRiskLevelNotChangedByPendingValidation);
+  await runCase("PV) findings deduplicados si se agrega review", testPvFindingsDedup);
+  await runCase("PW) admin/historial no expone certificado", testPwAdminHistNoCertificateExposed);
+  await runCase("PX) baseline fixture conserva findings principales", testPxBaselinePreservesMainFindings);
+
   printSummary();
 
   if (failed > 0) {

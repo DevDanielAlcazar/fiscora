@@ -58,3 +58,67 @@ export function inspectCertificateSafe(certBase64: string): CertificateSafeMetad
     };
   }
 }
+
+import type { CryptoCertificateSummary } from "./crypto-preflight.types.js";
+import { looksLikeCertificateSerial } from "./crypto-format.helper.js";
+
+interface InspectEmbeddedCertificateParams {
+  certificadoBase64?: string;
+  noCertificado?: string;
+}
+
+export function inspectEmbeddedCertificate(params: InspectEmbeddedCertificateParams): CryptoCertificateSummary {
+  const { certificadoBase64, noCertificado } = params;
+
+  if (!certificadoBase64) {
+    return { parseStatus: "NOT_PRESENT" };
+  }
+
+  const cleanedBase64 = normalizeBase64Certificate(certificadoBase64);
+  if (cleanedBase64.length < 100 || !/^[A-Za-z0-9+/=]+$/.test(cleanedBase64)) {
+    return { parseStatus: "PARSE_FAILED" };
+  }
+
+  try {
+    const der = Buffer.from(cleanedBase64, "base64");
+    const cert = new X509Certificate(der);
+
+    const now = new Date();
+    const validFrom = cert.validFrom ? new Date(cert.validFrom) : null;
+    const validTo = cert.validTo ? new Date(cert.validTo) : null;
+
+    const fingerprint = createHash("sha256").update(der).digest("hex").toLowerCase();
+
+    const notBeforeReview = validFrom ? validFrom > now : undefined;
+    const expiredReview = validTo ? validTo < now : undefined;
+
+    const noCertificadoComparison: "MATCH" | "MISMATCH" | "NOT_COMPARABLE" | "NOT_AVAILABLE" = (() => {
+      if (!noCertificado || !cert.serialNumber) return "NOT_AVAILABLE";
+      if (!looksLikeCertificateSerial(cert.serialNumber)) return "NOT_COMPARABLE";
+      const cleanedNoCert = noCertificado.trim();
+      try {
+        const serialNum = BigInt(cert.serialNumber);
+        const noCertNum = BigInt(cleanedNoCert);
+        return serialNum === noCertNum ? "MATCH" : "MISMATCH";
+      } catch {
+        return "NOT_COMPARABLE";
+      }
+    })();
+
+    return {
+      parseStatus: "PARSED",
+      subject: maskCertificateSubject(cert.subject),
+      issuer: maskCertificateSubject(cert.issuer),
+      validFrom: cert.validFrom,
+      validTo: cert.validTo,
+      serialNumber: cert.serialNumber,
+      fingerprint256: fingerprint.slice(0, 32) + "...",
+      publicKeyAlgorithm: cert.publicKey ? "RSA" : undefined,
+      notBeforeReview,
+      expiredReview,
+      noCertificadoComparison,
+    };
+  } catch {
+    return { parseStatus: "PARSE_FAILED" };
+  }
+}

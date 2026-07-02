@@ -45,6 +45,8 @@ import { validateXmlWellFormedness } from "./xml-wellformedness.helper.js";
 import { validateXmlAgainstConfiguredXsd } from "./xsd/xsd-validation.service.js";
 import type { XsdValidationSummary } from "./xsd/xsd-validation.types.js";
 import { buildCryptoValidationSummary } from "./crypto/crypto-validation.service.js";
+import { buildCryptoPreflightSummary } from "./crypto/crypto-preflight.service.js";
+import type { CryptoPreflightSummary } from "./crypto/crypto-preflight.types.js";
 import {
   type FindingLocation,
   type FindingValueTrace,
@@ -722,6 +724,7 @@ export interface AnalysisMetaInfo {
   coverage: AnalysisCoverageInfo;
   xsdValidationSummary?: XsdValidationSummary;
   cryptoValidation?: CryptoValidationSummary;
+  cryptoPreflight?: CryptoPreflightSummary;
   catalogRuntime?: SatCatalogRuntimeManifestSummary;
 }
 
@@ -9404,12 +9407,30 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
     knownComplements: cDetected,
   });
 
-  const cryptoValidation = buildCryptoValidationSummary(certificado, {
+const cryptoValidation = buildCryptoValidationSummary(certificado, {
     hasSello: !!sello,
     hasCertificado: !!certificado,
     hasNoCertificado: !!noCertificado,
     hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
     hasSelloSat: !!selloSat,
+  });
+
+  const cryptoPreflight = buildCryptoPreflightSummary({
+    cfdi: {
+      fecha: fecha ?? undefined,
+      sello: sello ?? undefined,
+      certificado: certificado ?? undefined,
+      noCertificado: noCertificado ?? undefined,
+    },
+    tfd: {
+      uuid: uuid ?? undefined,
+      fechaTimbrado: fechaTimbrado ?? undefined,
+      selloCfd: selloCfd ?? undefined,
+      selloSat: selloSat ?? undefined,
+      noCertificadoSat: noCertificadoSat ?? undefined,
+      rfcProvCertif: rfcProvCertif ?? undefined,
+    },
+    now: new Date(),
   });
 
   // Build catalog runtime manifest
@@ -9582,11 +9603,12 @@ const countBP = (p: string): number => findings.filter((f) => f.code.startsWith(
       hasAddenda: addendaDetected,
       hasTimbreFiscalDigital: diag.hasTimbreFiscalDigital,
       hasSafeNormalization: safeNormalizationApplied,
-    },
-xsdValidationSummary: xsdValidationSummary,
-     cryptoValidation,
-     catalogRuntime,
-   };
+},
+    xsdValidationSummary: xsdValidationSummary,
+    cryptoValidation,
+    cryptoPreflight,
+    catalogRuntime,
+  };
 
   // Clean up tracker after analysis
   setCurrentCatalogTracker(null);
@@ -9968,6 +9990,9 @@ function buildRetencionesResult(
     timbreNode !== null && typeof timbreNode === "object" && Object.keys(timbreNode).length > 0;
   const uuid = hasTimbre ? (str(get(timbreNode!, "@_UUID")) ?? null) : null;
   const fechaTimbrado = hasTimbre ? (str(get(timbreNode!, "@_FechaTimbrado")) ?? null) : null;
+  const selloCfd = hasTimbre ? (str(get(timbreNode!, "@_SelloCFD")) ?? null) : null;
+  const selloSat = hasTimbre ? (str(get(timbreNode!, "@_SelloSAT")) ?? null) : null;
+  const noCertificadoSat = hasTimbre ? (str(get(timbreNode!, "@_NoCertificadoSAT")) ?? null) : null;
   const rfcProvCertif = hasTimbre ? (str(get(timbreNode!, "@_RfcProvCertif")) ?? null) : null;
 
   diag.hasTimbreFiscalDigital = hasTimbre;
@@ -10604,6 +10629,24 @@ function buildRetencionesResult(
     hasSelloSat: false,
   });
 
+  const cryptoPreflight2 = buildCryptoPreflightSummary({
+    cfdi: {
+      fecha: undefined,
+      sello: sello ?? undefined,
+      certificado: cert ?? undefined,
+      noCertificado: numCert ?? undefined,
+    },
+    tfd: {
+      uuid: uuid ?? undefined,
+      fechaTimbrado: fechaTimbrado ?? undefined,
+      selloCfd: selloCfd ?? undefined,
+      selloSat: selloSat ?? undefined,
+      noCertificadoSat: noCertificadoSat ?? undefined,
+      rfcProvCertif: rfcProvCertif ?? undefined,
+    },
+    now: new Date(),
+  });
+
   const analysisMeta: AnalysisMetaInfo = {
     generatedAt: new Date().toISOString(),
     engineVersion: "xml-audit-engine-1.0",
@@ -10749,6 +10792,7 @@ function buildRetencionesResult(
       xsdValidation: xsdValidationSummary2,
     },
     cryptoValidation: cryptoValidation2,
+    cryptoPreflight: cryptoPreflight2,
   };
 
   // ── Catalog Consistency Validations (Retenciones) ──
